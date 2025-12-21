@@ -56,29 +56,40 @@ class SimilarityEngine:
         self,
         current_state: pd.Series,
         regime: str,
-        horizon: int = 30
+        horizon: int = 30,
+        max_timestamp: pd.Timestamp = None
     ) -> Dict:
         """
         Find similar historical states and aggregate outcomes.
+
+        Args:
+            current_state: The state vector to query
+            regime: Market regime to filter by
+            horizon: Outcome horizon in minutes
+            max_timestamp: Only search states BEFORE this time (prevents look-ahead bias)
         """
 
-        # 1️⃣ Filter by regime
+        # 1. Filter by regime
         df_regime = self.df[self.df["regime"] == regime]
 
-        if len(df_regime) < self.k:
-            return {"status": "INSUFFICIENT_DATA"}
+        # 2. Enforce time boundary (prevent look-ahead bias in backtesting)
+        if max_timestamp is not None:
+            df_regime = df_regime[df_regime.index < max_timestamp]
 
-        # 2️⃣ Distance computation
+        if len(df_regime) < self.k:
+            return {"status": "INSUFFICIENT_DATA", "available": len(df_regime), "required": self.k}
+
+        # 3. Distance computation
         X = df_regime[STATE_COLUMNS].values
         y = current_state[STATE_COLUMNS].values
 
         distances = self._euclidean_distance(X, y)
 
-        # 3️⃣ Select nearest neighbors
+        # 4. Select nearest neighbors
         idx = np.argsort(distances)[: self.k]
         neighbors = df_regime.iloc[idx]
 
-        # 4️⃣ Aggregate outcomes
+        # 5. Aggregate outcomes
         mfe = neighbors[f"mfe_long_{horizon}m"]
         mae = neighbors[f"mae_long_{horizon}m"]
 
