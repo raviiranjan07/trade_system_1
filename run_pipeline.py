@@ -191,6 +191,69 @@ def validate_startup(config, args) -> bool:
     return True
 
 
+def _print_trading_decision(decision: dict) -> None:
+    """Print formatted trading decision."""
+    action = decision.get("action", "N/A")
+
+    if action == "TRADE":
+        direction = decision.get("direction", "")
+        position_size = decision.get("position_size", 0)
+        stop_pct = decision.get("stop_loss_pct", 0) * 100
+        tp_pct = decision.get("take_profit_pct", 0) * 100
+        expectancy = decision.get("expectancy", 0) * 100
+        regime = decision.get("regime", "")
+
+        # Color coding for terminal (green for LONG, red for SHORT)
+        if direction == "LONG":
+            arrow = "▲"
+            signal = "BUY / LONG"
+        else:
+            arrow = "▼"
+            signal = "SELL / SHORT"
+
+        print("  " + "=" * 56)
+        print(f"  {arrow} TRADING SIGNAL: {signal} {arrow}")
+        print("  " + "=" * 56)
+        print()
+        print(f"    Position Size:    ${position_size:,.2f}")
+        print(f"    Stop Loss:        {stop_pct:.2f}%")
+        print(f"    Take Profit:      {tp_pct:.2f}%")
+        print(f"    Expectancy:       {expectancy:+.3f}%")
+        print(f"    Market Regime:    {regime}")
+        print()
+        print("  " + "-" * 56)
+        print("  Risk/Reward Analysis:")
+        if stop_pct > 0:
+            rr_ratio = tp_pct / stop_pct
+            print(f"    R:R Ratio:        1:{rr_ratio:.2f}")
+        print(f"    Max Loss:         ${position_size * stop_pct / 100:,.2f}")
+        print(f"    Max Gain:         ${position_size * tp_pct / 100:,.2f}")
+        print("  " + "-" * 56)
+
+    elif action == "NO_TRADE":
+        reason = decision.get("reason", "Unknown")
+        reason_messages = {
+            "NO_DATA": "Insufficient historical data for analysis",
+            "NEGATIVE_EXPECTANCY": "Historical expectancy is negative - no edge",
+            "HIGH_VOL_REGIME": "Market is in HIGH_VOL regime - too risky",
+            "LOW_SIMILARITY": "No similar historical states found",
+            "INVALID_RISK": "Cannot calculate valid risk parameters",
+        }
+        print("  " + "=" * 56)
+        print("  ⊘ NO TRADE SIGNAL")
+        print("  " + "=" * 56)
+        print()
+        print(f"    Reason: {reason}")
+        print(f"    Detail: {reason_messages.get(reason, reason)}")
+        print()
+        print("  Recommendation: Wait for better market conditions")
+        print("  " + "-" * 56)
+
+    else:
+        print("  Trading Decision:")
+        print(f"    Action: {action}")
+
+
 def main() -> int:
     """Main entry point."""
     args = parse_args()
@@ -243,15 +306,7 @@ def main() -> int:
 
         if result.decision:
             print()
-            print("  Trading Decision:")
-            print(f"    Action:    {result.decision.get('action', 'N/A')}")
-            print(f"    Direction: {result.decision.get('direction', 'N/A')}")
-            if result.decision.get("position_size"):
-                print(f"    Size:      {result.decision.get('position_size', 0):.2f}")
-            if result.decision.get("stop_loss"):
-                print(f"    Stop:      {result.decision.get('stop_loss', 0) * 100:.2f}%")
-            if result.decision.get("take_profit"):
-                print(f"    Target:    {result.decision.get('take_profit', 0) * 100:.2f}%")
+            _print_trading_decision(result.decision)
 
         print("=" * 60 + "\n")
 

@@ -22,6 +22,10 @@ data:
   # Database connection (can be overridden by DATABASE_URL env var)
   database_url: "postgresql://localhost/crypto_data"
 
+  # Gap handling for missing candles
+  max_gap_tolerance: 0       # Max missing candles allowed (0 = strict)
+  fill_small_gaps: false     # Auto-fill gaps <= 100 candles with forward-fill
+
 # -----------------------------------------------------------------------------
 # Feature Engineering
 # -----------------------------------------------------------------------------
