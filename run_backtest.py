@@ -138,10 +138,9 @@ Examples:
 
         # Get parameters
         pair = args.pair or config.data.get("pair", "BTCUSDT")
-        train_ratio = args.train_ratio or config.config.get("backtest", {}).get("train_ratio", 0.70)
+        backtest_config = config.get_section("backtest")
+        train_ratio = args.train_ratio or backtest_config.get("train_ratio", 0.70)
         capital = args.capital or config.decision.get("capital", 10000)
-
-        backtest_config = config.config.get("backtest", {})
         slippage_pct = backtest_config.get("slippage_pct", 0.0005)
         commission_pct = backtest_config.get("commission_pct", 0.0004)
         max_bars = backtest_config.get("max_bars_in_trade", 120)
