@@ -1,0 +1,23 @@
+# -----------------------------
+# Core numerical stack
+# -----------------------------
+numpy>=1.24
+pandas>=2.0
+
+# -----------------------------
+# Database & environment
+# -----------------------------
+sqlalchemy>=2.0
+psycopg2-binary>=2.9
+python-dotenv>=1.0
+
+# -----------------------------
+# Scientific & stats utilities
+# -----------------------------
+scipy>=1.10
+
+# -----------------------------
+# Performance & utilities
+# -----------------------------
+tqdm>=4.66
+pyarrow>=14.0
