@@ -216,6 +216,8 @@ class PipelineOrchestrator:
                 completed.append("outcome_labeling")
                 result.outcome_df = self.outcome_df
                 self.logger.info(f"      Outcomes computed for {len(self.outcome_df)} states")
+                # Show outcome statistics
+                self._log_outcome_stats(self.outcome_df)
             else:
                 self._load_outcomes(pair, timeframe)
 
@@ -314,8 +316,10 @@ class PipelineOrchestrator:
         loader = OHLCVLoader()
         df = loader.fetch_ohlcv(pair=pair, start_time=start_date, end_time=end_date)
 
-        # Validate
-        df = validate_ohlcv(df)
+        # Validate with gap handling from config
+        max_gap = self.config.get("data.max_gap_tolerance", 0)
+        fill_gaps = self.config.get("data.fill_small_gaps", False)
+        df = validate_ohlcv(df, max_gap_tolerance=max_gap, fill_gaps=fill_gaps)
 
         # Compute features
         df = compute_trend_features(df)
@@ -488,3 +492,29 @@ class PipelineOrchestrator:
             raise FileNotFoundError(f"Outcome labels not found: {path}")
 
         self.outcome_df = pd.read_parquet(path)
+
+    def _log_outcome_stats(self, outcome_df: pd.DataFrame) -> None:
+        """Log outcome statistics after labeling."""
+        horizons = [10, 30, 120]
+
+        self.logger.info("")
+        self.logger.info("      Outcome Statistics (LONG positions):")
+        self.logger.info("      " + "-" * 50)
+        self.logger.info(f"      {'Horizon':<12} {'Avg MFE':>12} {'Avg MAE':>12} {'Expectancy':>12}")
+        self.logger.info("      " + "-" * 50)
+
+        for h in horizons:
+            mfe_col = f"mfe_long_{h}m"
+            mae_col = f"mae_long_{h}m"
+
+            if mfe_col in outcome_df.columns and mae_col in outcome_df.columns:
+                avg_mfe = outcome_df[mfe_col].mean() * 100
+                avg_mae = outcome_df[mae_col].mean() * 100
+                expectancy = avg_mfe + avg_mae  # MAE is negative
+
+                self.logger.info(
+                    f"      {h:>3}m         {avg_mfe:>+11.3f}% {avg_mae:>+11.3f}% {expectancy:>+11.3f}%"
+                )
+
+        self.logger.info("      " + "-" * 50)
+        self.logger.info("")

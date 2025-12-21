@@ -156,8 +156,15 @@ trading_agent/
 ├── pipeline/                 # Orchestration
 │   └── orchestrator.py      # Unified pipeline runner
 |
+├── visualizations/           # Charts and plots
+│   ├── plot_regimes.py      # Regime visualizations
+│   ├── plot_outcomes.py     # MFE/MAE visualizations
+│   └── plot_states.py       # State vector visualizations
+|
 ├── exceptions.py             # Custom exception classes
 ├── run_pipeline.py           # CLI entry point
+├── run_visualizations.py     # Visualization generator
+├── debug_outcomes.py         # Data analysis script
 ├── requirements.txt
 └── .env                      # Database URL (gitignored)
 ```
@@ -240,6 +247,43 @@ CREATE INDEX ON ohlcv_data (pair, time DESC);
 # Analyze outcomes and regimes
 python debug_outcomes.py
 ```
+
+---
+
+## Visualizations
+
+Generate charts to analyze the trading system:
+
+```bash
+# Generate all visualizations
+python run_visualizations.py
+
+# Generate specific chart types
+python run_visualizations.py --type regimes    # Regime analysis
+python run_visualizations.py --type outcomes   # MFE/MAE analysis
+python run_visualizations.py --type states     # State vector analysis
+
+# For a specific pair
+python run_visualizations.py --pair ETHUSDT
+```
+
+### Available Charts
+
+| Category | Chart | Description |
+|----------|-------|-------------|
+| **Regimes** | Regime Distribution | Pie/bar chart of regime proportions |
+| | Regime Transitions | Transition probability matrix |
+| **Outcomes** | MFE/MAE Distribution | Histograms for each horizon |
+| | Expectancy by Regime | Which regimes have positive edge |
+| | Horizon Comparison | Compare 10m, 30m, 120m outcomes |
+| | Outcome Over Time | Rolling expectancy chart |
+| **States** | State Heatmap | State vectors over time |
+| | State Correlation | Correlation between dimensions |
+| | State Distributions | Histogram per dimension |
+| | State by Regime | Average state per regime |
+| | PCA Projection | 2D visualization of state space |
+
+Charts are saved to `output/charts/` by default.
 
 ---
 
