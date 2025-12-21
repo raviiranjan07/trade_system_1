@@ -1,0 +1,34 @@
+2025-12-22 00:52:11 | INFO     | ============================================================
+2025-12-22 00:52:11 | INFO     | PIPELINE START | BTCUSDT | 2023-01-01 to 2023-03-01
+2025-12-22 00:52:11 | INFO     | Stages to run: ['state_vectors', 'regime_labeling', 'outcome_labeling', 'similarity', 'decision']
+2025-12-22 00:52:11 | INFO     | ============================================================
+2025-12-22 00:52:11 | INFO     | [1/5] Building state vectors...
+2025-12-22 00:52:15 | ERROR    | Pipeline failed: (psycopg2.OperationalError) connection to server at "localhost" (::1), port 5432 failed: Connection refused (0x0000274D/10061)
+	Is the server running on that host and accepting TCP/IP connections?
+connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused (0x0000274D/10061)
+	Is the server running on that host and accepting TCP/IP connections?
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-12-22 00:52:15 | INFO     | ============================================================
+2025-12-22 00:52:15 | INFO     | PIPELINE FAILED
+2025-12-22 00:52:15 | INFO     | Completed: []
+2025-12-22 00:52:15 | INFO     | Failed: ['state_vectors']
+2025-12-22 00:52:15 | INFO     | Execution time: 4.32s
+2025-12-22 00:52:15 | INFO     | ============================================================
+2025-12-22 00:54:44 | INFO     | ============================================================
+2025-12-22 00:54:44 | INFO     | PIPELINE START | BTCUSDT | 2023-01-01 to 2023-03-01
+2025-12-22 00:54:44 | INFO     | Stages to run: ['state_vectors', 'regime_labeling', 'outcome_labeling', 'similarity', 'decision']
+2025-12-22 00:54:44 | INFO     | ============================================================
+2025-12-22 00:54:44 | INFO     | [1/5] Building state vectors...
+2025-12-22 00:54:48 | ERROR    | Pipeline failed: (psycopg2.OperationalError) connection to server at "localhost" (::1), port 5432 failed: Connection refused (0x0000274D/10061)
+	Is the server running on that host and accepting TCP/IP connections?
+connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused (0x0000274D/10061)
+	Is the server running on that host and accepting TCP/IP connections?
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-12-22 00:54:48 | INFO     | ============================================================
+2025-12-22 00:54:48 | INFO     | PIPELINE FAILED
+2025-12-22 00:54:48 | INFO     | Completed: []
+2025-12-22 00:54:48 | INFO     | Failed: ['state_vectors']
+2025-12-22 00:54:48 | INFO     | Execution time: 4.17s
+2025-12-22 00:54:48 | INFO     | ============================================================

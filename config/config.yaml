@@ -1,0 +1,144 @@
+# =============================================================================
+# Trading System Configuration
+# =============================================================================
+# This file contains all configurable parameters for the trading pipeline.
+# Modify values here instead of hardcoding in source files.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Data Settings
+# -----------------------------------------------------------------------------
+data:
+  # Trading pair (e.g., BTCUSDT, ETHUSDT)
+  pair: "BTCUSDT"
+
+  # Timeframe for candles
+  timeframe: "1m"
+
+  # Date range for data fetching (ISO format: YYYY-MM-DD)
+  start_date: "2023-01-01"
+  end_date: "2023-03-01"
+
+  # Database connection (can be overridden by DATABASE_URL env var)
+  database_url: "postgresql://localhost/crypto_data"
+
+# -----------------------------------------------------------------------------
+# Feature Engineering
+# -----------------------------------------------------------------------------
+features:
+  # EMA periods for trend detection
+  ema_fast_period: 50
+  ema_slow_period: 200
+
+  # Momentum indicators
+  rsi_period: 14
+  return_periods:
+    - 5   # 5-minute returns
+    - 15  # 15-minute returns
+
+  # Volatility
+  atr_period: 14
+
+  # Location features
+  range_lookback: 50  # bars for high/low range
+
+# -----------------------------------------------------------------------------
+# State Vector Normalization
+# -----------------------------------------------------------------------------
+normalization:
+  # Rolling window for z-score and percentile calculations
+  window: 2000
+
+# -----------------------------------------------------------------------------
+# Regime Detection
+# -----------------------------------------------------------------------------
+regime:
+  # Volatility thresholds (percentile-based)
+  high_vol_threshold: 0.85      # Above this = HIGH_VOL regime
+  low_vol_threshold: 0.35       # Below this = LOW_VOL variant
+
+  # Trend strength threshold (z-score based)
+  trend_strength_threshold: 0.7
+
+  # Smoothing window for regime labels
+  smoothing_window: 30
+
+# -----------------------------------------------------------------------------
+# Outcome Labeling
+# -----------------------------------------------------------------------------
+outcomes:
+  # Forward-looking horizons (in bars/minutes)
+  horizons:
+    - 10   # 10-minute outcomes
+    - 30   # 30-minute outcomes
+    - 120  # 2-hour outcomes
+
+# -----------------------------------------------------------------------------
+# Similarity Engine (KNN)
+# -----------------------------------------------------------------------------
+similarity:
+  # Number of nearest neighbors
+  k: 200
+
+  # Default horizon for queries
+  default_horizon: 30
+
+  # Maximum distance threshold (reject if too dissimilar)
+  max_distance: 1.5
+
+# -----------------------------------------------------------------------------
+# Decision Engine
+# -----------------------------------------------------------------------------
+decision:
+  # Account settings
+  capital: 10000          # Starting capital in USD
+  risk_per_trade: 0.005   # Risk 0.5% per trade
+
+  # Position limits
+  max_leverage: 1.0       # Maximum leverage multiplier
+
+  # Trade filters
+  min_expectancy: 0.0     # Minimum expected value to take trade
+
+  # Regimes to avoid trading
+  blocked_regimes:
+    - "HIGH_VOL"
+
+# -----------------------------------------------------------------------------
+# Pipeline Settings
+# -----------------------------------------------------------------------------
+pipeline:
+  # Which stages to run (can disable for partial runs)
+  stages:
+    state_vectors: true
+    regime_labeling: true
+    outcome_labeling: true
+    similarity: true
+    decision: true
+
+  # Parallel processing (future use)
+  n_jobs: 1
+
+# -----------------------------------------------------------------------------
+# Output Paths
+# -----------------------------------------------------------------------------
+paths:
+  # Base directory for all data outputs
+  data_dir: "data"
+
+  # Subdirectories (relative to data_dir)
+  state_vectors_dir: "state_vectors"
+  regimes_dir: "regimes"
+  outcomes_dir: "outcomes"
+
+  # Log directory
+  logs_dir: "logs"
+
+# -----------------------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------------------
+logging:
+  level: "INFO"           # DEBUG, INFO, WARNING, ERROR
+  console_output: true
+  file_output: true
+  log_file: "pipeline.log"
