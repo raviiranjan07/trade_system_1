@@ -55,6 +55,12 @@ def label_outcomes(
 
     outcome_df.dropna(inplace=True)
 
+    # Drop non-serializable columns (e.g., MarketState objects)
+    # These are not needed for outcome analysis
+    columns_to_drop = [col for col in outcome_df.columns if col == 'state']
+    if columns_to_drop:
+        outcome_df = outcome_df.drop(columns=columns_to_drop)
+
     file_path = os.path.join(
         output_dir,
         f"{pair}_{timeframe}_outcomes.parquet"
