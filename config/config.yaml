@@ -146,3 +146,21 @@ logging:
   console_output: true
   file_output: true
   log_file: "pipeline.log"
+
+# -----------------------------------------------------------------------------
+# Backtesting
+# -----------------------------------------------------------------------------
+backtest:
+  # Train/test split (automatic split by ratio)
+  train_ratio: 0.70               # Use first 70% for training, 30% for testing
+
+  # Execution settings
+  slippage_pct: 0.0005            # 0.05% slippage per trade
+  commission_pct: 0.0004          # 0.04% commission (taker fee)
+
+  # Trade management
+  max_bars_in_trade: 120          # Force exit after N bars (2 hours)
+
+  # Output
+  save_trades: true               # Save trade log to parquet
+  output_dir: "backtest"          # Subdirectory for backtest results

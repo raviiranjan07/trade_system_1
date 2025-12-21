@@ -156,6 +156,11 @@ trading_agent/
 ├── pipeline/                 # Orchestration
 │   └── orchestrator.py      # Unified pipeline runner
 |
+├── backtest/                 # Backtesting framework
+│   ├── backtester.py        # Walk-forward backtester
+│   ├── trade_simulator.py   # Trade execution simulation
+│   └── metrics.py           # Performance metrics
+|
 ├── visualizations/           # Charts and plots
 │   ├── plot_regimes.py      # Regime visualizations
 │   ├── plot_outcomes.py     # MFE/MAE visualizations
@@ -163,6 +168,7 @@ trading_agent/
 |
 ├── exceptions.py             # Custom exception classes
 ├── run_pipeline.py           # CLI entry point
+├── run_backtest.py           # Backtesting CLI
 ├── run_visualizations.py     # Visualization generator
 ├── debug_outcomes.py         # Data analysis script
 ├── requirements.txt
@@ -237,6 +243,91 @@ CREATE TABLE ohlcv_data (
 -- Recommended: Use TimescaleDB hypertable for performance
 SELECT create_hypertable('ohlcv_data', 'time');
 CREATE INDEX ON ohlcv_data (pair, time DESC);
+```
+
+---
+
+## Backtesting
+
+Run walk-forward backtesting to validate the strategy on unseen data:
+
+```bash
+# Run backtest with default settings (70/30 train/test split)
+python run_backtest.py
+
+# Custom train/test split
+python run_backtest.py --train-ratio 0.80
+
+# Different pair
+python run_backtest.py --pair ETHUSDT
+
+# Save trade log
+python run_backtest.py --save-trades
+```
+
+### How Backtesting Works
+
+```
+|------------ TRAINING (70%) ------------|---- TEST (30%) ----|
+start_date                          split_point           end_date
+
+Training: Build similarity database from historical states
+Test: Walk forward bar-by-bar, making decisions using ONLY past data
+```
+
+**Key Features:**
+- **No Look-Ahead Bias**: Similarity engine only searches states before current time
+- **Realistic Execution**: Trades enter at next bar's open with slippage
+- **Commission Modeling**: Configurable slippage (0.05%) and commission (0.04%)
+- **Trade Management**: Stop loss, take profit, and timeout exits
+
+### Backtest Output
+
+```
+================================================================================
+                         BACKTEST REPORT
+================================================================================
+
+  Pair: BTCUSDT
+  Test Period: 2023-02-01 to 2023-03-01 (28 days)
+  Starting Capital: $10,000.00
+
+--------------------------------------------------------------------------------
+  TRADE SUMMARY
+--------------------------------------------------------------------------------
+  Total Trades:      47
+  Winning Trades:    28 (59.6%)
+  Losing Trades:     19 (40.4%)
+
+--------------------------------------------------------------------------------
+  PERFORMANCE
+--------------------------------------------------------------------------------
+  Total P&L:         +$847.32 (+8.47%)
+  Avg Win:           $62.15
+  Avg Loss:          $-41.23
+  Profit Factor:     1.89
+  Expectancy:        $18.03 per trade
+
+--------------------------------------------------------------------------------
+  RISK METRICS
+--------------------------------------------------------------------------------
+  Max Drawdown:      $312.45 (3.12%)
+  Sharpe Ratio:      1.24
+  Sortino Ratio:     1.67
+================================================================================
+```
+
+### Backtest Configuration
+
+In `config/config.yaml`:
+
+```yaml
+backtest:
+  train_ratio: 0.70         # 70% train, 30% test
+  slippage_pct: 0.0005      # 0.05% slippage per trade
+  commission_pct: 0.0004    # 0.04% commission (taker fee)
+  max_bars_in_trade: 120    # Force exit after 2 hours
+  save_trades: true         # Save trade log to parquet
 ```
 
 ---
