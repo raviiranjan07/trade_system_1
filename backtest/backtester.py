@@ -25,7 +25,12 @@ class Backtester:
         risk_per_trade: float = 0.005,
         k: int = 200,
         horizon: int = 30,
-        verbose: bool = True
+        verbose: bool = True,
+        sample_interval: int = 1,  # Check for signals every N bars (1 = every bar)
+        # Similarity engine backend settings
+        similarity_backend: str = "bruteforce",  # "bruteforce" or "faiss"
+        faiss_nlist: int = 100,
+        faiss_nprobe: int = 10
     ):
         self.train_ratio = train_ratio
         self.capital = capital
@@ -33,6 +38,10 @@ class Backtester:
         self.k = k
         self.horizon = horizon
         self.verbose = verbose
+        self.sample_interval = sample_interval
+        self.similarity_backend = similarity_backend
+        self.faiss_nlist = faiss_nlist
+        self.faiss_nprobe = faiss_nprobe
 
         self.simulator = TradeSimulator(
             slippage_pct=slippage_pct,
@@ -82,6 +91,10 @@ class Backtester:
             print(f"  Training Samples: {len(train_outcomes):,}")
             print(f"  Test Period: {test_start} to {test_end}")
             print(f"  Test Samples: {len(test_outcomes):,}")
+            if self.sample_interval > 1:
+                print(f"  Signal Check Interval: Every {self.sample_interval} bars")
+                print(f"  Signal Checks: ~{len(test_outcomes) // self.sample_interval:,}")
+            print(f"  Similarity Backend: {self.similarity_backend}")
             print("=" * 70)
             print()
 
@@ -89,7 +102,10 @@ class Backtester:
         similarity = SimilarityEngine(
             outcome_df=train_outcomes,
             regime_df=regime_df,
-            k=self.k
+            k=self.k,
+            backend=self.similarity_backend,
+            faiss_nlist=self.faiss_nlist,
+            faiss_nprobe=self.faiss_nprobe
         )
 
         # 3. Initialize decision engine
@@ -103,6 +119,7 @@ class Backtester:
         active_trade: Optional[Trade] = None
         signals_generated = 0
         no_trade_reasons = {}
+        bar_counter = 0
 
         # Progress bar for test period
         iterator = test_outcomes.iterrows()
@@ -114,6 +131,7 @@ class Backtester:
             )
 
         for timestamp, state_row in iterator:
+            bar_counter += 1
             # Skip if we don't have OHLCV data for this bar
             if timestamp not in ohlcv_df.index:
                 continue
@@ -132,7 +150,12 @@ class Backtester:
                     active_trade = None
 
             # Check for new trade signal (only if no active trade)
+            # Use sample_interval to reduce computation (skip bars between checks)
             if active_trade is None:
+                # Only check for signals at sample intervals
+                if bar_counter % self.sample_interval != 0:
+                    continue
+
                 # Get regime for this bar
                 if timestamp not in regime_df.index:
                     continue

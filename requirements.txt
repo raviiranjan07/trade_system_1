@@ -37,3 +37,11 @@ seaborn>=0.12
 # Machine Learning (optional)
 # -----------------------------
 scikit-learn>=1.3
+
+# -----------------------------
+# Fast Similarity Search (optional)
+# -----------------------------
+# FAISS for approximate nearest neighbor search (100x faster than brute-force)
+# Uncomment to enable:
+# faiss-cpu>=1.7           # CPU version
+# faiss-gpu>=1.7           # GPU version (requires CUDA)
