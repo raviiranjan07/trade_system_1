@@ -115,7 +115,12 @@ class SimilarityEngine:
                 index.nprobe = self.faiss_nprobe
 
             self._faiss_indices[regime] = index
-            self._faiss_data[regime] = df_regime.reset_index()  # Store with original index as column
+            # Store with original timestamp index as a column named 'timestamp'
+            df_reset = df_regime.reset_index()
+            # Rename the index column to 'timestamp' for consistent access
+            if df_reset.columns[0] != 'timestamp':
+                df_reset = df_reset.rename(columns={df_reset.columns[0]: 'timestamp'})
+            self._faiss_data[regime] = df_reset
 
         print("FAISS indices built successfully.")
 
@@ -192,13 +197,8 @@ class SimilarityEngine:
 
         # Handle time boundary for backtesting
         if max_timestamp is not None:
-            # Filter data by timestamp
-            mask = df_regime["timestamp"] < max_timestamp if "timestamp" in df_regime.columns else df_regime.index < max_timestamp
-
-            # For time-filtered queries, we need to search more and filter
-            # This is a trade-off: FAISS doesn't support dynamic filtering
-            # So we fetch more neighbors and filter afterward
-            df_filtered = df_regime[mask] if "timestamp" in df_regime.columns else df_regime.loc[mask]
+            # Filter data by timestamp (timestamp is always a column after reset_index)
+            df_filtered = df_regime[df_regime["timestamp"] < max_timestamp]
 
             if len(df_filtered) < self.k:
                 return {"status": "INSUFFICIENT_DATA", "available": len(df_filtered), "required": self.k}
