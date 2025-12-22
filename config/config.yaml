@@ -90,6 +90,20 @@ similarity:
   # Maximum distance threshold (reject if too dissimilar)
   max_distance: 1.5
 
+  # Backend selection: "bruteforce" or "faiss"
+  # ┌────────────┬──────────────────┬────────────────────────────────────────┐
+  # │ Backend    │ Accuracy         │ Speed                                  │
+  # ├────────────┼──────────────────┼────────────────────────────────────────┤
+  # │ bruteforce │ 100% exact       │ Slow (~50ms/query on 700K samples)     │
+  # │ faiss      │ ~95-99% approx   │ Fast (~0.5ms/query)                    │
+  # └────────────┴──────────────────┴────────────────────────────────────────┘
+  # FAISS requires: pip install faiss-cpu (or faiss-gpu for GPU acceleration)
+  backend: "bruteforce"
+
+  # FAISS-specific settings (only used when backend: "faiss")
+  faiss_nlist: 100                 # Number of IVF clusters (higher = more accurate, slower build)
+  faiss_nprobe: 10                 # Clusters to search at query time (higher = more accurate, slower)
+
 # -----------------------------------------------------------------------------
 # Decision Engine
 # -----------------------------------------------------------------------------
@@ -160,6 +174,10 @@ backtest:
 
   # Trade management
   max_bars_in_trade: 120          # Force exit after N bars (2 hours)
+
+  # Performance optimization
+  sample_interval: 60             # Check for signals every N bars (60 = hourly)
+                                  # Use 1 for every bar (very slow on large datasets)
 
   # Output
   save_trades: true               # Save trade log to parquet

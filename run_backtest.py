@@ -129,6 +129,19 @@ Examples:
         action="store_true",
         help="Verbose output"
     )
+    parser.add_argument(
+        "--sample-interval",
+        type=int,
+        default=None,
+        help="Check for signals every N bars (default: 60 for hourly). Use 1 for every bar (slow)."
+    )
+    parser.add_argument(
+        "--backend",
+        type=str,
+        choices=["bruteforce", "faiss"],
+        default=None,
+        help="Similarity search backend: 'bruteforce' (exact, slow) or 'faiss' (approximate, fast)"
+    )
 
     args = parser.parse_args()
 
@@ -144,6 +157,13 @@ Examples:
         slippage_pct = backtest_config.get("slippage_pct", 0.0005)
         commission_pct = backtest_config.get("commission_pct", 0.0004)
         max_bars = backtest_config.get("max_bars_in_trade", 120)
+        sample_interval = args.sample_interval or backtest_config.get("sample_interval", 60)
+
+        # Similarity engine settings
+        similarity_config = config.similarity
+        similarity_backend = args.backend or similarity_config.get("backend", "bruteforce")
+        faiss_nlist = similarity_config.get("faiss_nlist", 100)
+        faiss_nprobe = similarity_config.get("faiss_nprobe", 10)
 
         # Get data directory
         data_dir = Path(config.paths.get("data_dir", "data"))
@@ -158,6 +178,8 @@ Examples:
         print(f"  Capital: ${capital:,.2f}")
         print(f"  Slippage: {slippage_pct*100:.3f}%")
         print(f"  Commission: {commission_pct*100:.3f}%")
+        print(f"  Sample Interval: Every {sample_interval} bars")
+        print(f"  Similarity Backend: {similarity_backend}")
         print()
 
         # Load data
@@ -189,7 +211,11 @@ Examples:
             risk_per_trade=config.decision.get("risk_per_trade", 0.005),
             k=config.similarity.get("k", 200),
             horizon=config.similarity.get("default_horizon", 30),
-            verbose=args.verbose or True
+            verbose=args.verbose or True,
+            sample_interval=sample_interval,
+            similarity_backend=similarity_backend,
+            faiss_nlist=faiss_nlist,
+            faiss_nprobe=faiss_nprobe
         )
 
         result = backtester.run(
