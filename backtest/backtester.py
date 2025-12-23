@@ -34,7 +34,10 @@ class Backtester:
         # Decision engine settings
         min_expectancy: float = 0.0,
         max_distance: float = 1.5,
-        blocked_regimes: list = None
+        blocked_regimes: list = None,
+        # Trailing stop settings
+        trailing_stop_pct: float = 0.0,
+        trailing_stop_activation_pct: float = 0.0
     ):
         self.train_ratio = train_ratio
         self.capital = capital
@@ -49,11 +52,15 @@ class Backtester:
         self.min_expectancy = min_expectancy
         self.max_distance = max_distance
         self.blocked_regimes = blocked_regimes or ["HIGH_VOL"]
+        self.trailing_stop_pct = trailing_stop_pct
+        self.trailing_stop_activation_pct = trailing_stop_activation_pct
 
         self.simulator = TradeSimulator(
             slippage_pct=slippage_pct,
             commission_pct=commission_pct,
-            max_bars_in_trade=max_bars_in_trade
+            max_bars_in_trade=max_bars_in_trade,
+            trailing_stop_pct=trailing_stop_pct,
+            trailing_stop_activation_pct=trailing_stop_activation_pct
         )
 
     def run(

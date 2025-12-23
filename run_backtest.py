@@ -165,6 +165,10 @@ Examples:
         faiss_nlist = similarity_config.get("faiss_nlist", 100)
         faiss_nprobe = similarity_config.get("faiss_nprobe", 10)
 
+        # Trailing stop settings
+        trailing_stop_pct = backtest_config.get("trailing_stop_pct", 0.0)
+        trailing_stop_activation_pct = backtest_config.get("trailing_stop_activation_pct", 0.0)
+
         # Get data directory
         data_dir = Path(config.paths.get("data_dir", "data"))
 
@@ -180,6 +184,10 @@ Examples:
         print(f"  Commission: {commission_pct*100:.3f}%")
         print(f"  Sample Interval: Every {sample_interval} bars")
         print(f"  Similarity Backend: {similarity_backend}")
+        if trailing_stop_pct > 0:
+            print(f"  Trailing Stop: {trailing_stop_pct*100:.2f}% (activates at {trailing_stop_activation_pct*100:.2f}% profit)")
+        else:
+            print(f"  Trailing Stop: Disabled")
         print()
 
         # Load data
@@ -224,7 +232,9 @@ Examples:
             faiss_nprobe=faiss_nprobe,
             min_expectancy=min_expectancy,
             max_distance=max_distance,
-            blocked_regimes=blocked_regimes
+            blocked_regimes=blocked_regimes,
+            trailing_stop_pct=trailing_stop_pct,
+            trailing_stop_activation_pct=trailing_stop_activation_pct
         )
 
         result = backtester.run(

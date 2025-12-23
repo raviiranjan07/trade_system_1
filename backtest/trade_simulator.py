@@ -29,26 +29,34 @@ class Trade:
     # Exit info (filled when trade closes)
     exit_time: Optional[pd.Timestamp] = None
     exit_price: Optional[float] = None
-    exit_reason: Optional[str] = None  # TP_HIT, SL_HIT, TIMEOUT
+    exit_reason: Optional[str] = None  # TP_HIT, SL_HIT, TRAILING_STOP, TIMEOUT
 
     # P&L (filled when trade closes)
     pnl: Optional[float] = None
     pnl_pct: Optional[float] = None
     bars_held: int = 0
 
+    # Trailing stop tracking
+    peak_price: Optional[float] = None  # Best price seen (highest for LONG, lowest for SHORT)
+    trailing_stop_price: Optional[float] = None  # Current trailing stop level
+
 
 class TradeSimulator:
-    """Simulates trade execution with slippage and commissions."""
+    """Simulates trade execution with slippage, commissions, and trailing stop."""
 
     def __init__(
         self,
         slippage_pct: float = 0.0005,
         commission_pct: float = 0.0004,
-        max_bars_in_trade: int = 120
+        max_bars_in_trade: int = 120,
+        trailing_stop_pct: float = 0.0,  # 0 = disabled, e.g. 0.005 = 0.5% trail
+        trailing_stop_activation_pct: float = 0.0  # Minimum profit before trailing activates
     ):
         self.slippage_pct = slippage_pct
         self.commission_pct = commission_pct
         self.max_bars_in_trade = max_bars_in_trade
+        self.trailing_stop_pct = trailing_stop_pct
+        self.trailing_stop_activation_pct = trailing_stop_activation_pct
 
     def open_trade(
         self,
@@ -108,23 +116,87 @@ class TradeSimulator:
         """
         Update trade status based on current bar.
 
-        Only exits on take profit hit. No stop loss, no timeout.
-        Trade holds until TP is reached.
+        Exits on: Take Profit hit, or Trailing Stop hit (if enabled).
         """
         trade.bars_held += 1
 
         high = bar["high"]
         low = bar["low"]
+        close = bar["close"]
 
-        # Check for take profit hit only (no stop loss, no timeout)
+        # --- Check for Take Profit first ---
         if trade.direction == "LONG":
             tp_hit = high >= trade.take_profit_price
         else:
             tp_hit = low <= trade.take_profit_price
 
-        # Exit only on TP
         if tp_hit:
             trade = self._close_trade(trade, trade.take_profit_price, current_time, "TP_HIT")
+            return trade
+
+        # --- Update trailing stop (if enabled) ---
+        if self.trailing_stop_pct > 0:
+            trade = self._update_trailing_stop(trade, high, low, close, current_time)
+
+        return trade
+
+    def _update_trailing_stop(
+        self,
+        trade: Trade,
+        high: float,
+        low: float,
+        close: float,
+        current_time: pd.Timestamp
+    ) -> Trade:
+        """Update trailing stop level and check for exit."""
+
+        if trade.direction == "LONG":
+            # Track the highest price seen
+            if trade.peak_price is None:
+                trade.peak_price = high
+            else:
+                trade.peak_price = max(trade.peak_price, high)
+
+            # Check if we've moved enough in profit to activate trailing stop
+            profit_pct = (trade.peak_price - trade.entry_price) / trade.entry_price
+            if profit_pct >= self.trailing_stop_activation_pct:
+                # Update trailing stop level
+                new_trailing_stop = trade.peak_price * (1 - self.trailing_stop_pct)
+                if trade.trailing_stop_price is None:
+                    trade.trailing_stop_price = new_trailing_stop
+                else:
+                    # Only move stop up, never down
+                    trade.trailing_stop_price = max(trade.trailing_stop_price, new_trailing_stop)
+
+                # Check if trailing stop was hit
+                if low <= trade.trailing_stop_price:
+                    trade = self._close_trade(
+                        trade, trade.trailing_stop_price, current_time, "TRAILING_STOP"
+                    )
+
+        else:  # SHORT
+            # Track the lowest price seen
+            if trade.peak_price is None:
+                trade.peak_price = low
+            else:
+                trade.peak_price = min(trade.peak_price, low)
+
+            # Check if we've moved enough in profit to activate trailing stop
+            profit_pct = (trade.entry_price - trade.peak_price) / trade.entry_price
+            if profit_pct >= self.trailing_stop_activation_pct:
+                # Update trailing stop level
+                new_trailing_stop = trade.peak_price * (1 + self.trailing_stop_pct)
+                if trade.trailing_stop_price is None:
+                    trade.trailing_stop_price = new_trailing_stop
+                else:
+                    # Only move stop down, never up
+                    trade.trailing_stop_price = min(trade.trailing_stop_price, new_trailing_stop)
+
+                # Check if trailing stop was hit
+                if high >= trade.trailing_stop_price:
+                    trade = self._close_trade(
+                        trade, trade.trailing_stop_price, current_time, "TRAILING_STOP"
+                    )
 
         return trade
 
