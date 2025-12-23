@@ -23,6 +23,8 @@ import pandas as pd
 import matplotlib
 matplotlib.use("Agg")  # Non-interactive backend
 
+from config import Config
+
 from visualizations.plot_regimes import (
     plot_regime_distribution,
     plot_regime_transitions,
@@ -114,7 +116,9 @@ def generate_outcome_charts(
     """Generate outcome visualizations."""
     print("\n[OUTCOMES]")
 
-    for horizon in [10, 30, 120]:
+    config = Config()
+    horizons = config.get("outcomes.horizons", [10, 15, 30, 120])
+    for horizon in horizons:
         print(f"  - MFE/MAE distribution ({horizon}m)...")
         plot_mfe_mae_distribution(
             outcome_df,
