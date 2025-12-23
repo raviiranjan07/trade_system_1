@@ -116,7 +116,7 @@ class TradeSimulator:
         """
         Update trade status based on current bar.
 
-        Exits on: Take Profit hit, or Trailing Stop hit (if enabled).
+        Exits on: Take Profit hit, Timeout, or Trailing Stop hit (if enabled).
         """
         trade.bars_held += 1
 
@@ -132,6 +132,11 @@ class TradeSimulator:
 
         if tp_hit:
             trade = self._close_trade(trade, trade.take_profit_price, current_time, "TP_HIT")
+            return trade
+
+        # --- Check for timeout (if enabled) ---
+        if self.max_bars_in_trade > 0 and trade.bars_held >= self.max_bars_in_trade:
+            trade = self._close_trade(trade, close, current_time, "TIMEOUT")
             return trade
 
         # --- Update trailing stop (if enabled) ---

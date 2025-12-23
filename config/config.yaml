@@ -86,7 +86,7 @@ similarity:
   k: 200
 
   # Default horizon for queries (must match one of outcomes.horizons)
-  default_horizon: 15
+  default_horizon: 30
 
   # Maximum distance threshold (reject if too dissimilar)
   max_distance: 1.5

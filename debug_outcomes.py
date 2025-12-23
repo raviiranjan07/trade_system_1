@@ -30,3 +30,16 @@ print("\nRegime distribution:")
 print(df_regimes["regime"].value_counts())
 print("\nRegime distribution (%):")
 print(df_regimes["regime"].value_counts(normalize=True).mul(100).round(2))
+
+# Load state vectors
+print("\n" + "=" * 60)
+print("STATE VECTORS FILE ANALYSIS")
+print("=" * 60)
+
+df_states = pd.read_parquet("data/state_vectors/BTCUSDT_1m_state.parquet")
+print(f"\nTotal rows: {len(df_states)}")
+print(f"\nAll columns ({len(df_states.columns)}):")
+print(df_states.columns.tolist())
+
+print("\n\nState Vector Statistics:")
+print(df_states.describe())
