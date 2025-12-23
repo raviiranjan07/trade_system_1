@@ -201,6 +201,12 @@ Examples:
         print(f"  OHLCV: {len(ohlcv_df):,} candles")
         print()
 
+        # Decision engine settings
+        decision_config = config.decision
+        min_expectancy = decision_config.get("min_expectancy", 0.0)
+        max_distance = decision_config.get("max_distance", 1.5)
+        blocked_regimes = decision_config.get("blocked_regimes", ["HIGH_VOL"])
+
         # Create and run backtester
         backtester = Backtester(
             train_ratio=train_ratio,
@@ -215,7 +221,10 @@ Examples:
             sample_interval=sample_interval,
             similarity_backend=similarity_backend,
             faiss_nlist=faiss_nlist,
-            faiss_nprobe=faiss_nprobe
+            faiss_nprobe=faiss_nprobe,
+            min_expectancy=min_expectancy,
+            max_distance=max_distance,
+            blocked_regimes=blocked_regimes
         )
 
         result = backtester.run(

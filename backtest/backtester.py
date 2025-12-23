@@ -30,7 +30,11 @@ class Backtester:
         # Similarity engine backend settings
         similarity_backend: str = "bruteforce",  # "bruteforce" or "faiss"
         faiss_nlist: int = 100,
-        faiss_nprobe: int = 10
+        faiss_nprobe: int = 10,
+        # Decision engine settings
+        min_expectancy: float = 0.0,
+        max_distance: float = 1.5,
+        blocked_regimes: list = None
     ):
         self.train_ratio = train_ratio
         self.capital = capital
@@ -42,6 +46,9 @@ class Backtester:
         self.similarity_backend = similarity_backend
         self.faiss_nlist = faiss_nlist
         self.faiss_nprobe = faiss_nprobe
+        self.min_expectancy = min_expectancy
+        self.max_distance = max_distance
+        self.blocked_regimes = blocked_regimes or ["HIGH_VOL"]
 
         self.simulator = TradeSimulator(
             slippage_pct=slippage_pct,
@@ -111,7 +118,10 @@ class Backtester:
         # 3. Initialize decision engine
         decision_engine = DecisionEngine(
             capital=self.capital,
-            risk_per_trade=self.risk_per_trade
+            risk_per_trade=self.risk_per_trade,
+            min_expectancy=self.min_expectancy,
+            max_distance=self.max_distance,
+            blocked_regimes=self.blocked_regimes
         )
 
         # 4. Walk forward through test period

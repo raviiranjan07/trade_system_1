@@ -1,14 +1,20 @@
-from typing import Dict
+from typing import Dict, List
 
 
 class DecisionEngine:
     def __init__(
         self,
         capital: float,
-        risk_per_trade: float = 0.005  # 0.5%
+        risk_per_trade: float = 0.005,  # 0.5%
+        min_expectancy: float = 0.0,
+        max_distance: float = 1.5,
+        blocked_regimes: List[str] = None
     ):
         self.capital = capital
         self.risk_per_trade = risk_per_trade
+        self.min_expectancy = min_expectancy
+        self.max_distance = max_distance
+        self.blocked_regimes = blocked_regimes or ["HIGH_VOL"]
 
     def decide(
         self,
@@ -16,7 +22,7 @@ class DecisionEngine:
         regime: str
     ) -> Dict:
         """
-        Balanced decision policy.
+        Balanced decision policy with configurable thresholds.
         """
 
         # -------------------------
@@ -25,13 +31,13 @@ class DecisionEngine:
         if similarity_result.get("status") != "OK":
             return {"action": "NO_TRADE", "reason": "NO_DATA"}
 
-        if similarity_result["expectancy"] <= 0:
+        if similarity_result["expectancy"] <= self.min_expectancy:
             return {"action": "NO_TRADE", "reason": "NEGATIVE_EXPECTANCY"}
 
-        if regime == "HIGH_VOL":
-            return {"action": "NO_TRADE", "reason": "HIGH_VOL_REGIME"}
+        if regime in self.blocked_regimes:
+            return {"action": "NO_TRADE", "reason": "BLOCKED_REGIME"}
 
-        if similarity_result["distance_mean"] > 1.5:
+        if similarity_result["distance_mean"] > self.max_distance:
             return {"action": "NO_TRADE", "reason": "LOW_SIMILARITY"}
 
         # -------------------------

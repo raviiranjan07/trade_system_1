@@ -116,11 +116,11 @@ decision:
   max_leverage: 1.0       # Maximum leverage multiplier
 
   # Trade filters
-  min_expectancy: 0.0     # Minimum expected value to take trade
+  min_expectancy: -0.002  # Minimum expected value to take trade (set to 0 for only positive expectancy)
+  max_distance: 3.0       # Maximum avg distance to neighbors (higher = accept more dissimilar states)
 
-  # Regimes to avoid trading
-  blocked_regimes:
-    - "HIGH_VOL"
+  # Regimes to avoid trading (set to [] to trade all regimes)
+  blocked_regimes: []     # Empty = trade all regimes including HIGH_VOL
 
 # -----------------------------------------------------------------------------
 # Pipeline Settings
