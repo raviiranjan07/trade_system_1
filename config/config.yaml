@@ -74,6 +74,7 @@ outcomes:
   # Forward-looking horizons (in bars/minutes)
   horizons:
     - 10   # 10-minute outcomes
+    - 15   # 15-minute outcomes
     - 30   # 30-minute outcomes
     - 120  # 2-hour outcomes
 
@@ -84,7 +85,7 @@ similarity:
   # Number of nearest neighbors
   k: 200
 
-  # Default horizon for queries
+  # Default horizon for queries (must match one of outcomes.horizons)
   default_horizon: 30
 
   # Maximum distance threshold (reject if too dissimilar)
