@@ -86,7 +86,7 @@ similarity:
   k: 200
 
   # Default horizon for queries (must match one of outcomes.horizons)
-  default_horizon: 30
+  default_horizon: 15
 
   # Maximum distance threshold (reject if too dissimilar)
   max_distance: 1.5
@@ -177,8 +177,8 @@ backtest:
   max_bars_in_trade: 120          # Force exit after N bars (2 hours)
 
   # Trailing stop settings
-  trailing_stop_pct: 0.005        # 0.5% trail distance (0 = disabled)
-  trailing_stop_activation_pct: 0.002  # Activate after 0.2% profit
+  trailing_stop_pct: 0.0          # Disabled (0.5% was too tight, cut winners early)
+  trailing_stop_activation_pct: 0.0  # Activate after 0.2% profit
 
   # Performance optimization
   sample_interval: 60             # Check for signals every N bars (60 = hourly)
