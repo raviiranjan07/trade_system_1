@@ -108,32 +108,23 @@ class TradeSimulator:
         """
         Update trade status based on current bar.
 
-        Checks if stop loss or take profit was hit during this bar.
-        Returns the same trade object (possibly with exit info filled).
+        Only exits on take profit hit. No stop loss, no timeout.
+        Trade holds until TP is reached.
         """
         trade.bars_held += 1
 
         high = bar["high"]
         low = bar["low"]
-        close = bar["close"]
 
-        # Check for stop loss / take profit hits
+        # Check for take profit hit only (no stop loss, no timeout)
         if trade.direction == "LONG":
-            # For LONG: SL hit if low <= stop, TP hit if high >= target
-            sl_hit = low <= trade.stop_loss_price
             tp_hit = high >= trade.take_profit_price
         else:
-            # For SHORT: SL hit if high >= stop, TP hit if low <= target
-            sl_hit = high >= trade.stop_loss_price
             tp_hit = low <= trade.take_profit_price
 
-        # Determine exit (if both hit in same bar, assume SL hit first - conservative)
-        if sl_hit:
-            trade = self._close_trade(trade, trade.stop_loss_price, current_time, "SL_HIT")
-        elif tp_hit:
+        # Exit only on TP
+        if tp_hit:
             trade = self._close_trade(trade, trade.take_profit_price, current_time, "TP_HIT")
-        elif trade.bars_held >= self.max_bars_in_trade:
-            trade = self._close_trade(trade, close, current_time, "TIMEOUT")
 
         return trade
 
