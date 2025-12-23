@@ -1,9 +1,17 @@
 import os
+import sys
+from pathlib import Path
+
 import pandas as pd
 import numpy as np
 
+# Add project root to path for config import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from config import Config
 
-HORIZONS = [10, 30, 120]
+
+# Default horizons (fallback if config not available)
+DEFAULT_HORIZONS = [10, 15, 30, 120]
 
 
 def compute_mfe_mae(
@@ -38,9 +46,16 @@ def label_outcomes(
 
     os.makedirs(output_dir, exist_ok=True)
 
+    # Get horizons from config, fallback to defaults
+    try:
+        config = Config()
+        horizons = config.get("outcomes.horizons", DEFAULT_HORIZONS)
+    except Exception:
+        horizons = DEFAULT_HORIZONS
+
     outcome_df = state_df.copy()
 
-    for h in HORIZONS:
+    for h in horizons:
         # LONG outcomes
         mfe_long, mae_long = compute_mfe_mae(price_series, h)
 

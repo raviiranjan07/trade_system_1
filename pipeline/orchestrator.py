@@ -495,7 +495,7 @@ class PipelineOrchestrator:
 
     def _log_outcome_stats(self, outcome_df: pd.DataFrame) -> None:
         """Log outcome statistics after labeling."""
-        horizons = [10, 30, 120]
+        horizons = self.config.get("outcomes.horizons", [10, 15, 30, 120])
 
         self.logger.info("")
         self.logger.info("      Outcome Statistics (LONG positions):")

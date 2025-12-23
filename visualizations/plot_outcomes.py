@@ -4,11 +4,15 @@ Outcome Visualization
 Plots for visualizing MFE/MAE distributions and expectancy analysis.
 """
 
+import sys
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 from typing import Optional, Tuple, List
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from config import Config
 
 # Regime color scheme (consistent with plot_regimes.py)
 REGIME_COLORS = {
@@ -286,7 +290,8 @@ def plot_horizon_comparison(
     """
     fig, axes = plt.subplots(1, 2, figsize=figsize)
 
-    horizons = [10, 30, 120]
+    config = Config()
+    horizons = config.get("outcomes.horizons", [10, 15, 30, 120])
     mfe_means = []
     mae_means = []
     mfe_stds = []
