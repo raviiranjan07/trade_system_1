@@ -32,3 +32,346 @@ connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection re
 2025-12-22 00:54:48 | INFO     | Failed: ['state_vectors']
 2025-12-22 00:54:48 | INFO     | Execution time: 4.17s
 2025-12-22 00:54:48 | INFO     | ============================================================
+2025-12-25 01:09:29 | INFO     | ============================================================
+2025-12-25 01:09:29 | INFO     | PIPELINE START | BTCUSDT | 2023-01-01 to 2023-03-01
+2025-12-25 01:09:29 | INFO     | Stages to run: ['state_vectors', 'regime_labeling', 'outcome_labeling', 'similarity', 'decision']
+2025-12-25 01:09:29 | INFO     | ============================================================
+2025-12-25 01:09:29 | INFO     | [1/5] Building state vectors...
+2025-12-25 01:10:30 | INFO     |       State vectors built: 82941 rows
+2025-12-25 01:10:30 | INFO     | [2/5] Labeling regimes...
+2025-12-25 01:10:42 | INFO     |       Regime distribution:
+regime
+RANGE_LOW_VOL     49076
+TREND_HIGH_VOL    16214
+HIGH_VOL          13886
+TREND_LOW_VOL      3765
+2025-12-25 01:10:42 | INFO     | [3/5] Labeling outcomes...
+2025-12-25 01:31:48 | INFO     |       Outcomes computed for 82821 states
+2025-12-25 01:31:48 | INFO     | 
+2025-12-25 01:31:48 | INFO     |       Outcome Statistics (LONG positions):
+2025-12-25 01:31:48 | INFO     |       --------------------------------------------------
+2025-12-25 01:31:48 | INFO     |       Horizon           Avg MFE      Avg MAE   Expectancy
+2025-12-25 01:31:48 | INFO     |       --------------------------------------------------
+2025-12-25 01:31:48 | INFO     |        10m              +0.086%      -0.090%      -0.004%
+2025-12-25 01:31:48 | INFO     |        15m              +0.112%      -0.119%      -0.007%
+2025-12-25 01:31:48 | INFO     |        30m              +0.170%      -0.186%      -0.016%
+2025-12-25 01:31:48 | INFO     |       120m              +0.371%      -0.427%      -0.056%
+2025-12-25 01:31:48 | INFO     |       --------------------------------------------------
+2025-12-25 01:31:48 | INFO     | 
+2025-12-25 01:31:48 | INFO     | [4/5] Running similarity analysis...
+2025-12-25 01:31:48 | INFO     |       Similarity result: expectancy=0.0008
+2025-12-25 01:31:48 | INFO     | [5/5] Generating decision...
+2025-12-25 01:31:48 | INFO     |       Decision: TRADE LONG
+2025-12-25 01:31:48 | INFO     | ============================================================
+2025-12-25 01:31:48 | INFO     | PIPELINE COMPLETE
+2025-12-25 01:31:48 | INFO     | Completed: ['state_vectors', 'regime_labeling', 'outcome_labeling', 'similarity', 'decision']
+2025-12-25 01:31:48 | INFO     | Execution time: 1338.87s
+2025-12-25 01:31:48 | INFO     | ============================================================
+2025-12-25 01:34:00 | INFO     | ============================================================
+2025-12-25 01:34:00 | INFO     | PIPELINE START | BTCUSDT | 2023-01-01 to 2023-03-01
+2025-12-25 01:34:00 | INFO     | Stages to run: ['state_vectors', 'regime_labeling', 'outcome_labeling', 'similarity', 'decision']
+2025-12-25 01:34:00 | INFO     | ============================================================
+2025-12-25 01:34:00 | INFO     | [1/5] Building state vectors...
+2025-12-25 01:34:41 | INFO     |       State vectors built: 82941 rows
+2025-12-25 01:34:41 | INFO     | [2/5] Labeling regimes...
+2025-12-25 01:34:58 | INFO     |       Regime distribution:
+regime
+RANGE_LOW_VOL     49076
+TREND_HIGH_VOL    16214
+HIGH_VOL          13886
+TREND_LOW_VOL      3765
+2025-12-25 01:34:58 | INFO     | [3/5] Labeling outcomes...
+2025-12-25 01:39:55 | INFO     | ============================================================
+2025-12-25 01:39:55 | INFO     | PIPELINE START | BTCUSDT | 2020-01-01 to 2025-12-15
+2025-12-25 01:39:55 | INFO     | Stages to run: ['state_vectors', 'regime_labeling', 'outcome_labeling', 'similarity', 'decision']
+2025-12-25 01:39:55 | INFO     | ============================================================
+2025-12-25 01:39:55 | INFO     | [1/5] Building state vectors...
+2025-12-25 01:48:52 | INFO     | ============================================================
+2025-12-25 01:48:52 | INFO     | PIPELINE START | BTCUSDT | 2020-01-01 to 2025-12-15
+2025-12-25 01:48:52 | INFO     | Stages to run: ['state_vectors', 'regime_labeling', 'outcome_labeling', 'similarity', 'decision']
+2025-12-25 01:48:52 | INFO     | ============================================================
+2025-12-25 01:48:52 | INFO     | [1/5] Building state vectors...
+2025-12-25 02:04:54 | INFO     |       State vectors built: 3125572 rows
+2025-12-25 02:04:54 | INFO     | [2/5] Labeling regimes...
+2025-12-25 02:12:01 | INFO     |       Regime distribution:
+regime
+RANGE_LOW_VOL     1752078
+TREND_HIGH_VOL     643010
+HIGH_VOL           492500
+TREND_LOW_VOL      237984
+2025-12-25 02:12:01 | INFO     | [3/5] Labeling outcomes...
+2025-12-25 02:12:22 | ERROR    | DATABASE CONNECTION ERROR in stage 'outcome_labeling'
+2025-12-25 02:12:22 | ERROR    | Unable to connect to database
+
+Connection: postgresql://raviranjan@192.168.0.188:5432/crypto_data
+
+Possible causes:
+  1. PostgreSQL service is not running
+  2. Wrong host/port in DATABASE_URL
+  3. Database does not exist
+  4. Invalid credentials
+
+Suggestion: Check the following:
+  - Run: pg_isready -h localhost -p 5432
+  - Verify DATABASE_URL in .env or config/config.yaml
+  - Ensure PostgreSQL service is running
+2025-12-25 02:12:22 | ERROR    | 
+2025-12-25 02:12:22 | ERROR    | Troubleshooting:
+2025-12-25 02:12:22 | ERROR    |   1. Check if PostgreSQL is running
+2025-12-25 02:12:22 | ERROR    |   2. Verify DATABASE_URL in .env or config/config.yaml
+2025-12-25 02:12:22 | ERROR    |   3. Ensure the database exists and is accessible
+2025-12-25 02:12:22 | INFO     | ============================================================
+2025-12-25 02:12:22 | INFO     | PIPELINE FAILED
+2025-12-25 02:12:22 | INFO     | Completed: ['state_vectors', 'regime_labeling']
+2025-12-25 02:12:22 | INFO     | Failed: ['outcome_labeling']
+2025-12-25 02:12:22 | INFO     | Execution time: 1410.23s
+2025-12-25 02:12:22 | INFO     | ============================================================
+2025-12-25 02:17:59 | INFO     | ============================================================
+2025-12-25 02:17:59 | INFO     | PIPELINE START | BTCUSDT | 2020-01-01 to 2025-12-15
+2025-12-25 02:17:59 | INFO     | Stages to run: ['state_vectors', 'regime_labeling', 'outcome_labeling', 'similarity', 'decision']
+2025-12-25 02:17:59 | INFO     | ============================================================
+2025-12-25 02:17:59 | INFO     | [1/5] Building state vectors...
+2025-12-25 02:25:16 | INFO     |       Loaded 3,127,591 candles
+2025-12-25 02:35:51 | INFO     |       State vectors built: 3125572 rows
+2025-12-25 02:35:51 | INFO     | [2/5] Labeling regimes...
+2025-12-25 02:42:16 | INFO     |       Regime distribution:
+regime
+RANGE_LOW_VOL     1752078
+TREND_HIGH_VOL     643010
+HIGH_VOL           492500
+TREND_LOW_VOL      237984
+2025-12-25 02:42:16 | INFO     | [3/5] Labeling outcomes...
+2025-12-25 02:49:52 | INFO     |       Outcomes computed for 3125452 states
+2025-12-25 02:49:52 | INFO     | 
+2025-12-25 02:49:52 | INFO     |       Outcome Statistics (LONG positions):
+2025-12-25 02:49:52 | INFO     |       --------------------------------------------------
+2025-12-25 02:49:52 | INFO     |       Horizon           Avg MFE      Avg MAE   Expectancy
+2025-12-25 02:49:52 | INFO     |       --------------------------------------------------
+2025-12-25 02:49:52 | INFO     |        10m              +0.124%      -0.127%      -0.002%
+2025-12-25 02:49:52 | INFO     |        15m              +0.163%      -0.166%      -0.004%
+2025-12-25 02:49:52 | INFO     |        30m              +0.248%      -0.256%      -0.008%
+2025-12-25 02:49:52 | INFO     |       120m              +0.540%      -0.573%      -0.033%
+2025-12-25 02:49:52 | INFO     |       --------------------------------------------------
+2025-12-25 02:49:52 | INFO     | 
+2025-12-25 02:49:52 | INFO     | [4/5] Running similarity analysis...
+2025-12-25 02:49:55 | INFO     |       Similarity result: expectancy=-0.0046
+2025-12-25 02:49:55 | INFO     | [5/5] Generating decision...
+2025-12-25 02:49:57 | INFO     |       Decision: NO_TRADE 
+2025-12-25 02:49:57 | INFO     | ============================================================
+2025-12-25 02:49:57 | INFO     | PIPELINE COMPLETE
+2025-12-25 02:49:57 | INFO     | Completed: ['state_vectors', 'regime_labeling', 'outcome_labeling', 'similarity', 'decision']
+2025-12-25 02:49:57 | INFO     | Execution time: 1918.19s
+2025-12-25 02:49:57 | INFO     | ============================================================
+2025-12-25 08:17:16 | INFO     | ============================================================
+2025-12-25 08:17:16 | INFO     | PIPELINE START | BTCUSDT | 2020-01-01 to 2025-12-15
+2025-12-25 08:17:16 | INFO     | Stages to run: ['state_vectors']
+2025-12-25 08:17:16 | INFO     | ============================================================
+2025-12-25 08:17:16 | INFO     | [1/5] Building state vectors...
+2025-12-25 08:35:44 | INFO     |       Loaded 3,127,591 candles
+2025-12-25 08:35:45 | INFO     |       OHLCV saved to data\ohlcv\BTCUSDT_1m_ohlcv.parquet
+2025-12-25 08:51:49 | INFO     |       State vectors built: 3125572 rows
+2025-12-25 08:51:51 | INFO     | ============================================================
+2025-12-25 08:51:51 | INFO     | PIPELINE COMPLETE
+2025-12-25 08:51:51 | INFO     | Completed: ['state_vectors']
+2025-12-25 08:51:51 | INFO     | Execution time: 2075.54s
+2025-12-25 08:51:51 | INFO     | ============================================================
+2025-12-27 00:35:49 | INFO     | ============================================================
+2025-12-27 00:35:49 | INFO     | PIPELINE START | BTCUSDT | 2020-01-01 to 2025-12-15
+2025-12-27 00:35:49 | INFO     | Stages to run: ['outcome_labeling']
+2025-12-27 00:35:49 | INFO     | ============================================================
+2025-12-27 00:35:51 | INFO     | [3/5] Labeling outcomes...
+2025-12-27 00:36:13 | ERROR    | DATABASE CONNECTION ERROR in stage 'outcome_labeling'
+2025-12-27 00:36:13 | ERROR    | Unable to connect to database
+
+Connection: postgresql://raviranjan@192.168.0.188:5432/crypto_data
+
+Possible causes:
+  1. PostgreSQL service is not running
+  2. Wrong host/port in DATABASE_URL
+  3. Database does not exist
+  4. Invalid credentials
+
+Suggestion: Check the following:
+  - Run: pg_isready -h localhost -p 5432
+  - Verify DATABASE_URL in .env or config/config.yaml
+  - Ensure PostgreSQL service is running
+2025-12-27 00:36:13 | ERROR    | 
+2025-12-27 00:36:13 | ERROR    | Troubleshooting:
+2025-12-27 00:36:13 | ERROR    |   1. Check if PostgreSQL is running
+2025-12-27 00:36:13 | ERROR    |   2. Verify DATABASE_URL in .env or config/config.yaml
+2025-12-27 00:36:13 | ERROR    |   3. Ensure the database exists and is accessible
+2025-12-27 00:36:13 | INFO     | ============================================================
+2025-12-27 00:36:13 | INFO     | PIPELINE FAILED
+2025-12-27 00:36:13 | INFO     | Completed: []
+2025-12-27 00:36:13 | INFO     | Failed: ['outcome_labeling']
+2025-12-27 00:36:13 | INFO     | Execution time: 23.39s
+2025-12-27 00:36:13 | INFO     | ============================================================
+2025-12-27 00:57:23 | INFO     | ============================================================
+2025-12-27 00:57:23 | INFO     | PIPELINE START | BTCUSDT | 2020-01-01 to 2025-12-15
+2025-12-27 00:57:23 | INFO     | Stages to run: ['outcome_labeling']
+2025-12-27 00:57:23 | INFO     | ============================================================
+2025-12-27 00:57:23 | INFO     | [3/5] Labeling outcomes...
+2025-12-27 00:57:44 | ERROR    | DATABASE CONNECTION ERROR in stage 'outcome_labeling'
+2025-12-27 00:57:44 | ERROR    | Unable to connect to database
+
+Connection: postgresql://raviranjan@192.168.0.188:5432/crypto_data
+
+Possible causes:
+  1. PostgreSQL service is not running
+  2. Wrong host/port in DATABASE_URL
+  3. Database does not exist
+  4. Invalid credentials
+
+Suggestion: Check the following:
+  - Run: pg_isready -h localhost -p 5432
+  - Verify DATABASE_URL in .env or config/config.yaml
+  - Ensure PostgreSQL service is running
+2025-12-27 00:57:44 | ERROR    | 
+2025-12-27 00:57:44 | ERROR    | Troubleshooting:
+2025-12-27 00:57:44 | ERROR    |   1. Check if PostgreSQL is running
+2025-12-27 00:57:44 | ERROR    |   2. Verify DATABASE_URL in .env or config/config.yaml
+2025-12-27 00:57:44 | ERROR    |   3. Ensure the database exists and is accessible
+2025-12-27 00:57:44 | INFO     | ============================================================
+2025-12-27 00:57:44 | INFO     | PIPELINE FAILED
+2025-12-27 00:57:44 | INFO     | Completed: []
+2025-12-27 00:57:44 | INFO     | Failed: ['outcome_labeling']
+2025-12-27 00:57:44 | INFO     | Execution time: 21.78s
+2025-12-27 00:57:44 | INFO     | ============================================================
+2025-12-27 00:59:46 | INFO     | ============================================================
+2025-12-27 00:59:46 | INFO     | PIPELINE START | BTCUSDT | 2020-01-01 to 2025-12-15
+2025-12-27 00:59:46 | INFO     | Stages to run: ['outcome_labeling']
+2025-12-27 00:59:46 | INFO     | ============================================================
+2025-12-27 00:59:46 | INFO     | [3/5] Labeling outcomes...
+2025-12-27 01:00:07 | ERROR    | DATABASE CONNECTION ERROR in stage 'outcome_labeling'
+2025-12-27 01:00:07 | ERROR    | Unable to connect to database
+
+Connection: postgresql://raviranjan@192.0.0.2:5432/crypto_data
+
+Possible causes:
+  1. PostgreSQL service is not running
+  2. Wrong host/port in DATABASE_URL
+  3. Database does not exist
+  4. Invalid credentials
+
+Suggestion: Check the following:
+  - Run: pg_isready -h localhost -p 5432
+  - Verify DATABASE_URL in .env or config/config.yaml
+  - Ensure PostgreSQL service is running
+2025-12-27 01:00:07 | ERROR    | 
+2025-12-27 01:00:07 | ERROR    | Troubleshooting:
+2025-12-27 01:00:07 | ERROR    |   1. Check if PostgreSQL is running
+2025-12-27 01:00:07 | ERROR    |   2. Verify DATABASE_URL in .env or config/config.yaml
+2025-12-27 01:00:07 | ERROR    |   3. Ensure the database exists and is accessible
+2025-12-27 01:00:07 | INFO     | ============================================================
+2025-12-27 01:00:07 | INFO     | PIPELINE FAILED
+2025-12-27 01:00:07 | INFO     | Completed: []
+2025-12-27 01:00:07 | INFO     | Failed: ['outcome_labeling']
+2025-12-27 01:00:07 | INFO     | Execution time: 21.75s
+2025-12-27 01:00:07 | INFO     | ============================================================
+2025-12-27 01:01:29 | INFO     | ============================================================
+2025-12-27 01:01:29 | INFO     | PIPELINE START | BTCUSDT | 2020-01-01 to 2025-12-15
+2025-12-27 01:01:29 | INFO     | Stages to run: ['outcome_labeling']
+2025-12-27 01:01:29 | INFO     | ============================================================
+2025-12-27 01:01:30 | INFO     | [3/5] Labeling outcomes...
+2025-12-27 01:01:51 | ERROR    | DATABASE CONNECTION ERROR in stage 'outcome_labeling'
+2025-12-27 01:01:51 | ERROR    | Unable to connect to database
+
+Connection: postgresql://raviranjan@192.0.0.2:5432/crypto_data
+
+Possible causes:
+  1. PostgreSQL service is not running
+  2. Wrong host/port in DATABASE_URL
+  3. Database does not exist
+  4. Invalid credentials
+
+Suggestion: Check the following:
+  - Run: pg_isready -h localhost -p 5432
+  - Verify DATABASE_URL in .env or config/config.yaml
+  - Ensure PostgreSQL service is running
+2025-12-27 01:01:51 | ERROR    | 
+2025-12-27 01:01:51 | ERROR    | Troubleshooting:
+2025-12-27 01:01:51 | ERROR    |   1. Check if PostgreSQL is running
+2025-12-27 01:01:51 | ERROR    |   2. Verify DATABASE_URL in .env or config/config.yaml
+2025-12-27 01:01:51 | ERROR    |   3. Ensure the database exists and is accessible
+2025-12-27 01:01:51 | INFO     | ============================================================
+2025-12-27 01:01:51 | INFO     | PIPELINE FAILED
+2025-12-27 01:01:51 | INFO     | Completed: []
+2025-12-27 01:01:51 | INFO     | Failed: ['outcome_labeling']
+2025-12-27 01:01:51 | INFO     | Execution time: 21.75s
+2025-12-27 01:01:51 | INFO     | ============================================================
+2025-12-27 01:05:14 | INFO     | ============================================================
+2025-12-27 01:05:14 | INFO     | PIPELINE START | BTCUSDT | 2020-01-01 to 2025-12-15
+2025-12-27 01:05:14 | INFO     | Stages to run: ['outcome_labeling']
+2025-12-27 01:05:14 | INFO     | ============================================================
+2025-12-27 01:05:14 | INFO     | [3/5] Labeling outcomes...
+2025-12-27 01:05:35 | ERROR    | DATABASE CONNECTION ERROR in stage 'outcome_labeling'
+2025-12-27 01:05:35 | ERROR    | Unable to connect to database
+
+Connection: postgresql://raviranjan@192.0.0.2:5432/crypto_data
+
+Possible causes:
+  1. PostgreSQL service is not running
+  2. Wrong host/port in DATABASE_URL
+  3. Database does not exist
+  4. Invalid credentials
+
+Suggestion: Check the following:
+  - Run: pg_isready -h localhost -p 5432
+  - Verify DATABASE_URL in .env or config/config.yaml
+  - Ensure PostgreSQL service is running
+2025-12-27 01:05:35 | ERROR    | 
+2025-12-27 01:05:35 | ERROR    | Troubleshooting:
+2025-12-27 01:05:35 | ERROR    |   1. Check if PostgreSQL is running
+2025-12-27 01:05:35 | ERROR    |   2. Verify DATABASE_URL in .env or config/config.yaml
+2025-12-27 01:05:35 | ERROR    |   3. Ensure the database exists and is accessible
+2025-12-27 01:05:35 | INFO     | ============================================================
+2025-12-27 01:05:35 | INFO     | PIPELINE FAILED
+2025-12-27 01:05:35 | INFO     | Completed: []
+2025-12-27 01:05:35 | INFO     | Failed: ['outcome_labeling']
+2025-12-27 01:05:35 | INFO     | Execution time: 21.70s
+2025-12-27 01:05:35 | INFO     | ============================================================
+2025-12-27 01:06:16 | INFO     | ============================================================
+2025-12-27 01:06:16 | INFO     | PIPELINE START | BTCUSDT | 2020-01-01 to 2025-12-15
+2025-12-27 01:06:16 | INFO     | Stages to run: ['outcome_labeling']
+2025-12-27 01:06:16 | INFO     | ============================================================
+2025-12-27 01:06:16 | INFO     | [3/5] Labeling outcomes...
+2025-12-27 01:07:46 | INFO     |       Outcomes computed for 3125452 states
+2025-12-27 01:07:46 | INFO     | 
+2025-12-27 01:07:46 | INFO     |       Outcome Statistics (LONG positions):
+2025-12-27 01:07:46 | INFO     |       --------------------------------------------------
+2025-12-27 01:07:46 | INFO     |       Horizon           Avg MFE      Avg MAE   Expectancy
+2025-12-27 01:07:46 | INFO     |       --------------------------------------------------
+2025-12-27 01:07:46 | INFO     |        10m              +0.125%      -0.126%      -0.000%
+2025-12-27 01:07:46 | INFO     |        15m              +0.164%      -0.165%      -0.001%
+2025-12-27 01:07:46 | INFO     |        30m              +0.251%      -0.254%      -0.003%
+2025-12-27 01:07:46 | INFO     |       120m              +0.550%      -0.563%      -0.013%
+2025-12-27 01:07:46 | INFO     |       --------------------------------------------------
+2025-12-27 01:07:46 | INFO     | 
+2025-12-27 01:07:46 | INFO     | ============================================================
+2025-12-27 01:07:46 | INFO     | PIPELINE COMPLETE
+2025-12-27 01:07:46 | INFO     | Completed: ['outcome_labeling']
+2025-12-27 01:07:46 | INFO     | Execution time: 90.75s
+2025-12-27 01:07:46 | INFO     | ============================================================
+2025-12-27 14:04:59 | INFO     | ============================================================
+2025-12-27 14:04:59 | INFO     | PIPELINE START | BTCUSDT | 2020-01-01 to 2025-12-15
+2025-12-27 14:04:59 | INFO     | Stages to run: ['outcome_labeling']
+2025-12-27 14:04:59 | INFO     | ============================================================
+2025-12-27 14:05:01 | INFO     | [3/5] Labeling outcomes...
+2025-12-27 14:07:23 | INFO     |       Outcomes computed for 3125452 states
+2025-12-27 14:07:23 | INFO     | 
+2025-12-27 14:07:23 | INFO     |       Outcome Statistics (LONG positions):
+2025-12-27 14:07:23 | INFO     |       --------------------------------------------------
+2025-12-27 14:07:23 | INFO     |       Horizon           Avg MFE      Avg MAE   Expectancy
+2025-12-27 14:07:23 | INFO     |       --------------------------------------------------
+2025-12-27 14:07:23 | INFO     |         5m              +0.074%      -0.074%      +0.000%
+2025-12-27 14:07:23 | INFO     |        10m              +0.125%      -0.126%      -0.000%
+2025-12-27 14:07:23 | INFO     |        15m              +0.164%      -0.165%      -0.001%
+2025-12-27 14:07:23 | INFO     |        30m              +0.251%      -0.254%      -0.003%
+2025-12-27 14:07:23 | INFO     |       120m              +0.550%      -0.563%      -0.013%
+2025-12-27 14:07:23 | INFO     |       --------------------------------------------------
+2025-12-27 14:07:23 | INFO     | 
+2025-12-27 14:07:23 | INFO     | ============================================================
+2025-12-27 14:07:23 | INFO     | PIPELINE COMPLETE
+2025-12-27 14:07:23 | INFO     | Completed: ['outcome_labeling']
+2025-12-27 14:07:23 | INFO     | Execution time: 144.55s
+2025-12-27 14:07:23 | INFO     | ============================================================

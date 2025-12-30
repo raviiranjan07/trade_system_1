@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-from dataclasses import dataclass
-from typing import List, Optional
+from dataclasses import dataclass, field
+from typing import List, Optional, Dict
 from .trade_simulator import Trade
 
 
@@ -50,6 +50,9 @@ class BacktestResult:
 
     # By regime
     trades_by_regime: dict
+
+    # Pipeline timing (optional, set by backtester)
+    pipeline_timing: Dict[str, float] = field(default_factory=dict)
 
 
 def calculate_metrics(

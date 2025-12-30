@@ -3,3 +3,7 @@
 _pycache__/
 *.pyc
 
+data/state_vectors/
+data/archive_cache
+data/ohlcv
+data/outcomes

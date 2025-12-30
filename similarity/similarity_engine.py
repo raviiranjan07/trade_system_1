@@ -208,9 +208,10 @@ class SimilarityEngine:
             X = df_filtered[STATE_COLUMNS].values
             y = current_state[STATE_COLUMNS].values.astype(np.float64)
 
-            distances = self._euclidean_distance(X, y)
-            idx = np.argsort(distances)[:self.k]
+            all_distances = self._euclidean_distance(X, y)
+            idx = np.argsort(all_distances)[:self.k]
             neighbors = df_filtered.iloc[idx]
+            distances = all_distances[idx]  # Only k-nearest distances (same as bruteforce)
 
         else:
             # No time boundary - use FAISS directly (production mode)

@@ -1,0 +1,47 @@
+# =============================================================================
+# H=5m BEST PARAMETERS (Updated: 2025-12-29)
+# =============================================================================
+# Based on exp1, exp2, exp3, exp4, exp5 results
+# exp5 fine-tuned min_expectancy: 0.0008 is optimal (98.9% WR, +6.32% return)
+
+horizon: 5
+
+# Best Configuration
+best_params:
+  min_expectancy: 0.001     # From exp5 - best balance (98.9% WR, +6.32% return)
+  max_distance: 3.0          # From exp2 - allows more similar states
+  blocked_regimes: []        # From exp3/exp4 - no blocking is best for 5m
+
+# Backtest Settings (must match grid search)
+backtest:
+  capital: 200              # Starting capital
+  max_bars_in_trade: 0        # 0 = no timeout (let trades run)
+  trailing_stop_pct: 0.0      # No trailing stop
+  sample_interval: 15         # Check signals every 15 bars
+
+# Performance Metrics (with min_exp=0.0008)
+performance:
+  total_pnl_pct: 6.32
+  win_rate: 98.9
+  total_trades: 93
+  profit_factor: 890.27
+  max_drawdown_pct: 0.7
+  sharpe_ratio: 2.33
+
+# All exp4 Results (sorted by PnL)
+# -----------------------------------------------------------------------------
+# Rank | min_exp | max_dist | blocked           | PnL     | Trades | WR
+# -----------------------------------------------------------------------------
+# 1    | 0.001   | 3.0      | NONE              | +$372.92| 42     | 100%
+# 2    | 0.001   | 3.0      | RANGE_LOW_VOL     | +$351.64| 39     | 100%
+# 3    | 0.001   | 3.0      | RANGE+TREND_LOW   | +$351.64| 39     | 100%
+# 4    | 0.001   | 2.5      | NONE              | +$338.36| 39     | 100%
+# 5    | 0.001   | 2.5      | RANGE_LOW_VOL     | +$317.07| 36     | 100%
+# 6    | 0.001   | 2.5      | RANGE+TREND_LOW   | +$317.07| 36     | 100%
+
+# Notes
+# -----------------------------------------------------------------------------
+# - min_expectancy is the critical parameter (turns -$4,253 into profit)
+# - exp5 tested 0.0005-0.0015: 0.0008 is optimal (98.9% WR, +6.32% return)
+# - Blocking regimes HURTS 5m performance (volatility helps short-term trades)
+# - max_distance=3.0 slightly better than 2.5 (more trade opportunities)

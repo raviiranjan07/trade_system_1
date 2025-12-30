@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+import yaml
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -98,7 +99,15 @@ Examples:
     python run_backtest.py --pair ETHUSDT
     python run_backtest.py --train-ratio 0.80
     python run_backtest.py --save-trades
+    python run_backtest.py --params-file data/grid_search/h5/BEST_PARAMS.yaml --capital 50000
         """
+    )
+
+    parser.add_argument(
+        "--params-file",
+        type=str,
+        default=None,
+        help="Load best params from YAML file (e.g., data/grid_search/h5/BEST_PARAMS.yaml)"
     )
 
     parser.add_argument(
@@ -197,23 +206,68 @@ Examples:
 
         # Load OHLCV data for trade simulation
         print("  Loading OHLCV data...")
-        start_date = outcome_df.index[0]
-        end_date = outcome_df.index[-1] + pd.Timedelta(days=1)
 
-        loader = OHLCVLoader()
-        ohlcv_df = loader.fetch_ohlcv(
-            pair=pair,
-            start_time=start_date,
-            end_time=end_date
-        )
+        # Try local file first, then database
+        ohlcv_dir = data_dir / "ohlcv"
+        ohlcv_files = list(ohlcv_dir.glob(f"{pair}_*.parquet"))
+
+        if ohlcv_files:
+            # Load from local parquet file
+            ohlcv_file = sorted(ohlcv_files)[-1]
+            print(f"  Loading from local: {ohlcv_file.name}")
+            ohlcv_df = pd.read_parquet(ohlcv_file)
+            ohlcv_df.index = pd.to_datetime(ohlcv_df.index)
+        else:
+            # Fall back to database
+            start_date = outcome_df.index[0]
+            end_date = outcome_df.index[-1] + pd.Timedelta(days=1)
+            loader = OHLCVLoader()
+            ohlcv_df = loader.fetch_ohlcv(
+                pair=pair,
+                start_time=start_date,
+                end_time=end_date
+            )
         print(f"  OHLCV: {len(ohlcv_df):,} candles")
         print()
 
-        # Decision engine settings
-        decision_config = config.decision
-        min_expectancy = decision_config.get("min_expectancy", 0.0)
-        max_distance = decision_config.get("max_distance", 1.5)
-        blocked_regimes = decision_config.get("blocked_regimes", ["HIGH_VOL"])
+        # Decision engine settings - load from params file or config
+        if args.params_file:
+            params_path = Path(args.params_file)
+            if not params_path.exists():
+                raise FileNotFoundError(f"Params file not found: {params_path}")
+            with open(params_path, 'r') as f:
+                best_params = yaml.safe_load(f)
+
+            # Load best_params
+            bp = best_params.get("best_params", {})
+            min_expectancy = bp.get("min_expectancy", 0.0)
+            max_distance = bp.get("max_distance", 3.0)
+            blocked_regimes = bp.get("blocked_regimes", [])
+            horizon = best_params.get("horizon", config.similarity.get("default_horizon", 30))
+
+            # Load backtest settings from params file (override config)
+            bt = best_params.get("backtest", {})
+            if bt:
+                capital = args.capital or bt.get("capital", capital)
+                max_bars = bt.get("max_bars_in_trade", max_bars)
+                trailing_stop_pct = bt.get("trailing_stop_pct", trailing_stop_pct)
+                trailing_stop_activation_pct = bt.get("trailing_stop_activation_pct", trailing_stop_activation_pct)
+                sample_interval = args.sample_interval or bt.get("sample_interval", sample_interval)
+
+            print(f"  Loaded params from: {params_path}")
+            print(f"  horizon: {horizon}")
+            print(f"  min_expectancy: {min_expectancy}")
+            print(f"  max_distance: {max_distance}")
+            print(f"  blocked_regimes: {blocked_regimes}")
+            print(f"  capital: ${capital:,.2f}")
+            print(f"  max_bars_in_trade: {max_bars}")
+            print()
+        else:
+            decision_config = config.decision
+            min_expectancy = decision_config.get("min_expectancy", 0.0)
+            max_distance = decision_config.get("max_distance", 1.5)
+            blocked_regimes = decision_config.get("blocked_regimes", ["HIGH_VOL"])
+            horizon = config.similarity.get("default_horizon", 30)
 
         # Create and run backtester
         backtester = Backtester(
@@ -224,7 +278,7 @@ Examples:
             capital=capital,
             risk_per_trade=config.decision.get("risk_per_trade", 0.005),
             k=config.similarity.get("k", 200),
-            horizon=config.similarity.get("default_horizon", 30),
+            horizon=horizon,
             verbose=args.verbose or True,
             sample_interval=sample_interval,
             similarity_backend=similarity_backend,
@@ -254,7 +308,9 @@ Examples:
 
             trade_df = trades_to_dataframe(result.trades)
             if not trade_df.empty:
-                filename = f"{pair}_trades_{result.test_start.strftime('%Y%m%d')}_{result.test_end.strftime('%Y%m%d')}.parquet"
+                # Format min_expectancy for filename (e.g., 0.0008 -> "exp0.0008")
+                exp_str = f"exp{min_expectancy}"
+                filename = f"{pair}_h{horizon}_si{sample_interval}_{exp_str}_trades_{result.test_start.strftime('%Y%m%d')}_{result.test_end.strftime('%Y%m%d')}.parquet"
                 filepath = output_dir / filename
                 trade_df.to_parquet(filepath)
                 print(f"Trade log saved to: {filepath}")

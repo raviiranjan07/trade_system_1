@@ -16,14 +16,15 @@ data:
   timeframe: "1m"
 
   # Date range for data fetching (ISO format: YYYY-MM-DD)
-  start_date: "2023-01-01"
-  end_date: "2023-03-01"
+  start_date: "2020-01-01"
+  end_date: "2025-12-15"
 
   # Database connection (can be overridden by DATABASE_URL env var)
+  # For remote connection, set DATABASE_URL in .env file
   database_url: "postgresql://localhost/crypto_data"
 
   # Gap handling for missing candles
-  max_gap_tolerance: 0       # Max missing candles allowed (0 = strict)
+  max_gap_tolerance: 5000       # Max missing candles allowed (0 = strict)
   fill_small_gaps: false     # Auto-fill gaps <= 100 candles with forward-fill
 
 # -----------------------------------------------------------------------------
@@ -73,6 +74,7 @@ regime:
 outcomes:
   # Forward-looking horizons (in bars/minutes)
   horizons:
+    - 5    # 5-minute outcomes
     - 10   # 10-minute outcomes
     - 15   # 15-minute outcomes
     - 30   # 30-minute outcomes
@@ -110,7 +112,7 @@ similarity:
 # -----------------------------------------------------------------------------
 decision:
   # Account settings
-  capital: 10000          # Starting capital in USD
+  capital: 5          # Starting capital in USD
   risk_per_trade: 0.005   # Risk 0.5% per trade
 
   # Position limits

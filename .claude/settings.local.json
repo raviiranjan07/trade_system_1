@@ -3,7 +3,12 @@
     "allow": [
       "Bash(tree:*)",
       "Bash(dir:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(python debug_regimes.py:*)",
+      "Bash(\".venv/Scripts/python.exe\" debug_regimes.py)",
+      "Bash(\".venv/Scripts/python.exe\" debug_blocking.py)",
+      "Bash(\".venv/Scripts/python.exe\" debug_training_data.py)",
+      "Bash(powershell:*)"
     ]
   }
 }

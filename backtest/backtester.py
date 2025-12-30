@@ -1,10 +1,50 @@
 import pandas as pd
 import numpy as np
-from typing import List, Optional
+import time
+from typing import List, Optional, Dict
 from tqdm import tqdm
 
 from .trade_simulator import Trade, TradeSimulator
 from .metrics import BacktestResult, calculate_metrics
+
+
+class PipelineTimer:
+    """Tracks timing for each step in the backtest pipeline."""
+
+    def __init__(self):
+        self.timings: Dict[str, float] = {}
+        self._start_time: float = 0
+        self._current_step: str = ""
+
+    def start(self, step_name: str):
+        """Start timing a step."""
+        self._current_step = step_name
+        self._start_time = time.time()
+
+    def stop(self):
+        """Stop timing the current step."""
+        if self._current_step:
+            elapsed = time.time() - self._start_time
+            self.timings[self._current_step] = elapsed
+            self._current_step = ""
+
+    def get_total(self) -> float:
+        """Get total time across all steps."""
+        return sum(self.timings.values())
+
+    def print_summary(self):
+        """Print timing summary."""
+        total = self.get_total()
+        print()
+        print("-" * 70)
+        print("  PIPELINE TIMING")
+        print("-" * 70)
+        for step, elapsed in self.timings.items():
+            pct = (elapsed / total * 100) if total > 0 else 0
+            print(f"  {step:30} {elapsed:8.2f}s  ({pct:5.1f}%)")
+        print("-" * 70)
+        print(f"  {'TOTAL':30} {total:8.2f}s  (100.0%)")
+        print("-" * 70)
 
 
 class Backtester:
@@ -51,7 +91,7 @@ class Backtester:
         self.faiss_nprobe = faiss_nprobe
         self.min_expectancy = min_expectancy
         self.max_distance = max_distance
-        self.blocked_regimes = blocked_regimes or ["HIGH_VOL"]
+        self.blocked_regimes = blocked_regimes if blocked_regimes is not None else ["HIGH_VOL"]
         self.trailing_stop_pct = trailing_stop_pct
         self.trailing_stop_activation_pct = trailing_stop_activation_pct
 
@@ -68,7 +108,9 @@ class Backtester:
         outcome_df: pd.DataFrame,
         regime_df: pd.DataFrame,
         ohlcv_df: pd.DataFrame,
-        pair: str = "UNKNOWN"
+        pair: str = "UNKNOWN",
+        similarity_engine=None,  # Optional pre-built SimilarityEngine
+        progress_callback=None   # Optional callback(current, total) for progress updates
     ) -> BacktestResult:
         """
         Run walk-forward backtest.
@@ -78,6 +120,8 @@ class Backtester:
             regime_df: DataFrame with regime labels
             ohlcv_df: Raw OHLCV data for trade simulation
             pair: Trading pair name
+            similarity_engine: Optional pre-built SimilarityEngine (for grid search optimization)
+            progress_callback: Optional callback(current, total) for inline progress updates
 
         Returns:
             BacktestResult with all trades and metrics
@@ -86,7 +130,11 @@ class Backtester:
         from similarity.similarity_engine import SimilarityEngine
         from decision.decision_engine import DecisionEngine
 
+        # Initialize pipeline timer
+        timer = PipelineTimer()
+
         # 1. Split data into training and test
+        timer.start("1. Data splitting")
         split_idx = int(len(outcome_df) * self.train_ratio)
         train_outcomes = outcome_df.iloc[:split_idx]
         test_outcomes = outcome_df.iloc[split_idx:]
@@ -112,17 +160,26 @@ class Backtester:
             print("=" * 70)
             print()
 
-        # 2. Build similarity engine on TRAINING data only
-        similarity = SimilarityEngine(
-            outcome_df=train_outcomes,
-            regime_df=regime_df,
-            k=self.k,
-            backend=self.similarity_backend,
-            faiss_nlist=self.faiss_nlist,
-            faiss_nprobe=self.faiss_nprobe
-        )
+        timer.stop()  # Stop data splitting timer
+
+        # 2. Build similarity engine on TRAINING data only (or use pre-built)
+        timer.start("2. Build similarity engine")
+        if similarity_engine is not None:
+            # Use pre-built engine (skip building)
+            similarity = similarity_engine
+        else:
+            similarity = SimilarityEngine(
+                outcome_df=train_outcomes,
+                regime_df=regime_df,
+                k=self.k,
+                backend=self.similarity_backend,
+                faiss_nlist=self.faiss_nlist,
+                faiss_nprobe=self.faiss_nprobe
+            )
+        timer.stop()
 
         # 3. Initialize decision engine
+        timer.start("3. Init decision engine")
         decision_engine = DecisionEngine(
             capital=self.capital,
             risk_per_trade=self.risk_per_trade,
@@ -130,17 +187,21 @@ class Backtester:
             max_distance=self.max_distance,
             blocked_regimes=self.blocked_regimes
         )
+        timer.stop()
 
         # 4. Walk forward through test period
+        timer.start("4. Walk-forward simulation")
         trades: List[Trade] = []
         active_trade: Optional[Trade] = None
         signals_generated = 0
         no_trade_reasons = {}
         bar_counter = 0
+        total_bars = len(test_outcomes)
+        progress_update_interval = max(1, total_bars // 20)  # Update ~20 times
 
         # Progress bar for test period
         iterator = test_outcomes.iterrows()
-        if self.verbose:
+        if self.verbose and progress_callback is None:
             iterator = tqdm(
                 list(iterator),
                 desc="Backtesting",
@@ -149,6 +210,11 @@ class Backtester:
 
         for timestamp, state_row in iterator:
             bar_counter += 1
+
+            # Call progress callback periodically
+            if progress_callback and bar_counter % progress_update_interval == 0:
+                progress_callback(bar_counter, total_bars)
+
             # Skip if we don't have OHLCV data for this bar
             if timestamp not in ohlcv_df.index:
                 continue
@@ -223,6 +289,8 @@ class Backtester:
             )
             trades.append(active_trade)
 
+        timer.stop()  # Stop walk-forward timer
+
         if self.verbose:
             print()
             print(f"  Signals Generated: {signals_generated}")
@@ -235,6 +303,7 @@ class Backtester:
                 print()
 
         # 5. Calculate metrics
+        timer.start("5. Calculate metrics")
         result = calculate_metrics(
             trades=trades,
             capital=self.capital,
@@ -244,6 +313,14 @@ class Backtester:
             test_end=test_end,
             pair=pair
         )
+        timer.stop()
+
+        # Print timing summary
+        if self.verbose:
+            timer.print_summary()
+
+        # Store timing in result for programmatic access
+        result.pipeline_timing = timer.timings
 
         return result
 

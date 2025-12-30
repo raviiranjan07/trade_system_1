@@ -22,8 +22,10 @@ def compute_mfe_mae(
     Compute MFE and MAE for a single horizon.
     Returns two Series: mfe, mae (as percentages)
     """
-    future_max = prices.shift(-1).rolling(horizon).max()
-    future_min = prices.shift(-1).rolling(horizon).min()
+    # Forward-looking max/min: reverse, apply rolling, reverse back, then shift
+    # This correctly finds max/min in the NEXT horizon bars
+    future_max = prices.iloc[::-1].rolling(horizon).max().iloc[::-1].shift(-1)
+    future_min = prices.iloc[::-1].rolling(horizon).min().iloc[::-1].shift(-1)
 
     entry = prices
 

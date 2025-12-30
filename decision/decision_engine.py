@@ -14,7 +14,7 @@ class DecisionEngine:
         self.risk_per_trade = risk_per_trade
         self.min_expectancy = min_expectancy
         self.max_distance = max_distance
-        self.blocked_regimes = blocked_regimes or ["HIGH_VOL"]
+        self.blocked_regimes = blocked_regimes if blocked_regimes is not None else ["HIGH_VOL"]
 
     def decide(
         self,

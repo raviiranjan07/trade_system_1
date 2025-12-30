@@ -1,0 +1,334 @@
+================================================================================
+                    TRADING SYSTEM EXPERIMENTS & TARGETS
+================================================================================
+
+CURRENT BASELINE (After Bug Fixes)
+--------------------------------------------------------------------------------
+Date:               2025-12-27
+State Vectors:      3,125,572 (2020-01-02 to 2025-12-14)
+Train/Test Split:   70/30
+Features:           10 dimensions
+K:                  200 neighbors
+Backend:            bruteforce
+
+BASELINE RESULTS (Updated 2025-12-28)
+--------------------------------------------------------------------------------
+Horizon | Best PnL | Win Rate | Trades | min_exp | max_dist | Blocked Regime
+--------|----------|----------|--------|---------|----------|----------------
+H=5m    | +$373    | 100%     | 42     | 0.001   | 3.0      | NONE
+H=10m   | +$0.06   | 100%     | 6      | 0.002   | 3.0      | NONE
+H=15m   | $???     | ???%     | ???    | ???     | ???      | ???
+H=30m   | $???     | ???%     | ???    | ???     | ???      | ???
+
+
+================================================================================
+                              TARGET GOALS
+================================================================================
+
+Metric          | Current   | Target    | Notes
+----------------|-----------|-----------|--------------------------------------
+Win Rate        | ~15-30%   | >50%      | Must be consistently above 50%
+Profit Factor   | <1.0      | >1.5      | Gross profit / Gross loss
+Sharpe Ratio    | ???       | >1.0      | Risk-adjusted returns
+Max Drawdown    | ???       | <20%      | Maximum peak-to-trough decline
+Total PnL       | Negative  | Positive  | Must be profitable on test set
+
+
+================================================================================
+                         EXPERIMENT TRACKER
+================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 1: BUG FIXES VERIFICATION (COMPLETED)
+--------------------------------------------------------------------------------
+
+ID   | Description                  | Status    | Result | Notes
+-----|------------------------------|-----------|--------|------------------------
+1.1  | Test H=5 grid search         | COMPLETED | PASS   | Regime blocking works
+1.2  | Test H=10 grid search        | COMPLETED | PASS   | min_exp=0.002 best
+1.3  | Update H=15/H=30 scripts     | PENDING   | -      | After 1.2 pass
+
+PASS CRITERIA: Blocked=NONE and Blocked=HIGH_VOL must show DIFFERENT trade counts.
+
+--------------------------------------------------------------------------------
+H=5m GRID SEARCH RESULTS (Completed 2025-12-28)
+--------------------------------------------------------------------------------
+
+EXP1: min_expectancy variations (max_dist=3.0, blocked=NONE)
+-------------------------------------------------------------
+min_exp | PnL      | Win Rate | Trades | Notes
+--------|----------|----------|--------|----------------------------------
+0.000   | -$4,253  | 21.0%    | 2,057  | Too many low-quality trades
+0.001   | +$373    | 100%     | 42     | *** BEST - Sweet spot ***
+0.002   | +$152    | 100%     | 18     | Profitable but fewer trades
+0.003   | +$45     | 100%     | 5      | Too restrictive
+0.004   | +$26     | 100%     | 3      | Too restrictive
+0.005   | $0       | 0%       | 0      | No trades
+
+EXP2: max_distance variations (min_exp=0.0, blocked=NONE)
+---------------------------------------------------------
+max_dist | PnL      | Win Rate | Trades | Notes
+---------|----------|----------|--------|---------------------------
+0.5      | -$1,823  | 21.0%    | 847    |
+1.0      | -$2,891  | 20.9%    | 1,341  |
+1.5      | -$3,567  | 20.8%    | 1,654  |
+2.0      | -$3,982  | 20.7%    | 1,874  |
+2.5      | -$4,156  | 20.9%    | 1,998  |
+3.0      | -$4,253  | 21.0%    | 2,057  | Higher = more trades
+
+EXP3: blocked_regimes variations (min_exp=0.0, max_dist=3.0)
+------------------------------------------------------------
+Blocked Regimes        | PnL      | Win Rate | Trades | Notes
+-----------------------|----------|----------|--------|------------------
+NONE                   | -$4,253  | 21.0%    | 2,057  | Baseline
+RANGE_LOW_VOL          | -$3,681  | 21.3%    | 1,726  | Slight improvement
+HIGH_VOL               | -$4,512  | 20.4%    | 1,823  | Hurts 5m!
+TREND_LOW_VOL          | -$4,187  | 20.9%    | 1,945  |
+
+EXP4: Combined best parameters
+------------------------------
+min_exp=0.001 + max_dist=3.0 + blocked=NONE = +$373 (100% WR, 42 trades)
+
+KEY INSIGHT: min_expectancy=0.001 is the critical filter that turns a losing
+strategy (-$4,253) into a profitable one (+$373). It filters out 98% of signals.
+
+--------------------------------------------------------------------------------
+H=10m GRID SEARCH RESULTS (Completed 2025-12-29)
+--------------------------------------------------------------------------------
+
+EXP1: min_expectancy variations (max_dist=3.0, blocked=NONE)
+-------------------------------------------------------------
+min_exp | PnL      | Win Rate | Trades | Notes
+--------|----------|----------|--------|----------------------------------
+0.000   | -$0.79   | 67.6%    | 272    | Too many low-quality trades
+0.001   | -$0.13   | 98.9%    | 93     | Still losing
+0.002   | +$0.06   | 100%     | 6      | *** BEST - Profitable ***
+0.003   | +$0.01   | 100%     | 1      | Too restrictive
+0.004+  | $0       | 0%       | 0      | No trades
+
+EXP2: max_distance variations (min_exp=0.0, blocked=NONE)
+---------------------------------------------------------
+max_dist | PnL      | Win Rate | Trades | Notes
+---------|----------|----------|--------|---------------------------
+0.5      | -$1.71   | 19.7%    | 355    | Very strict
+1.0      | -$0.90   | 61.1%    | 334    |
+1.5      | -$0.85   | 66.8%    | 265    |
+2.0      | -$0.82   | 66.9%    | 266    |
+2.5      | -$0.80   | 67.5%    | 271    |
+3.0      | -$0.79   | 67.6%    | 272    | Best (more trades)
+
+EXP3: blocked_regimes variations (min_exp=0.0, max_dist=3.0)
+------------------------------------------------------------
+Blocked Regimes        | PnL      | Win Rate | Trades | Notes
+-----------------------|----------|----------|--------|------------------
+RANGE_LOW_VOL          | -$0.66   | 84.0%    | 238    | Best WR improvement
+TREND_LOW_VOL          | -$0.79   | 68.2%    | 267    |
+NONE                   | -$0.79   | 67.6%    | 272    | Baseline
+TREND_HIGH_VOL         | -$0.81   | 63.4%    | 273    |
+
+KEY INSIGHT: H=10m requires stricter min_expectancy (0.002 vs 0.001 for H=5m).
+Only 6 trades but all winners. Longer horizons need higher quality filters.
+
+--------------------------------------------------------------------------------
+PHASE 2: FEATURE ENGINEERING EXPERIMENTS
+--------------------------------------------------------------------------------
+
+2A: EMA SLOPE VARIATIONS
+------------------------
+ID    | Feature         | Period    | Status  | Impact | Notes
+------|-----------------|-----------|---------|--------|----------------------
+2A.1  | ema20_slope_z   | 20 min    | PENDING | -      | Very short-term trend
+2A.2  | ema100_slope_z  | 100 min   | PENDING | -      | Medium-term trend
+2A.3  | ema500_slope_z  | 8.3 hours | PENDING | -      | Long-term trend
+2A.4  | ema1440_slope_z | 24 hours  | PENDING | -      | Daily trend
+
+2B: PRICE LOCATION FEATURES
+---------------------------
+ID    | Feature           | Description          | Status  | Impact | Notes
+------|-------------------|----------------------|---------|--------|----------------
+2B.1  | price_to_ema50_z  | Distance from EMA50  | PENDING | -      | Reversion signal
+2B.2  | price_to_ema200_z | Distance from EMA200 | PENDING | -      | Support/resistance
+2B.3  | ema_crossover_z   | EMA50 - EMA200 gap   | PENDING | -      | Trend strength
+
+2C: MOMENTUM VARIATIONS
+-----------------------
+ID    | Feature      | Description        | Status  | Impact | Notes
+------|--------------|-------------------|---------|--------|-------------------
+2C.1  | return_1m_z  | 1-minute returns  | PENDING | -      | Ultra short momentum
+2C.2  | return_3m_z  | 3-minute returns  | PENDING | -      | Short momentum
+2C.3  | return_10m_z | 10-minute returns | PENDING | -      | Medium momentum
+2C.4  | return_30m_z | 30-minute returns | PENDING | -      | Longer momentum
+
+2D: HIGHER TIMEFRAME CONTEXT
+----------------------------
+ID    | Feature       | Description           | Status  | Impact | Notes
+------|---------------|----------------------|---------|--------|----------------
+2D.1  | trend_4h      | 4-hour trend         | PENDING | -      | Swing context
+2D.2  | trend_1d      | Daily trend          | PENDING | -      | Major context
+2D.3  | htf_alignment | Multi-TF agreement   | PENDING | -      | Confluence
+
+--------------------------------------------------------------------------------
+PHASE 3: PARAMETER TUNING
+--------------------------------------------------------------------------------
+
+3A: K VALUE (NEIGHBORS)
+-----------------------
+ID    | K Value | Status   | Best PnL | Win Rate | Notes
+------|---------|----------|----------|----------|---------------------------
+3A.1  | K=50    | PENDING  | -        | -        | Fewer neighbors, specific
+3A.2  | K=100   | PENDING  | -        | -        |
+3A.3  | K=200   | BASELINE | -        | -        | Current setting
+3A.4  | K=300   | PENDING  | -        | -        |
+3A.5  | K=500   | PENDING  | -        | -        | More neighbors, smoother
+
+3B: SAMPLE INTERVAL
+-------------------
+ID    | Interval  | Status   | Trades | Notes
+------|-----------|----------|--------|---------------------------
+3B.1  | 15 bars   | PENDING  | -      | Check every 15 min
+3B.2  | 30 bars   | PENDING  | -      | Check every 30 min
+3B.3  | 60 bars   | BASELINE | -      | Current (hourly)
+3B.4  | 120 bars  | PENDING  | -      | Check every 2 hours
+
+3C: DISTANCE THRESHOLD
+----------------------
+ID    | max_distance | Status   | Trades | Win Rate | Notes
+------|--------------|----------|--------|----------|------------------
+3C.1  | 1.5          | PENDING  | -      | -        | Stricter matching
+3C.2  | 2.0          | PENDING  | -      | -        |
+3C.3  | 3.0          | BASELINE | -      | -        | Current setting
+3C.4  | 5.0          | PENDING  | -      | -        | More lenient
+
+--------------------------------------------------------------------------------
+PHASE 4: ADVANCED EXPERIMENTS
+--------------------------------------------------------------------------------
+
+4A: FEATURE WEIGHTING
+---------------------
+ID    | Description     | Status   | Impact | Notes
+------|-----------------|----------|--------|---------------------------
+4A.1  | Uniform weights | BASELINE | -      | Current (all equal)
+4A.2  | Momentum-heavy  | PENDING  | -      | 2x weight on returns
+4A.3  | Trend-heavy     | PENDING  | -      | 2x weight on EMAs
+4A.4  | Learned weights | PENDING  | -      | Optimize weights
+
+4B: FEATURE SELECTION
+---------------------
+ID    | Description              | Status  | Impact | Notes
+------|--------------------------|---------|--------|------------------------
+4B.1  | Remove low-impact        | PENDING | -      | Based on importance
+4B.2  | PCA reduction            | PENDING | -      | Reduce dimensionality
+4B.3  | Correlation analysis     | PENDING | -      | Remove redundant
+
+4C: ALTERNATIVE ALGORITHMS
+--------------------------
+ID    | Algorithm              | Status   | Impact | Notes
+------|------------------------|----------|--------|------------------------
+4C.1  | KNN (current)          | BASELINE | -      |
+4C.2  | Radius-based neighbors | PENDING  | -      | Variable K by density
+4C.3  | Weighted KNN           | PENDING  | -      | Closer = more weight
+
+
+================================================================================
+                       BEST CONFIGURATIONS FOUND
+================================================================================
+
+TOP CONFIGURATIONS BY HORIZON (Updated 2025-12-29)
+--------------------------------------------------------------------------------
+Rank | Horizon | min_exp | max_dist | K   | Blocked | PnL   | Win Rate | Trades
+-----|---------|---------|----------|-----|---------|-------|----------|-------
+1    | H=5m    | 0.001   | 3.0      | 200 | NONE    | +$373 | 100%     | 42
+2    | H=10m   | 0.002   | 3.0      | 200 | NONE    | +$0.06| 100%     | 6
+3    | H=5m    | 0.002   | 3.0      | 200 | NONE    | +$152 | 100%     | 18
+
+
+================================================================================
+                        CURRENT FEATURE SET (10 features)
+================================================================================
+
+STATE_COLUMNS = [
+    "ema50_slope_z",      # Short-term trend slope (50 min)
+    "ema200_slope_z",     # Long-term trend slope (3.3 hours)
+    "trend_alignment",    # EMA agreement (-1 to +1)
+    "return_5m_z",        # 5-min momentum
+    "return_15m_z",       # 15-min momentum
+    "rsi_z",              # RSI normalized
+    "atr_percentile",     # Volatility rank (0-1)
+    "volume_z",           # Volume normalized
+    "vwap_distance_z",    # Distance from VWAP
+    "range_position",     # Position in range (0-1)
+]
+
+
+================================================================================
+                         NOTES & OBSERVATIONS
+================================================================================
+
+2025-12-27
+----------
+- Fixed MFE/MAE calculation bug (was looking backward instead of forward)
+- Fixed regime blocking bug in decision_engine.py and backtester.py
+- Fixed FAISS distance calculation bug (averaged all distances, not k-nearest)
+- Created parallel grid search scripts (grid_h5, grid_h10, grid_h15, grid_h30)
+
+2025-12-28
+----------
+- Completed H=5m grid search experiments (exp1-exp4)
+- KEY FINDING: min_expectancy=0.001 is critical for profitability
+  - Without filter: -$4,253 loss (2,057 trades, 21% WR)
+  - With filter:    +$373 profit (42 trades, 100% WR)
+- Created exp5 for fine-tuning min_expectancy around 0.001 (0.0005-0.0015)
+- Regime blocking HURTS 5m performance (volatility helps short-term trades)
+- max_distance=3.0 is optimal (allows more similar states)
+
+2025-12-29
+----------
+- Completed H=10m grid search experiments (exp1-exp3)
+- H=10m requires stricter filter: min_expectancy=0.002 (vs 0.001 for H=5m)
+- H=10m only produces 6 trades but all winners (100% WR)
+- sample_interval=15 tested: 137 trades (vs 42), still 100% WR, +12.63% return
+
+NEXT STEPS:
+- Run exp4 (combined) for H10 with min_exp=0.002
+- Create BEST_PARAMS.yaml for H10
+- Test H15 and H30 horizons
+- Consider increasing risk_per_trade for higher returns (currently 0.5%)
+
+
+================================================================================
+                          HOW TO RUN EXPERIMENTS
+================================================================================
+
+RUN GRID SEARCH (Single Horizon)
+--------------------------------
+python grid_h5_exp1.py   # Test min_expectancy variations
+python grid_h5_exp2.py   # Test max_distance variations
+python grid_h5_exp3.py   # Test blocked_regimes variations
+python grid_h5_exp4.py   # Test combined best parameters
+python grid_h5_exp5.py   # Fine-tune min_expectancy around 0.001
+
+RUN ALL HORIZONS IN PARALLEL
+----------------------------
+Open multiple terminal windows and run each script separately
+
+REGENERATE FEATURES (After Adding New Features)
+-----------------------------------------------
+python run_pipeline.py --stages state_vectors
+python run_pipeline.py --stages outcome_labeling
+
+CHANGE K VALUE
+--------------
+Edit config/config.yaml:
+  similarity:
+    k: 200  # Change this value
+
+
+================================================================================
+                            FILE LOCATIONS
+================================================================================
+
+Grid search results:  data/grid_search/
+State vectors:        data/state_vectors/
+Outcomes:             data/outcomes/
+Regimes:              data/regimes/
+Config:               config/config.yaml

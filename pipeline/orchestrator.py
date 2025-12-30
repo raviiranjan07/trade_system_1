@@ -11,13 +11,66 @@ Runs all trading system stages in sequence:
 
 import logging
 import sys
+import time
+import threading
 import traceback
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 import pandas as pd
+
+
+class LiveTimer:
+    """
+    Live elapsed timer that shows running time while a process executes.
+    Updates in place showing elapsed seconds.
+    """
+
+    def __init__(self, message: str = "Processing"):
+        self.message = message
+        self.running = False
+        self._thread = None
+        self._start_time = 0
+
+    def start(self):
+        """Start the live timer display."""
+        self.running = True
+        self._start_time = time.time()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def _run(self):
+        """Timer thread that updates elapsed time."""
+        spinner = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+        idx = 0
+        while self.running:
+            elapsed = time.time() - self._start_time
+            mins, secs = divmod(int(elapsed), 60)
+            if mins > 0:
+                time_str = f"{mins}m {secs:02d}s"
+            else:
+                time_str = f"{secs}s"
+            # Print with carriage return to update in place
+            print(f"\r      {spinner[idx]} {self.message}... [{time_str}]", end="", flush=True)
+            idx = (idx + 1) % len(spinner)
+            time.sleep(0.1)
+
+    def stop(self) -> float:
+        """Stop the timer and return elapsed time."""
+        self.running = False
+        elapsed = time.time() - self._start_time
+        if self._thread:
+            self._thread.join(timeout=0.5)
+        # Clear the line and print final time
+        mins, secs = divmod(int(elapsed), 60)
+        if mins > 0:
+            time_str = f"{mins}m {secs:02d}s"
+        else:
+            time_str = f"{elapsed:.1f}s"
+        print(f"\r      ✓ {self.message} completed [{time_str}]" + " " * 20)
+        return elapsed
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -202,7 +255,10 @@ class PipelineOrchestrator:
             # Stage 2: Regime Labeling
             if "regime_labeling" in stages:
                 self.logger.info("[2/5] Labeling regimes...")
+                timer = LiveTimer("Classifying market regimes")
+                timer.start()
                 self.regime_df = self._run_regime_labeling(pair, timeframe)
+                timer.stop()
                 completed.append("regime_labeling")
                 result.regime_df = self.regime_df
                 self.logger.info(f"      Regime distribution:\n{self.regime_df['regime'].value_counts().to_string()}")
@@ -212,7 +268,10 @@ class PipelineOrchestrator:
             # Stage 3: Outcome Labeling
             if "outcome_labeling" in stages:
                 self.logger.info("[3/5] Labeling outcomes...")
+                timer = LiveTimer("Computing MFE/MAE outcomes")
+                timer.start()
                 self.outcome_df = self._run_outcome_labeling(pair, timeframe)
+                timer.stop()
                 completed.append("outcome_labeling")
                 result.outcome_df = self.outcome_df
                 self.logger.info(f"      Outcomes computed for {len(self.outcome_df)} states")
@@ -224,14 +283,20 @@ class PipelineOrchestrator:
             # Stage 4: Similarity Analysis
             if "similarity" in stages:
                 self.logger.info("[4/5] Running similarity analysis...")
+                timer = LiveTimer("Finding similar historical states")
+                timer.start()
                 result.similarity_result = self._run_similarity(pair, timeframe)
+                timer.stop()
                 completed.append("similarity")
                 self.logger.info(f"      Similarity result: expectancy={result.similarity_result.get('expectancy', 'N/A'):.4f}")
 
             # Stage 5: Decision
             if "decision" in stages:
                 self.logger.info("[5/5] Generating decision...")
+                timer = LiveTimer("Generating trading decision")
+                timer.start()
                 result.decision = self._run_decision(pair, timeframe)
+                timer.stop()
                 completed.append("decision")
                 self.logger.info(f"      Decision: {result.decision.get('action', 'N/A')} {result.decision.get('direction', '')}")
 
@@ -312,7 +377,9 @@ class PipelineOrchestrator:
         self, pair: str, start_date: str, end_date: str, timeframe: str
     ) -> pd.DataFrame:
         """Stage 1: Build state vectors from raw data."""
-        # Fetch from DB
+        # Sub-stage 1a: Fetch from DB
+        timer = LiveTimer("Fetching OHLCV data from database")
+        timer.start()
         loader = OHLCVLoader()
         df = loader.fetch_ohlcv(pair=pair, start_time=start_date, end_time=end_date)
 
@@ -320,15 +387,29 @@ class PipelineOrchestrator:
         max_gap = self.config.get("data.max_gap_tolerance", 0)
         fill_gaps = self.config.get("data.fill_small_gaps", False)
         df = validate_ohlcv(df, max_gap_tolerance=max_gap, fill_gaps=fill_gaps)
+        timer.stop()
+        self.logger.info(f"      Loaded {len(df):,} candles")
 
-        # Compute features
+        # Save OHLCV to parquet for offline backtesting (grid search)
+        ohlcv_dir = Path(self.config.get("paths.data_dir", "data")) / "ohlcv"
+        ohlcv_dir.mkdir(parents=True, exist_ok=True)
+        ohlcv_path = ohlcv_dir / f"{pair}_{timeframe}_ohlcv.parquet"
+        df[["open", "high", "low", "close", "volume"]].to_parquet(ohlcv_path, engine="pyarrow")
+        self.logger.info(f"      OHLCV saved to {ohlcv_path}")
+
+        # Sub-stage 1b: Compute features
+        timer = LiveTimer("Computing technical features")
+        timer.start()
         df = compute_trend_features(df)
         df = compute_momentum_features(df)
         df = compute_volatility_features(df)
         df = compute_volume_features(df)
         df = compute_location_features(df)
+        timer.stop()
 
-        # Normalize
+        # Sub-stage 1c: Normalize and build state vectors
+        timer = LiveTimer("Normalizing & building state vectors")
+        timer.start()
         window = self.config.get("normalization.window", 2000)
         norm = RollingNormalizer(window)
 
@@ -347,6 +428,7 @@ class PipelineOrchestrator:
 
         # Save
         save_state_vectors_parquet(df=state_df, pair=pair, timeframe=timeframe)
+        timer.stop()
 
         return state_df
 
