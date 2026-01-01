@@ -197,7 +197,7 @@ DATABASE_URL=postgresql://username:password@host:5432/crypto_data
 ### Step 6: Verify Installation
 
 ```bash
-python run_pipeline.py --dry-run
+python scripts/run_pipeline.py --dry-run
 ```
 
 Expected output:
@@ -346,22 +346,22 @@ logging:
 
 **Run all stages:**
 ```bash
-python run_pipeline.py
+python scripts/run_pipeline.py
 ```
 
 **Run specific stages:**
 ```bash
-python run_pipeline.py --stages state_vectors regime_labeling
+python scripts/run_pipeline.py --stages state_vectors regime_labeling
 ```
 
 **Override parameters:**
 ```bash
-python run_pipeline.py --pair ETHUSDT --start 2023-01-01 --end 2023-12-31
+python scripts/run_pipeline.py --pair ETHUSDT --start 2023-01-01 --end 2023-12-31
 ```
 
 **Dry run (preview without executing):**
 ```bash
-python run_pipeline.py --dry-run
+python scripts/run_pipeline.py --dry-run
 ```
 
 ### Stage Details
@@ -803,27 +803,27 @@ Test period: Walk forward and make decisions
 
 **Basic backtest:**
 ```bash
-python run_backtest.py
+python scripts/run_backtest.py
 ```
 
 **With custom capital:**
 ```bash
-python run_backtest.py --capital 50000
+python scripts/run_backtest.py --capital 50000
 ```
 
 **With custom split:**
 ```bash
-python run_backtest.py --train-ratio 0.80
+python scripts/run_backtest.py --train-ratio 0.80
 ```
 
 **Using BEST_PARAMS.yaml:**
 ```bash
-python run_backtest.py --params-file data/grid_search/h5/BEST_PARAMS.yaml
+python scripts/run_backtest.py --params-file data/grid_search/h5/BEST_PARAMS.yaml
 ```
 
 **Save trade log:**
 ```bash
-python run_backtest.py --save-trades
+python scripts/run_backtest.py --save-trades
 ```
 
 ### Execution Model
@@ -1109,7 +1109,7 @@ performance:
 ### Using in Backtest
 
 ```bash
-python run_backtest.py --params-file data/grid_search/h5/BEST_PARAMS.yaml
+python scripts/run_backtest.py --params-file data/grid_search/h5/BEST_PARAMS.yaml
 ```
 
 This loads:
@@ -1271,7 +1271,7 @@ ERROR: No outcome files found for BTCUSDT
 
 **Solution:**
 ```bash
-python run_pipeline.py
+python scripts/run_pipeline.py
 ```
 
 ### Issue: FAISS Not Found

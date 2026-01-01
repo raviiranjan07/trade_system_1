@@ -51,17 +51,13 @@ class DecisionEngine:
         # -------------------------
         # 3️⃣ Risk parameters
         # -------------------------
-        stop_pct = abs(similarity_result["mae_5pct"])
+        stop_pct = 0.0  # Disabled - best backtest results were without stop loss
         take_profit_pct = similarity_result["mean_mfe"]
 
-        if stop_pct <= 0:
-            return {"action": "NO_TRADE", "reason": "INVALID_RISK"}
-
         # -------------------------
-        # 4️⃣ Position sizing
+        # 4️⃣ Position sizing (fixed size since no stop loss)
         # -------------------------
-        risk_amount = self.capital * self.risk_per_trade
-        position_size = risk_amount / stop_pct
+        position_size = self.capital * self.risk_per_trade * 10  # ~5% of capital per trade
 
         # -------------------------
         # 5️⃣ Position cap (safety)

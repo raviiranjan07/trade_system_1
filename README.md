@@ -81,35 +81,35 @@ decision:
 
 ```bash
 # Run all stages
-python run_pipeline.py
+python scripts/run_pipeline.py
 
 # Run specific stages
-python run_pipeline.py --stages state_vectors regime_labeling
+python scripts/run_pipeline.py --stages state_vectors regime_labeling
 
 # Override pair and dates
-python run_pipeline.py --pair ETHUSDT --start 2023-06-01 --end 2023-09-01
+python scripts/run_pipeline.py --pair ETHUSDT --start 2023-06-01 --end 2023-09-01
 
 # Dry run (show plan without executing)
-python run_pipeline.py --dry-run
+python scripts/run_pipeline.py --dry-run
 ```
 
 ### 4. Run Backtest
 
 ```bash
 # Default 70/30 train/test split
-python run_backtest.py
+python scripts/run_backtest.py
 
 # Custom split
-python run_backtest.py --train-ratio 0.80
+python scripts/run_backtest.py --train-ratio 0.80
 
 # Save trade log
-python run_backtest.py --save-trades
+python scripts/run_backtest.py --save-trades
 ```
 
 ### 5. Run Grid Search (Parameter Optimization)
 
 ```bash
-python run_grid_search.py
+python scripts/run_grid_search.py
 ```
 
 ---
@@ -316,66 +316,87 @@ Reports: Total trades, P&L, win rate, profit factor, Sharpe ratio for each combo
 
 ```
 trade_system_1/
-|
-├── config/
-│   ├── __init__.py           # Config loader with validation
-│   └── config.yaml           # Central configuration
-|
-├── data/
-│   ├── raw/
-│   │   └── ohlcv_loader.py   # Database fetch layer
-│   ├── validators/
-│   │   └── data_integrity.py # OHLCV validation
-│   ├── state_vectors/        # Generated state vectors (parquet)
-│   ├── regimes/              # Generated regime labels (parquet)
-│   └── outcomes/             # Generated outcomes (parquet)
-|
-├── features/                  # Feature computation
-│   ├── trend.py              # EMA slopes, trend alignment
-│   ├── momentum.py           # RSI, returns
-│   ├── volatility.py         # ATR
-│   ├── volume.py             # Volume analysis
-│   └── location.py           # VWAP distance, range position
-|
-├── state/                     # Market State Vector Engine
-│   ├── state_schema.py       # MarketState dataclass
-│   ├── normalizer.py         # Rolling z-score normalization
-│   ├── state_builder.py      # State vector construction
-│   ├── state_store.py        # Parquet persistence
-│   └── state_validator.py    # State validation
-|
-├── regime/
-│   └── regime_labeler.py     # Market regime classification
-|
-├── outcomes/
-│   └── outcome_labeler.py    # MFE/MAE computation
-|
-├── similarity/
-│   └── similarity_engine.py  # KNN similarity search (bruteforce/FAISS)
-|
-├── decision/
-│   └── decision_engine.py    # Expectancy-based decisions
-|
-├── pipeline/
-│   └── orchestrator.py       # Unified pipeline runner
-|
-├── backtest/
-│   ├── backtester.py         # Walk-forward backtester
-│   ├── trade_simulator.py    # Trade execution simulation
-│   └── metrics.py            # Performance metrics
-|
-├── visualizations/
-│   ├── plot_regimes.py       # Regime visualizations
-│   ├── plot_outcomes.py      # MFE/MAE visualizations
-│   └── plot_states.py        # State vector visualizations
-|
-├── run_pipeline.py           # Main pipeline CLI
-├── run_backtest.py           # Backtesting CLI
-├── run_grid_search.py        # Parameter optimization
-├── run_visualizations.py     # Visualization generator
-├── debug_outcomes.py         # Data analysis script
+│
+├── src/trade_system/          # Main Python package
+│   ├── config/                # Configuration management
+│   │   ├── __init__.py        # Config loader with validation
+│   │   └── config.yaml        # Central configuration
+│   │
+│   ├── features/              # Feature computation
+│   │   ├── trend.py           # EMA slopes, trend alignment
+│   │   ├── momentum.py        # RSI, returns
+│   │   ├── volatility.py      # ATR
+│   │   ├── volume.py          # Volume analysis
+│   │   └── location.py        # VWAP distance, range position
+│   │
+│   ├── state/                 # Market State Vector Engine
+│   │   ├── state_schema.py    # MarketState dataclass
+│   │   ├── normalizer.py      # Rolling z-score normalization
+│   │   ├── state_builder.py   # State vector construction
+│   │   ├── state_store.py     # Parquet persistence
+│   │   └── state_validator.py # State validation
+│   │
+│   ├── regime/                # Market regime classification
+│   │   └── regime_labeler.py
+│   │
+│   ├── outcomes/              # MFE/MAE computation
+│   │   └── outcome_labeler.py
+│   │
+│   ├── similarity/            # KNN similarity search
+│   │   └── similarity_engine.py
+│   │
+│   ├── decision/              # Expectancy-based decisions
+│   │   └── decision_engine.py
+│   │
+│   ├── pipeline/              # Pipeline orchestration
+│   │   └── orchestrator.py
+│   │
+│   ├── backtest/              # Backtesting framework
+│   │   ├── backtester.py
+│   │   ├── trade_simulator.py
+│   │   └── metrics.py
+│   │
+│   ├── live/                  # Live trading
+│   │   ├── live_orchestrator.py
+│   │   ├── paper_executor.py
+│   │   └── binance_connector.py
+│   │
+│   ├── loader/                # Data loading
+│   │   └── ohlcv_loader.py
+│   │
+│   ├── validators/            # Data validation
+│   │   └── data_integrity.py
+│   │
+│   ├── visualizations/        # Charts and plots
+│   │   ├── plot_regimes.py
+│   │   ├── plot_outcomes.py
+│   │   └── plot_states.py
+│   │
+│   └── web/                   # Web dashboard
+│       ├── server.py          # FastAPI backend
+│       └── frontend/          # React frontend
+│
+├── scripts/                   # CLI scripts
+│   ├── run_pipeline.py        # Main pipeline CLI
+│   ├── run_backtest.py        # Backtesting CLI
+│   ├── run_grid_search.py     # Parameter optimization
+│   ├── run_paper_trade.py     # Paper trading CLI
+│   └── run_visualizations.py  # Visualization generator
+│
+├── data/                      # Generated data outputs
+│   ├── state_vectors/         # State vectors (parquet)
+│   ├── regimes/               # Regime labels (parquet)
+│   ├── outcomes/              # Outcome labels (parquet)
+│   └── backtest/              # Backtest results
+│
+├── docs/                      # Documentation
+│   ├── DOCUMENTATION.md
+│   ├── WEB_DASHBOARD.md
+│   └── PAPER_TRADING_SYSTEM.md
+│
 ├── requirements.txt
-└── .env                      # Database URL (gitignored)
+├── pyproject.toml
+└── .env                       # Database URL (gitignored)
 ```
 
 ---
@@ -384,12 +405,12 @@ trade_system_1/
 
 ```bash
 # Generate all visualizations
-python run_visualizations.py
+python scripts/run_visualizations.py
 
 # Generate specific chart types
-python run_visualizations.py --type regimes
-python run_visualizations.py --type outcomes
-python run_visualizations.py --type states
+python scripts/run_visualizations.py --type regimes
+python scripts/run_visualizations.py --type outcomes
+python scripts/run_visualizations.py --type states
 ```
 
 ### Available Charts

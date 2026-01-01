@@ -1,11 +1,9 @@
 import pandas as pd
 import numpy as np
 from typing import Tuple, List
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from exceptions import DataValidationError
+from ..exceptions import DataValidationError
 
 
 def validate_ohlcv(

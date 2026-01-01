@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from itertools import product
 import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from trade_system.config import Config
 from trade_system.backtest.backtester import Backtester

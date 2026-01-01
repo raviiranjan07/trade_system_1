@@ -301,6 +301,35 @@ NEXT STEPS:
 - EMA experiment: 21/50/100/200 performed WORSE than 50/200 (-7.21% vs +12.63%)
 - Keep EMA 50/200 configuration
 
+2026-01-01 - SAMPLE INTERVAL=1 EXPERIMENT (IN PROGRESS)
+-------------------------------------------------------
+GOAL: Test real-time signal checking (every bar) vs interval-based (every 15 bars)
+
+Current behavior (si=15):
+- Checks for signals at bars 15, 30, 45, 60... (modulo-based)
+- Misses potential signals between checks
+- Best result: +12.63%, 137 trades, 100% WR, 0% drawdown
+
+New experiment (si=1):
+- Check every bar for signals
+- Should catch more opportunities
+- May generate more trades (good or bad?)
+
+Test Configuration:
+- sample_interval: 1 (check every bar)
+- min_expectancy: 0.001
+- max_distance: 3.0
+- blocked_regimes: []
+- horizon: 5
+- capital: 200
+
+Expected outcomes:
+- More trades (checking more frequently)
+- Need to verify win rate stays high
+- Need to verify drawdown stays low
+
+STATUS: RUNNING BACKTEST...
+
 --------------------------------------------------------------------------------
 IMPORTANT: RETRAINING FOR LIVE TRADING
 --------------------------------------------------------------------------------

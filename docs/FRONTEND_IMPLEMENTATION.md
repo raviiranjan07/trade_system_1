@@ -651,7 +651,7 @@ npm install
 
 ```bash
 # Start the paper trading backend first
-python run_paper_trade.py
+python scripts/run_paper_trade.py
 
 # In another terminal, start the Vite dev server
 cd web/frontend

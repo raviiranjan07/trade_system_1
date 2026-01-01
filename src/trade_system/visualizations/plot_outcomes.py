@@ -4,15 +4,13 @@ Outcome Visualization
 Plots for visualizing MFE/MAE distributions and expectancy analysis.
 """
 
-import sys
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 from typing import Optional, Tuple, List
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import Config
+from ..config import Config
 
 # Regime color scheme (consistent with plot_regimes.py)
 REGIME_COLORS = {

@@ -20,7 +20,7 @@ import pandas as pd
 import yaml
 
 # Add project root to path for src layout
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from trade_system.config import Config
 from trade_system.backtest.backtester import Backtester, print_backtest_report
@@ -155,8 +155,9 @@ Examples:
     args = parser.parse_args()
 
     try:
-        # Load config
-        config = Config()
+        # Load config - use config_test.yaml for backtesting by default
+        config_path = Path(__file__).parent / "src" / "trade_system" / "config" / "config_test.yaml"
+        config = Config(str(config_path))
 
         # Get parameters
         pair = args.pair or config.data.get("pair", "BTCUSDT")

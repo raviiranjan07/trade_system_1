@@ -1,8 +1,8 @@
 # =============================================================================
-# Trading System Configuration
+# Trading System Configuration - TESTING
 # =============================================================================
-# This file contains all configurable parameters for the trading pipeline.
-# Modify values here instead of hardcoding in source files.
+# Use this file for backtesting experiments.
+# Production config (live/paper trading) is in config.yaml
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -88,42 +88,35 @@ similarity:
   k: 200
 
   # Default horizon for queries (must match one of outcomes.horizons)
-  default_horizon: 5    # Changed to match BEST_PARAMS.yaml (H=5 has best results)
+  default_horizon: 5
 
   # Maximum distance threshold (reject if too dissimilar)
-  max_distance: 1.5
+  max_distance: 3.0
 
   # Backend selection: "bruteforce" or "faiss"
-  # ┌────────────┬──────────────────┬────────────────────────────────────────┐
-  # │ Backend    │ Accuracy         │ Speed                                  │
-  # ├────────────┼──────────────────┼────────────────────────────────────────┤
-  # │ bruteforce │ 100% exact       │ Slow (~50ms/query on 700K samples)     │
-  # │ faiss      │ ~95-99% approx   │ Fast (~0.5ms/query)                    │
-  # └────────────┴──────────────────┴────────────────────────────────────────┘
-  # FAISS requires: pip install faiss-cpu (or faiss-gpu for GPU acceleration)
   backend: "bruteforce"
 
   # FAISS-specific settings (only used when backend: "faiss")
-  faiss_nlist: 100                 # Number of IVF clusters (higher = more accurate, slower build)
-  faiss_nprobe: 10                 # Clusters to search at query time (higher = more accurate, slower)
+  faiss_nlist: 100
+  faiss_nprobe: 10
 
 # -----------------------------------------------------------------------------
 # Decision Engine
 # -----------------------------------------------------------------------------
 decision:
   # Account settings
-  capital: 100        # Starting capital in USD
+  capital: 100        # Starting capital in USD (matches BEST_PARAMS.yaml)
   risk_per_trade: 0.005   # Risk 0.5% per trade
 
   # Position limits
   max_leverage: 1.0       # Maximum leverage multiplier
 
-  # Trade filters
+  # Trade filters (from BEST_PARAMS.yaml)
   min_expectancy: 0.001   # Best value from grid search (100% WR, zero drawdown)
-  max_distance: 3.0       # Maximum avg distance to neighbors (higher = accept more dissimilar states)
+  max_distance: 3.0       # Maximum avg distance to neighbors
 
   # Regimes to avoid trading (set to [] to trade all regimes)
-  blocked_regimes: []                    # No blocking - best for 5m horizon
+  blocked_regimes: []     # No blocking - best for 5m horizon
 
 # -----------------------------------------------------------------------------
 # Pipeline Settings
@@ -168,10 +161,8 @@ logging:
 # Backtesting
 # -----------------------------------------------------------------------------
 backtest:
-  # Train/test split (automatic split by ratio)
-  # train_ratio: 0.70               # Use first 70% for training, 30% for testing
-  train_ratio: 1.0                # LIVE TRADING: Use 100% data for training (no test set)
-
+  # Train/test split - FOR TESTING: Use 70/30 split
+  train_ratio: 0.70               # Use first 70% for training, 30% for testing
 
   # Execution settings
   slippage_pct: 0.0005            # 0.05% slippage per trade
@@ -181,12 +172,12 @@ backtest:
   max_bars_in_trade: 0             # 0 = no timeout (best backtest results)
 
   # Trailing stop settings
-  trailing_stop_pct: 0.0          # Disabled (0.5% was too tight, cut winners early)
-  trailing_stop_activation_pct: 0.0  # Activate after 0.2% profit
+  trailing_stop_pct: 0.0          # Disabled
+  trailing_stop_activation_pct: 0.0
 
   # Performance optimization
-  sample_interval: 15             # Check for signals every 15 bars (CRITICAL - si=15 is best)
-                                  # si=5,10 lose money, si=15 profits with 100% WR
+  sample_interval: 5              # EXPERIMENT: Real-time signal checking (every bar)
+                                  # Testing si=1 + min_exp=0.001 combination
 
   # Output
   save_trades: true               # Save trade log to parquet

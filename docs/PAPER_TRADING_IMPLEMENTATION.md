@@ -272,13 +272,13 @@ class Trade:
 **Usage**:
 ```bash
 # Start paper trading with default params
-python run_paper_trade.py
+python scripts/run_paper_trade.py
 
 # Start with custom params
-python run_paper_trade.py --capital 500 --horizon 5
+python scripts/run_paper_trade.py --capital 500 --horizon 5
 
 # Verbose mode
-python run_paper_trade.py --verbose
+python scripts/run_paper_trade.py --verbose
 ```
 
 **Command Line Arguments**:
@@ -398,10 +398,10 @@ cp .env.example .env
 # Edit .env with your Binance API keys
 
 # 3. Verify setup
-python run_paper_trade.py --dry-run
+python scripts/run_paper_trade.py --dry-run
 
 # 4. Start paper trading
-python run_paper_trade.py
+python scripts/run_paper_trade.py
 
 # 5. Monitor logs
 tail -f logs/paper_trading.log

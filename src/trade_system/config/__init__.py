@@ -11,9 +11,7 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from exceptions import ConfigurationError
+from ..exceptions import ConfigurationError
 
 
 class Config:

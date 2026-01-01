@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
-from exceptions import DatabaseConnectionError, DataValidationError
+from ..exceptions import DatabaseConnectionError, DataValidationError
 
 load_dotenv()
 

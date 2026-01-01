@@ -8,7 +8,7 @@ The web dashboard provides a real-time browser-based interface for monitoring pa
 
 ```bash
 # Start paper trading with web dashboard
-python run_paper_trade.py --web-port 8080
+python scripts/run_paper_trade.py --web-port 8080
 
 # Access the dashboard
 # Same machine: http://localhost:8080
@@ -155,13 +155,13 @@ The web dashboard is enabled via command-line:
 
 ```bash
 # Enable web dashboard on port 8080
-python run_paper_trade.py --web-port 8080
+python scripts/run_paper_trade.py --web-port 8080
 
 # Disable terminal dashboard, use only web
-python run_paper_trade.py --web-port 8080 --no-dashboard
+python scripts/run_paper_trade.py --web-port 8080 --no-dashboard
 
 # Custom capital with web dashboard
-python run_paper_trade.py --capital 100 --web-port 8080
+python scripts/run_paper_trade.py --capital 100 --web-port 8080
 ```
 
 ## Troubleshooting

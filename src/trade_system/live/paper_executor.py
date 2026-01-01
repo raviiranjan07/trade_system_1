@@ -5,10 +5,13 @@ Simulates order execution without placing real orders.
 Tracks positions and P&L for paper trading validation.
 """
 
+import csv
 import logging
+import os
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional, List, Dict
 from enum import Enum
 
@@ -91,6 +94,7 @@ class PaperExecutor:
         capital: float = 200.0,
         slippage_pct: float = 0.0005,      # 0.05%
         commission_pct: float = 0.0004,    # 0.04%
+        trades_csv_path: Optional[str] = None,
     ):
         """
         Initialize the paper executor.
@@ -99,6 +103,7 @@ class PaperExecutor:
             capital: Starting capital in USD
             slippage_pct: Slippage percentage (applied to entry/exit)
             commission_pct: Commission percentage per trade
+            trades_csv_path: Path to CSV file for trade logging (auto-created if not exists)
         """
         self.initial_capital = capital
         self.capital = capital
@@ -109,6 +114,53 @@ class PaperExecutor:
         self.current_position: Optional[PaperOrder] = None
         self.trade_history: List[PaperTrade] = []
         self.total_commission = 0.0
+
+        # CSV trade logging
+        if trades_csv_path is None:
+            data_dir = Path(__file__).parent.parent.parent.parent.parent / "data" / "paper_trades"
+            data_dir.mkdir(parents=True, exist_ok=True)
+            self.trades_csv_path = data_dir / "paper_trades.csv"
+        else:
+            self.trades_csv_path = Path(trades_csv_path)
+            self.trades_csv_path.parent.mkdir(parents=True, exist_ok=True)
+
+        self._init_csv()
+
+    def _init_csv(self) -> None:
+        """Initialize CSV file with headers if it doesn't exist."""
+        if not self.trades_csv_path.exists():
+            headers = [
+                "trade_id", "entry_time", "exit_time", "side", "size_usd",
+                "entry_price", "exit_price", "tp_price", "sl_price",
+                "pnl", "pnl_pct", "commission", "exit_reason", "regime"
+            ]
+            with open(self.trades_csv_path, "w", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(headers)
+            logger.info(f"Created trades CSV: {self.trades_csv_path}")
+
+    def _append_trade_to_csv(self, trade: PaperTrade) -> None:
+        """Append a completed trade to the CSV file."""
+        row = [
+            trade.trade_id,
+            trade.entry_time.isoformat(),
+            trade.exit_time.isoformat(),
+            trade.side,
+            f"{trade.size_usd:.2f}",
+            f"{trade.entry_price:.2f}",
+            f"{trade.exit_price:.2f}",
+            f"{trade.tp_price:.2f}",
+            f"{trade.sl_price:.2f}" if trade.sl_price > 0 else "None",
+            f"{trade.pnl:.4f}",
+            f"{trade.pnl_pct:.6f}",
+            f"{trade.commission:.4f}",
+            trade.exit_reason,
+            trade.regime,
+        ]
+        with open(self.trades_csv_path, "a", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(row)
+        logger.debug(f"Trade {trade.trade_id} saved to CSV")
 
     def open_position(
         self,
@@ -145,11 +197,11 @@ class PaperExecutor:
         if side == "LONG":
             entry_price = current_price * (1 + self.slippage_pct)
             tp_price = entry_price * (1 + tp_pct)
-            sl_price = entry_price * (1 - sl_pct)
+            sl_price = 0.0 if sl_pct <= 0 else entry_price * (1 - sl_pct)
         else:  # SHORT
             entry_price = current_price * (1 - self.slippage_pct)
             tp_price = entry_price * (1 - tp_pct)
-            sl_price = entry_price * (1 + sl_pct)
+            sl_price = 0.0 if sl_pct <= 0 else entry_price * (1 + sl_pct)
 
         # Calculate commission
         commission = size_usd * self.commission_pct
@@ -194,16 +246,16 @@ class PaperExecutor:
         pos = self.current_position
 
         if pos.side == OrderSide.LONG:
-            # Long: TP if price >= tp_price, SL if price <= sl_price
+            # Long: TP if price >= tp_price, SL if price <= sl_price (only if SL is set)
             if current_price >= pos.tp_price:
                 return self.close_position(current_price, ExitReason.TAKE_PROFIT)
-            elif current_price <= pos.sl_price:
+            elif pos.sl_price > 0 and current_price <= pos.sl_price:
                 return self.close_position(current_price, ExitReason.STOP_LOSS)
         else:
-            # Short: TP if price <= tp_price, SL if price >= sl_price
+            # Short: TP if price <= tp_price, SL if price >= sl_price (only if SL is set)
             if current_price <= pos.tp_price:
                 return self.close_position(current_price, ExitReason.TAKE_PROFIT)
-            elif current_price >= pos.sl_price:
+            elif pos.sl_price > 0 and current_price >= pos.sl_price:
                 return self.close_position(current_price, ExitReason.STOP_LOSS)
 
         return None
@@ -267,6 +319,9 @@ class PaperExecutor:
 
         self.trade_history.append(trade)
         self.current_position = None
+
+        # Save to CSV for persistence across restarts
+        self._append_trade_to_csv(trade)
 
         logger.info(
             f"[PAPER] Closed {trade.side} position: "

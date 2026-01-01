@@ -220,10 +220,10 @@ Every 60 minutes (sample_interval from config):
 pip install websockets aiohttp
 
 # 2. Validate setup
-python run_paper_trade.py --dry-run
+python scripts/run_paper_trade.py --dry-run
 
 # 3. Start paper trading
-python run_paper_trade.py
+python scripts/run_paper_trade.py
 ```
 
 ### Command Line Options
@@ -244,19 +244,19 @@ python run_paper_trade.py
 
 ```bash
 # Default settings (H=5, si=15, $200 capital)
-python run_paper_trade.py
+python scripts/run_paper_trade.py
 
 # Higher capital
-python run_paper_trade.py --capital 1000
+python scripts/run_paper_trade.py --capital 1000
 
 # More frequent signals
-python run_paper_trade.py --sample-interval 5
+python scripts/run_paper_trade.py --sample-interval 5
 
 # Verbose logging
-python run_paper_trade.py --verbose
+python scripts/run_paper_trade.py --verbose
 
 # Block high volatility regime
-python run_paper_trade.py --blocked-regimes HIGH_VOL
+python scripts/run_paper_trade.py --blocked-regimes HIGH_VOL
 ```
 
 ## Data Flow
@@ -422,7 +422,7 @@ DATABASE_URL=postgresql://user@host:5432/crypto_data
 ### "Missing required data files"
 Run the pipeline first to generate training data:
 ```bash
-python run_pipeline.py
+python scripts/run_pipeline.py
 ```
 
 ### "websockets package required"

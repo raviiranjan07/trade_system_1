@@ -87,6 +87,27 @@ function App() {
 
   const { status, position, stats, trades, signals, config } = data
 
+  // Show loading state while system is starting up (no price yet)
+  if (status?.status === 'STARTING' || !status?.price) {
+    return (
+      <div className="dashboard">
+        <header className="header">
+          <h1>
+            Paper Trading
+            <span className="pair">{config?.pair || 'BTCUSDT'}</span>
+          </h1>
+          <div className="header-right">
+            <span className={`status-badge starting`}>STARTING</span>
+          </div>
+        </header>
+        <div className="loading">
+          <div className="loading-spinner"></div>
+          <span>Initializing trading system...</span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="dashboard">
       {/* Header */}

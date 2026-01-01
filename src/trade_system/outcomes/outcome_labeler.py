@@ -1,13 +1,10 @@
 import os
-import sys
 from pathlib import Path
 
 import pandas as pd
 import numpy as np
 
-# Add project root to path for config import
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import Config
+from ..config import Config
 
 
 # Default horizons (fallback if config not available)
