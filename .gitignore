@@ -1,9 +1,36 @@
+# Virtual environment
 .venv
 
+# Python cache
+__pycache__/
 _pycache__/
 *.pyc
+*.pyo
+*.egg-info/
 
+# Node modules
+node_modules/
+
+# Environment variables (contains secrets)
+.env
+
+# Data files (generated)
 data/state_vectors/
-data/archive_cache
-data/ohlcv
-data/outcomes
+data/archive_cache/
+data/ohlcv/
+data/outcomes/
+data/regimes/
+data/paper_trading/
+
+# Logs
+logs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+nul

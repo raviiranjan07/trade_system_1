@@ -1,47 +1,53 @@
 # =============================================================================
-# H=5m BEST PARAMETERS (Updated: 2025-12-29)
+# H=5m BEST PARAMETERS (Updated: 2025-12-31)
 # =============================================================================
-# Based on exp1, exp2, exp3, exp4, exp5 results
-# exp5 fine-tuned min_expectancy: 0.0008 is optimal (98.9% WR, +6.32% return)
+# Based on exp1-exp5 grid search + sample_interval validation tests
+# Winner: si=15, min_exp=0.001 -> 100% WR, +12.63% return, 0% drawdown
 
 horizon: 5
 
 # Best Configuration
 best_params:
-  min_expectancy: 0.001     # From exp5 - best balance (98.9% WR, +6.32% return)
+  min_expectancy: 0.001      # Optimal - 100% WR, zero drawdown
   max_distance: 3.0          # From exp2 - allows more similar states
   blocked_regimes: []        # From exp3/exp4 - no blocking is best for 5m
 
-# Backtest Settings (must match grid search)
+# Backtest Settings
 backtest:
-  capital: 200              # Starting capital
-  max_bars_in_trade: 0        # 0 = no timeout (let trades run)
-  trailing_stop_pct: 0.0      # No trailing stop
-  sample_interval: 15         # Check signals every 15 bars
+  capital: 200               # Starting capital
+  max_bars_in_trade: 0       # 0 = no timeout (let trades run)
+  trailing_stop_pct: 0.0     # No trailing stop
+  sample_interval: 15        # Check signals every 15 bars (CRITICAL)
 
-# Performance Metrics (with min_exp=0.0008)
+# Performance Metrics (si=15, min_exp=0.001)
 performance:
-  total_pnl_pct: 6.32
-  win_rate: 98.9
-  total_trades: 93
-  profit_factor: 890.27
-  max_drawdown_pct: 0.7
-  sharpe_ratio: 2.33
+  total_pnl_pct: 12.63
+  win_rate: 100.0
+  total_trades: 137
+  profit_factor: Inf
+  max_drawdown_pct: 0.0
+  sharpe_ratio: 3.08
 
-# All exp4 Results (sorted by PnL)
-# -----------------------------------------------------------------------------
-# Rank | min_exp | max_dist | blocked           | PnL     | Trades | WR
-# -----------------------------------------------------------------------------
-# 1    | 0.001   | 3.0      | NONE              | +$372.92| 42     | 100%
-# 2    | 0.001   | 3.0      | RANGE_LOW_VOL     | +$351.64| 39     | 100%
-# 3    | 0.001   | 3.0      | RANGE+TREND_LOW   | +$351.64| 39     | 100%
-# 4    | 0.001   | 2.5      | NONE              | +$338.36| 39     | 100%
-# 5    | 0.001   | 2.5      | RANGE_LOW_VOL     | +$317.07| 36     | 100%
-# 6    | 0.001   | 2.5      | RANGE+TREND_LOW   | +$317.07| 36     | 100%
+# =============================================================================
+# Sample Interval Comparison (min_exp=0.0008)
+# =============================================================================
+# si  | Trades | WR    | P&L     | Max DD  | FORCED Loss
+# ----|--------|-------|---------|---------|-------------
+# 5   | 253    | 97.2% | -5.91%  | 24.17%  | -$48.34
+# 10  | 194    | 97.4% | -7.59%  | 22.13%  | -$44.26
+# 15  | 242    | 97.1% | +11.51% | 5.18%   | -$10.37
+
+# =============================================================================
+# min_expectancy Comparison (si=15)
+# =============================================================================
+# min_exp | Trades | WR     | P&L     | Max DD | Profit Factor
+# --------|--------|--------|---------|--------|---------------
+# 0.0008  | 242    | 97.1%  | +11.51% | 5.18%  | 3.20
+# 0.001   | 137    | 100.0% | +12.63% | 0.00%  | Inf  <- WINNER
 
 # Notes
 # -----------------------------------------------------------------------------
-# - min_expectancy is the critical parameter (turns -$4,253 into profit)
-# - exp5 tested 0.0005-0.0015: 0.0008 is optimal (98.9% WR, +6.32% return)
+# - sample_interval is CRITICAL: si=5,10 lose money, si=15 profits
+# - Higher min_expectancy (0.001) filters marginal trades -> 100% WR
+# - Fewer trades (137 vs 242) but better quality -> zero drawdown
 # - Blocking regimes HURTS 5m performance (volatility helps short-term trades)
-# - max_distance=3.0 slightly better than 2.5 (more trade opportunities)

@@ -19,14 +19,14 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
-# Add project root to path
-sys.path.insert(0, str(Path(__file__).parent))
+# Add project root to path for src layout
+sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from config import Config
-from backtest.backtester import Backtester, print_backtest_report
-from backtest.metrics import trades_to_dataframe
-from data.raw.ohlcv_loader import OHLCVLoader
-from exceptions import TradingSystemError
+from trade_system.config import Config
+from trade_system.backtest.backtester import Backtester, print_backtest_report
+from trade_system.backtest.metrics import trades_to_dataframe
+from trade_system.loader.ohlcv_loader import OHLCVLoader
+from trade_system.exceptions import TradingSystemError
 
 
 def load_outcomes(pair: str, data_dir: Path) -> pd.DataFrame:

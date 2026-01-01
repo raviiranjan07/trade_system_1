@@ -294,6 +294,55 @@ NEXT STEPS:
 - Test H15 and H30 horizons
 - Consider increasing risk_per_trade for higher returns (currently 0.5%)
 
+2025-12-31 / 2026-01-01
+-----------------------
+- Tested sample_interval variations: si=5 loses, si=15 wins (+12.63%)
+- Final H=5 params locked: si=15, exp=0.001, max_dist=3.0, blocked=NONE
+- EMA experiment: 21/50/100/200 performed WORSE than 50/200 (-7.21% vs +12.63%)
+- Keep EMA 50/200 configuration
+
+--------------------------------------------------------------------------------
+IMPORTANT: RETRAINING FOR LIVE TRADING
+--------------------------------------------------------------------------------
+
+PROBLEM: Training data is only 70% (Jan 2020 - Mar 2024)
+- Test data (Apr 2024 - Dec 2025) was NOT used for training
+- Live trading (Jan 2026+) will encounter unseen patterns
+
+SOLUTION: Periodic Retraining
+
+TODO - BEFORE PAPER TRADING:
+[ ] Update train_ratio to 1.0 in config.yaml (use all data for training)
+[ ] Re-run full pipeline to regenerate outcomes with full training set
+[ ] Rebuild similarity engine with all historical data
+
+TODO - ONGOING MAINTENANCE:
+[ ] Set up monthly/quarterly retraining schedule
+[ ] Monitor LOW_SIMILARITY rejection rate (increase = market changing)
+[ ] Add new data to training set periodically
+[ ] Re-validate best params after each retrain
+
+TODO - WEB DASHBOARD:
+[ ] Dashboard loading state - show initializing until app fully ready
+    Wait for: WebSocket connected, historical data loaded, state builder initialized
+    Files: web/state.py, web/frontend/src/App.jsx
+
+TODO - FUTURE IMPROVEMENTS:
+[ ] Bidirectional trading - query both LONG and SHORT outcomes
+    Currently only using mfe_long/mae_long for similarity matching
+    Future: Query both directions, pick one with higher positive expectancy
+    Files: similarity/similarity_engine.py, decision/decision_engine.py
+
+RETRAINING OPTIONS:
+1. Expanding Window: Keep adding new data to training set
+   - Jan 2020 → Mar 2024 (current)
+   - Jan 2020 → Dec 2025 (after update)
+   - Jan 2020 → Jun 2026 (future)
+
+2. Rolling Window: Fixed window size, drop old data
+   - Last 4 years of data
+   - Adapts to market regime changes faster
+
 
 ================================================================================
                           HOW TO RUN EXPERIMENTS

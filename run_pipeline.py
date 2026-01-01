@@ -29,17 +29,17 @@ import argparse
 import sys
 from pathlib import Path
 
-# Add project root to path
-sys.path.insert(0, str(Path(__file__).parent))
+# Add project root to path for src layout
+sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from config import get_config
-from exceptions import (
+from trade_system.config import get_config
+from trade_system.exceptions import (
     DatabaseConnectionError,
     ConfigurationError,
     DataValidationError,
     TradingSystemError,
 )
-from pipeline.orchestrator import PipelineOrchestrator
+from trade_system.pipeline.orchestrator import PipelineOrchestrator
 
 
 def parse_args() -> argparse.Namespace:
@@ -178,7 +178,7 @@ def validate_startup(config, args) -> bool:
     if "state_vectors" in stages:
         print("  Checking database connection...")
         try:
-            from data.raw.ohlcv_loader import OHLCVLoader
+            from trade_system.loader.ohlcv_loader import OHLCVLoader
             loader = OHLCVLoader()
             loader.test_connection()
             print("  [OK] Database connection successful")

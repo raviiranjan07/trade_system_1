@@ -375,3 +375,41 @@ Suggestion: Check the following:
 2025-12-27 14:07:23 | INFO     | Completed: ['outcome_labeling']
 2025-12-27 14:07:23 | INFO     | Execution time: 144.55s
 2025-12-27 14:07:23 | INFO     | ============================================================
+2026-01-01 15:01:15 | INFO     | ============================================================
+2026-01-01 15:01:15 | INFO     | PIPELINE START | BTCUSDT | 2020-01-01 to 2025-12-31
+2026-01-01 15:01:15 | INFO     | Stages to run: ['state_vectors', 'regime_labeling', 'outcome_labeling', 'similarity', 'decision']
+2026-01-01 15:01:15 | INFO     | ============================================================
+2026-01-01 15:01:15 | INFO     | [1/5] Building state vectors...
+2026-01-01 15:16:28 | INFO     |       Loaded 3,150,249 candles
+2026-01-01 15:16:31 | INFO     |       OHLCV saved to data\ohlcv\BTCUSDT_1m_ohlcv.parquet
+2026-01-01 15:28:03 | INFO     |       State vectors built: 3148230 rows
+2026-01-01 15:28:03 | INFO     | [2/5] Labeling regimes...
+2026-01-01 15:35:11 | INFO     |       Regime distribution:
+regime
+RANGE_LOW_VOL     1765906
+TREND_HIGH_VOL     647033
+HIGH_VOL           496233
+TREND_LOW_VOL      239058
+2026-01-01 15:35:11 | INFO     | [3/5] Labeling outcomes...
+2026-01-01 16:06:01 | INFO     |       Outcomes computed for 3148110 states
+2026-01-01 16:06:01 | INFO     | 
+2026-01-01 16:06:01 | INFO     |       Outcome Statistics (LONG positions):
+2026-01-01 16:06:01 | INFO     |       --------------------------------------------------
+2026-01-01 16:06:01 | INFO     |       Horizon           Avg MFE      Avg MAE   Expectancy
+2026-01-01 16:06:01 | INFO     |       --------------------------------------------------
+2026-01-01 16:06:01 | INFO     |         5m              +0.074%      -0.074%      +0.000%
+2026-01-01 16:06:01 | INFO     |        10m              +0.125%      -0.125%      -0.000%
+2026-01-01 16:06:01 | INFO     |        15m              +0.164%      -0.165%      -0.001%
+2026-01-01 16:06:01 | INFO     |        30m              +0.250%      -0.253%      -0.003%
+2026-01-01 16:06:01 | INFO     |       120m              +0.549%      -0.561%      -0.013%
+2026-01-01 16:06:01 | INFO     |       --------------------------------------------------
+2026-01-01 16:06:01 | INFO     | 
+2026-01-01 16:06:01 | INFO     | [4/5] Running similarity analysis...
+2026-01-01 16:06:05 | INFO     |       Similarity result: expectancy=0.0002
+2026-01-01 16:06:05 | INFO     | [5/5] Generating decision...
+2026-01-01 16:06:08 | INFO     |       Decision: TRADE LONG
+2026-01-01 16:06:08 | INFO     | ============================================================
+2026-01-01 16:06:08 | INFO     | PIPELINE COMPLETE
+2026-01-01 16:06:08 | INFO     | Completed: ['state_vectors', 'regime_labeling', 'outcome_labeling', 'similarity', 'decision']
+2026-01-01 16:06:08 | INFO     | Execution time: 3892.99s
+2026-01-01 16:06:08 | INFO     | ============================================================

@@ -1,0 +1,193 @@
+# =============================================================================
+# Trading System Configuration
+# =============================================================================
+# This file contains all configurable parameters for the trading pipeline.
+# Modify values here instead of hardcoding in source files.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Data Settings
+# -----------------------------------------------------------------------------
+data:
+  # Trading pair (e.g., BTCUSDT, ETHUSDT)
+  pair: "BTCUSDT"
+
+  # Timeframe for candles
+  timeframe: "1m"
+
+  # Date range for data fetching (ISO format: YYYY-MM-DD)
+  start_date: "2020-01-01"
+  end_date: "2025-12-31"
+
+  # Database connection (can be overridden by DATABASE_URL env var)
+  # For remote connection, set DATABASE_URL in .env file
+  database_url: "postgresql://localhost/crypto_data"
+
+  # Gap handling for missing candles
+  max_gap_tolerance: 5000       # Max missing candles allowed (0 = strict)
+  fill_small_gaps: false     # Auto-fill gaps <= 100 candles with forward-fill
+
+# -----------------------------------------------------------------------------
+# Feature Engineering
+# -----------------------------------------------------------------------------
+features:
+  # EMA periods for trend detection
+  ema_fast_period: 50
+  ema_slow_period: 200
+
+  # Momentum indicators
+  rsi_period: 14
+  return_periods:
+    - 5   # 5-minute returns
+    - 15  # 15-minute returns
+
+  # Volatility
+  atr_period: 14
+
+  # Location features
+  range_lookback: 50  # bars for high/low range
+
+# -----------------------------------------------------------------------------
+# State Vector Normalization
+# -----------------------------------------------------------------------------
+normalization:
+  # Rolling window for z-score and percentile calculations
+  window: 2000
+
+# -----------------------------------------------------------------------------
+# Regime Detection
+# -----------------------------------------------------------------------------
+regime:
+  # Volatility thresholds (percentile-based)
+  high_vol_threshold: 0.85      # Above this = HIGH_VOL regime
+  low_vol_threshold: 0.35       # Below this = LOW_VOL variant
+
+  # Trend strength threshold (z-score based)
+  trend_strength_threshold: 0.7
+
+  # Smoothing window for regime labels
+  smoothing_window: 30
+
+# -----------------------------------------------------------------------------
+# Outcome Labeling
+# -----------------------------------------------------------------------------
+outcomes:
+  # Forward-looking horizons (in bars/minutes)
+  horizons:
+    - 5    # 5-minute outcomes
+    - 10   # 10-minute outcomes
+    - 15   # 15-minute outcomes
+    - 30   # 30-minute outcomes
+    - 120  # 2-hour outcomes
+
+# -----------------------------------------------------------------------------
+# Similarity Engine (KNN)
+# -----------------------------------------------------------------------------
+similarity:
+  # Number of nearest neighbors
+  k: 200
+
+  # Default horizon for queries (must match one of outcomes.horizons)
+  default_horizon: 30
+
+  # Maximum distance threshold (reject if too dissimilar)
+  max_distance: 1.5
+
+  # Backend selection: "bruteforce" or "faiss"
+  # ┌────────────┬──────────────────┬────────────────────────────────────────┐
+  # │ Backend    │ Accuracy         │ Speed                                  │
+  # ├────────────┼──────────────────┼────────────────────────────────────────┤
+  # │ bruteforce │ 100% exact       │ Slow (~50ms/query on 700K samples)     │
+  # │ faiss      │ ~95-99% approx   │ Fast (~0.5ms/query)                    │
+  # └────────────┴──────────────────┴────────────────────────────────────────┘
+  # FAISS requires: pip install faiss-cpu (or faiss-gpu for GPU acceleration)
+  backend: "bruteforce"
+
+  # FAISS-specific settings (only used when backend: "faiss")
+  faiss_nlist: 100                 # Number of IVF clusters (higher = more accurate, slower build)
+  faiss_nprobe: 10                 # Clusters to search at query time (higher = more accurate, slower)
+
+# -----------------------------------------------------------------------------
+# Decision Engine
+# -----------------------------------------------------------------------------
+decision:
+  # Account settings
+  capital: 5          # Starting capital in USD
+  risk_per_trade: 0.005   # Risk 0.5% per trade
+
+  # Position limits
+  max_leverage: 1.0       # Maximum leverage multiplier
+
+  # Trade filters
+  min_expectancy: -0.002  # Minimum expected value to take trade (set to 0 for only positive expectancy)
+  max_distance: 3.0       # Maximum avg distance to neighbors (higher = accept more dissimilar states)
+
+  # Regimes to avoid trading (set to [] to trade all regimes)
+  blocked_regimes: ["TREND_LOW_VOL"]     # Block unprofitable trending regime
+
+# -----------------------------------------------------------------------------
+# Pipeline Settings
+# -----------------------------------------------------------------------------
+pipeline:
+  # Which stages to run (can disable for partial runs)
+  stages:
+    state_vectors: true
+    regime_labeling: true
+    outcome_labeling: true
+    similarity: true
+    decision: true
+
+  # Parallel processing (future use)
+  n_jobs: 1
+
+# -----------------------------------------------------------------------------
+# Output Paths
+# -----------------------------------------------------------------------------
+paths:
+  # Base directory for all data outputs
+  data_dir: "data"
+
+  # Subdirectories (relative to data_dir)
+  state_vectors_dir: "state_vectors"
+  regimes_dir: "regimes"
+  outcomes_dir: "outcomes"
+
+  # Log directory
+  logs_dir: "logs"
+
+# -----------------------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------------------
+logging:
+  level: "INFO"           # DEBUG, INFO, WARNING, ERROR
+  console_output: true
+  file_output: true
+  log_file: "pipeline.log"
+
+# -----------------------------------------------------------------------------
+# Backtesting
+# -----------------------------------------------------------------------------
+backtest:
+  # Train/test split (automatic split by ratio)
+  # train_ratio: 0.70               # Use first 70% for training, 30% for testing
+  train_ratio: 1.0                # LIVE TRADING: Use 100% data for training (no test set)
+
+
+  # Execution settings
+  slippage_pct: 0.0005            # 0.05% slippage per trade
+  commission_pct: 0.0004          # 0.04% commission (taker fee)
+
+  # Trade management
+  max_bars_in_trade: 120          # Force exit after N bars (2 hours)
+
+  # Trailing stop settings
+  trailing_stop_pct: 0.0          # Disabled (0.5% was too tight, cut winners early)
+  trailing_stop_activation_pct: 0.0  # Activate after 0.2% profit
+
+  # Performance optimization
+  sample_interval: 60             # Check for signals every N bars (60 = hourly)
+                                  # Use 1 for every bar (very slow on large datasets)
+
+  # Output
+  save_trades: true               # Save trade log to parquet
+  output_dir: "backtest"          # Subdirectory for backtest results

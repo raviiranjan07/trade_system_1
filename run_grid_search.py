@@ -17,12 +17,12 @@ from datetime import datetime, timedelta
 from itertools import product
 import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from config import Config
-from backtest.backtester import Backtester
-from backtest.metrics import trades_to_dataframe
-from similarity.similarity_engine import SimilarityEngine
+from trade_system.config import Config
+from trade_system.backtest.backtester import Backtester
+from trade_system.backtest.metrics import trades_to_dataframe
+from trade_system.similarity.similarity_engine import SimilarityEngine
 
 
 import threading
@@ -92,8 +92,8 @@ def run_single_backtest_with_timing(
     max_bars_in_trade, config, similarity_engine=None, progress_callback=None
 ):
     """Run a single backtest - simplified version without verbose output."""
-    from decision.decision_engine import DecisionEngine
-    from backtest.trade_simulator import Trade, TradeSimulator
+    from trade_system.decision.decision_engine import DecisionEngine
+    from trade_system.backtest.trade_simulator import Trade, TradeSimulator
 
     # Split data
     train_ratio = config.get("backtest.train_ratio", 0.70)
@@ -178,7 +178,7 @@ def run_single_backtest_with_timing(
 
     # Calculate metrics
     if trades:
-        from backtest.metrics import calculate_metrics
+        from trade_system.backtest.metrics import calculate_metrics
         train_start = outcome_df.index[0]
         train_end = outcome_df.index[split_idx - 1]
         test_start = test_outcomes.index[0]

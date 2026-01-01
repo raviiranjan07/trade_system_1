@@ -16,26 +16,26 @@ import argparse
 import sys
 from pathlib import Path
 
-# Add project root to path
-sys.path.insert(0, str(Path(__file__).parent))
+# Add project root to path for src layout
+sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 import pandas as pd
 import matplotlib
 matplotlib.use("Agg")  # Non-interactive backend
 
-from config import Config
+from trade_system.config import Config
 
-from visualizations.plot_regimes import (
+from trade_system.visualizations.plot_regimes import (
     plot_regime_distribution,
     plot_regime_transitions,
 )
-from visualizations.plot_outcomes import (
+from trade_system.visualizations.plot_outcomes import (
     plot_mfe_mae_distribution,
     plot_expectancy_by_regime,
     plot_horizon_comparison,
     plot_outcome_over_time,
 )
-from visualizations.plot_states import (
+from trade_system.visualizations.plot_states import (
     plot_state_heatmap,
     plot_state_correlation,
     plot_state_distributions,
