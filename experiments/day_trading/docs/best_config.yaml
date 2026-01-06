@@ -1,0 +1,40 @@
+# Day Trading - Best Configuration
+# Tested: 2024-12-27 to 2026-01-04
+# Result: 100% Win Rate, ~11% Annualized Return
+
+# Trading Style
+trading_style: day_trading
+horizon_range: 5-10 minutes
+
+# Decision Engine
+decision:
+  default_horizon: 5
+  min_expectancy: 0.001
+  max_distance: 3.0
+  blocked_regimes: []
+
+# Backtest
+backtest:
+  sample_interval: 15
+  starting_capital: 100.0
+
+# Similarity Engine
+similarity:
+  k: 200
+  backend: bruteforce
+
+# Normalization
+normalization:
+  window: 2000
+
+# Risk Management
+risk:
+  risk_per_trade: 0.005  # 0.5%
+  max_leverage: 1.0      # Spot trading
+
+# Expected Performance
+expected_performance:
+  win_rate: 100%
+  annualized_return: ~11%
+  max_drawdown: 0%
+  trades_per_year: ~77

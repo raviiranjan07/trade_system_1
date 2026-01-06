@@ -75,6 +75,7 @@ class Backtester:
         min_expectancy: float = 0.0,
         max_distance: float = 1.5,
         blocked_regimes: list = None,
+        min_mfe: float = 0.0,  # Minimum MFE to trade (for scalping)
         # Trailing stop settings
         trailing_stop_pct: float = 0.0,
         trailing_stop_activation_pct: float = 0.0
@@ -92,6 +93,7 @@ class Backtester:
         self.min_expectancy = min_expectancy
         self.max_distance = max_distance
         self.blocked_regimes = blocked_regimes if blocked_regimes is not None else ["HIGH_VOL"]
+        self.min_mfe = min_mfe
         self.trailing_stop_pct = trailing_stop_pct
         self.trailing_stop_activation_pct = trailing_stop_activation_pct
 
@@ -185,7 +187,8 @@ class Backtester:
             risk_per_trade=self.risk_per_trade,
             min_expectancy=self.min_expectancy,
             max_distance=self.max_distance,
-            blocked_regimes=self.blocked_regimes
+            blocked_regimes=self.blocked_regimes,
+            min_mfe=self.min_mfe
         )
         timer.stop()
 

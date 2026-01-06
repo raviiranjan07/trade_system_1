@@ -8,13 +8,15 @@ class DecisionEngine:
         risk_per_trade: float = 0.005,  # 0.5%
         min_expectancy: float = 0.0,
         max_distance: float = 1.5,
-        blocked_regimes: List[str] = None
+        blocked_regimes: List[str] = None,
+        min_mfe: float = 0.0,  # Minimum MFE to trade (for scalping: set > trading costs)
     ):
         self.capital = capital
         self.risk_per_trade = risk_per_trade
         self.min_expectancy = min_expectancy
         self.max_distance = max_distance
         self.blocked_regimes = blocked_regimes if blocked_regimes is not None else ["HIGH_VOL"]
+        self.min_mfe = min_mfe
 
     def decide(
         self,
@@ -39,6 +41,9 @@ class DecisionEngine:
 
         if similarity_result["distance_mean"] > self.max_distance:
             return {"action": "NO_TRADE", "reason": "LOW_SIMILARITY"}
+
+        if similarity_result["mean_mfe"] < self.min_mfe:
+            return {"action": "NO_TRADE", "reason": "LOW_MFE"}
 
         # -------------------------
         # 2️⃣ Direction

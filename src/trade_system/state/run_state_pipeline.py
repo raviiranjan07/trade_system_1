@@ -24,7 +24,7 @@ from trade_system.features.volatility import compute_volatility_features
 from trade_system.features.volume import compute_volume_features
 from trade_system.features.location import compute_location_features
 from trade_system.state.state_store import save_state_vectors_parquet
-from trade_system.state.normalizer import RollingNormalizer
+from trade_system.normalization import RollingNormalizer
 from trade_system.state.state_builder import build_state
 
 

@@ -6,8 +6,15 @@ from typing import Dict, Optional, Literal
 try:
     import faiss
     FAISS_AVAILABLE = True
+    # Check for GPU support
+    try:
+        faiss.StandardGpuResources()
+        FAISS_GPU_AVAILABLE = True
+    except:
+        FAISS_GPU_AVAILABLE = False
 except ImportError:
     FAISS_AVAILABLE = False
+    FAISS_GPU_AVAILABLE = False
 
 
 STATE_COLUMNS = [
@@ -46,6 +53,7 @@ class SimilarityEngine:
         backend: Literal["bruteforce", "faiss"] = "bruteforce",
         faiss_nlist: int = 100,  # Number of clusters for IVF
         faiss_nprobe: int = 10,  # Number of clusters to search
+        use_gpu: bool = False,  # Use GPU for FAISS operations
     ):
         """
         Args:
@@ -60,6 +68,13 @@ class SimilarityEngine:
         self.backend = backend
         self.faiss_nlist = faiss_nlist
         self.faiss_nprobe = faiss_nprobe
+        self.use_gpu = use_gpu and FAISS_GPU_AVAILABLE
+        self.gpu_res = None
+
+        # Initialize GPU resources if enabled
+        if self.use_gpu:
+            self.gpu_res = faiss.StandardGpuResources()
+            print("FAISS GPU mode enabled (T4)")
 
         # Validate FAISS availability
         if backend == "faiss" and not FAISS_AVAILABLE:
@@ -113,6 +128,11 @@ class SimilarityEngine:
                 index.train(X)
                 index.add(X)
                 index.nprobe = self.faiss_nprobe
+
+            # Move index to GPU if enabled
+            if self.use_gpu:
+                index = faiss.index_cpu_to_gpu(self.gpu_res, 0, index)
+                print(f"    → Moved to GPU")
 
             self._faiss_indices[regime] = index
             # Store with original timestamp index as a column named 'timestamp'
@@ -197,21 +217,36 @@ class SimilarityEngine:
 
         # Handle time boundary for backtesting
         if max_timestamp is not None:
-            # Filter data by timestamp (timestamp is always a column after reset_index)
-            df_filtered = df_regime[df_regime["timestamp"] < max_timestamp]
+            # OPTIMIZATION: Check once per regime if filtering is needed
+            cache_key = f"{regime}_filter_needed"
+            if not hasattr(self, '_filter_cache'):
+                self._filter_cache = {}
 
-            if len(df_filtered) < self.k:
-                return {"status": "INSUFFICIENT_DATA", "available": len(df_filtered), "required": self.k}
+            if cache_key not in self._filter_cache:
+                # First call for this regime - check if filtering removes any data
+                max_train_ts = df_regime["timestamp"].max()
+                self._filter_cache[cache_key] = max_train_ts >= max_timestamp
+                print(f"DEBUG: {regime} - max_train={max_train_ts}, query={max_timestamp}, filter_needed={self._filter_cache[cache_key]}")
 
-            # For backtesting with time boundary, fall back to brute force on filtered data
-            # This is still faster because we pre-filtered by regime
-            X = df_filtered[STATE_COLUMNS].values
-            y = current_state[STATE_COLUMNS].values.astype(np.float64)
-
-            all_distances = self._euclidean_distance(X, y)
-            idx = np.argsort(all_distances)[:self.k]
-            neighbors = df_filtered.iloc[idx]
-            distances = all_distances[idx]  # Only k-nearest distances (same as bruteforce)
+            if not self._filter_cache[cache_key]:
+                # NO FILTERING NEEDED - use GPU directly (fast path)
+                if index.ntotal < self.k:
+                    return {"status": "INSUFFICIENT_DATA", "available": index.ntotal, "required": self.k}
+                query_vector = current_state[STATE_COLUMNS].values.astype(np.float32).reshape(1, -1)
+                distances, indices = index.search(query_vector, self.k)
+                neighbors = df_regime.iloc[indices[0]]
+                distances = np.sqrt(distances[0])
+            else:
+                # Filtering needed - fall back to CPU
+                df_filtered = df_regime[df_regime["timestamp"] < max_timestamp]
+                if len(df_filtered) < self.k:
+                    return {"status": "INSUFFICIENT_DATA", "available": len(df_filtered), "required": self.k}
+                X = df_filtered[STATE_COLUMNS].values
+                y = current_state[STATE_COLUMNS].values.astype(np.float64)
+                all_distances = self._euclidean_distance(X, y)
+                idx = np.argsort(all_distances)[:self.k]
+                neighbors = df_filtered.iloc[idx]
+                distances = all_distances[idx]
 
         else:
             # No time boundary - use FAISS directly (production mode)

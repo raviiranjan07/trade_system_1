@@ -1,5 +1,6 @@
 import pandas as pd
 
+
 class RollingNormalizer:
     def __init__(self, window: int):
         self.window = window

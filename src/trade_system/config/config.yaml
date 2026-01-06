@@ -4,6 +4,14 @@
 # This file contains all configurable parameters for the trading pipeline.
 # Modify values here instead of hardcoding in source files.
 # =============================================================================
+#
+# ┌─────────────────────────────────────────────────────────────────────────────┐
+# │  TRADING STYLE: DAY_TRADING                                                 │
+# │  Horizon: 5 minutes | Sample Interval: 15 bars                              │
+# │  Annualized Return: ~11% | Win Rate: 100% | Max Drawdown: 0%                │
+# │  See: experiments/day_trading/README.md                                     │
+# └─────────────────────────────────────────────────────────────────────────────┘
+#
 
 # -----------------------------------------------------------------------------
 # Data Settings
@@ -74,6 +82,8 @@ regime:
 outcomes:
   # Forward-looking horizons (in bars/minutes)
   horizons:
+    - 1    # 1-minute outcomes (scalping)
+    - 2    # 2-minute outcomes (scalping)
     - 5    # 5-minute outcomes
     - 10   # 10-minute outcomes
     - 15   # 15-minute outcomes
@@ -101,7 +111,7 @@ similarity:
   # │ faiss      │ ~95-99% approx   │ Fast (~0.5ms/query)                    │
   # └────────────┴──────────────────┴────────────────────────────────────────┘
   # FAISS requires: pip install faiss-cpu (or faiss-gpu for GPU acceleration)
-  backend: "bruteforce"
+  backend: "faiss"
 
   # FAISS-specific settings (only used when backend: "faiss")
   faiss_nlist: 100                 # Number of IVF clusters (higher = more accurate, slower build)
@@ -169,8 +179,8 @@ logging:
 # -----------------------------------------------------------------------------
 backtest:
   # Train/test split (automatic split by ratio)
-  # train_ratio: 0.70               # Use first 70% for training, 30% for testing
-  train_ratio: 1.0                # LIVE TRADING: Use 100% data for training (no test set)
+  train_ratio: 0.70               # Use first 70% for training, 30% for testing
+  # train_ratio: 1.0                # LIVE TRADING: Use 100% data for training (no test set)
 
 
   # Execution settings

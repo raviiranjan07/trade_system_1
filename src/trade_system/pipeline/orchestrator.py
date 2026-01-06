@@ -91,7 +91,7 @@ from trade_system.features.volume import compute_volume_features
 from trade_system.outcomes.outcome_labeler import label_outcomes
 from trade_system.regime.regime_labeler import label_regime_row, smooth_regime
 from trade_system.similarity.similarity_engine import SimilarityEngine
-from trade_system.state.normalizer import RollingNormalizer
+from trade_system.normalization import RollingNormalizer
 from trade_system.state.state_builder import build_state
 from trade_system.state.state_store import save_state_vectors_parquet
 

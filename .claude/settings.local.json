@@ -9,7 +9,8 @@
       "Bash(\".venv/Scripts/python.exe\" debug_blocking.py)",
       "Bash(\".venv/Scripts/python.exe\" debug_training_data.py)",
       "Bash(powershell:*)",
-      "Bash(\".venv/Scripts/python.exe\" -c \"from trade_system.outcomes import compute_mfe_mae; print\\(''outcomes: OK''\\)\")"
+      "Bash(\".venv/Scripts/python.exe\" -c \"from trade_system.outcomes import compute_mfe_mae; print\\(''outcomes: OK''\\)\")",
+      "Bash(copy:*)"
     ]
   }
 }
