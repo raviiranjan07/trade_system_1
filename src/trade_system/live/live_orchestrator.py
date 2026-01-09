@@ -216,6 +216,8 @@ class LiveOrchestrator:
             min_expectancy=self.min_expectancy,
             max_distance=self.max_distance,
             blocked_regimes=self.blocked_regimes,
+            min_mfe=self.config.get("decision.min_mfe", 0.0),
+            max_leverage=self.config.get("decision.max_leverage", 1.0),
         )
 
         # 3. Initialize paper executor

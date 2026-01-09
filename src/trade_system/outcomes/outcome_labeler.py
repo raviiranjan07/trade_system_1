@@ -8,7 +8,7 @@ from ..config import Config
 
 
 # Default horizons (fallback if config not available)
-DEFAULT_HORIZONS = [10, 15, 30, 120]
+DEFAULT_HORIZONS = [2, 3, 5, 10, 15, 30]
 
 
 def compute_mfe_mae(

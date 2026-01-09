@@ -169,13 +169,15 @@ def validate_startup(config, args) -> bool:
         print(f"  [FAIL] {e}", file=sys.stderr)
         return False
 
-    # Check if state_vectors stage is enabled (requires DB)
+    # Check if state_vectors stage is enabled AND data source is "database"
     stages = args.stages
     if stages is None:
         pipeline_config = config.get_section("pipeline").get("stages", {})
         stages = [s for s, enabled in pipeline_config.items() if enabled]
 
-    if "state_vectors" in stages:
+    data_source = config.get("data.source", "local")
+
+    if "state_vectors" in stages and data_source == "database":
         print("  Checking database connection...")
         try:
             from trade_system.loader.ohlcv_loader import OHLCVLoader
@@ -186,6 +188,8 @@ def validate_startup(config, args) -> bool:
             print(f"\n  [FAIL] Database connection failed\n", file=sys.stderr)
             print(str(e), file=sys.stderr)
             return False
+    elif "state_vectors" in stages and data_source == "local":
+        print(f"  [OK] Using local data source (no database required)")
 
     print("  [OK] All checks passed\n")
     return True

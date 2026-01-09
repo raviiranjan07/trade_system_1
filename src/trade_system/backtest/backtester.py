@@ -78,7 +78,9 @@ class Backtester:
         min_mfe: float = 0.0,  # Minimum MFE to trade (for scalping)
         # Trailing stop settings
         trailing_stop_pct: float = 0.0,
-        trailing_stop_activation_pct: float = 0.0
+        trailing_stop_activation_pct: float = 0.0,
+        max_leverage: float = 1.0,
+        stop_floor: float = 1e-4,
     ):
         self.train_ratio = train_ratio
         self.capital = capital
@@ -96,6 +98,8 @@ class Backtester:
         self.min_mfe = min_mfe
         self.trailing_stop_pct = trailing_stop_pct
         self.trailing_stop_activation_pct = trailing_stop_activation_pct
+        self.max_leverage = max_leverage
+        self.stop_floor = stop_floor
 
         self.simulator = TradeSimulator(
             slippage_pct=slippage_pct,
@@ -188,7 +192,9 @@ class Backtester:
             min_expectancy=self.min_expectancy,
             max_distance=self.max_distance,
             blocked_regimes=self.blocked_regimes,
-            min_mfe=self.min_mfe
+            min_mfe=self.min_mfe,
+            max_leverage=self.max_leverage,
+            stop_floor=self.stop_floor,
         )
         timer.stop()
 

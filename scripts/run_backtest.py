@@ -244,6 +244,9 @@ Examples:
             min_expectancy = bp.get("min_expectancy", 0.0)
             max_distance = bp.get("max_distance", 3.0)
             blocked_regimes = bp.get("blocked_regimes", [])
+            max_leverage = bp.get("max_leverage", config.decision.get("max_leverage", 1.0))
+            min_mfe = bp.get("min_mfe", config.decision.get("min_mfe", 0.0))
+            stop_floor = bp.get("stop_floor", config.decision.get("stop_floor", 1e-4))
             horizon = best_params.get("horizon", config.similarity.get("default_horizon", 30))
 
             # Load backtest settings from params file (override config)
@@ -268,6 +271,9 @@ Examples:
             min_expectancy = decision_config.get("min_expectancy", 0.0)
             max_distance = decision_config.get("max_distance", 1.5)
             blocked_regimes = decision_config.get("blocked_regimes", ["HIGH_VOL"])
+            max_leverage = decision_config.get("max_leverage", 1.0)
+            min_mfe = decision_config.get("min_mfe", 0.0)
+            stop_floor = decision_config.get("stop_floor", 1e-4)
             horizon = config.similarity.get("default_horizon", 30)
 
         # Create and run backtester
@@ -288,8 +294,11 @@ Examples:
             min_expectancy=min_expectancy,
             max_distance=max_distance,
             blocked_regimes=blocked_regimes,
+            min_mfe=min_mfe,
             trailing_stop_pct=trailing_stop_pct,
-            trailing_stop_activation_pct=trailing_stop_activation_pct
+            trailing_stop_activation_pct=trailing_stop_activation_pct,
+            max_leverage=max_leverage,
+            stop_floor=stop_floor,
         )
 
         result = backtester.run(

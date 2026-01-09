@@ -110,7 +110,9 @@ def run_single_backtest(
         risk_per_trade=config.get("decision.risk_per_trade", 0.005),
         min_expectancy=min_expectancy,
         max_distance=max_distance,
-        blocked_regimes=blocked_regimes
+        blocked_regimes=blocked_regimes,
+        min_mfe=config.get("decision.min_mfe", 0.0),
+        max_leverage=config.get("decision.max_leverage", 1.0),
     )
 
     sample_interval = config.get("backtest.sample_interval", 60)

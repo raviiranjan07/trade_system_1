@@ -1,3 +1,350 @@
+# import numpy as np
+# import pandas as pd
+# from typing import Dict, Optional, Literal
+
+# # Optional FAISS import
+# try:
+#     import faiss
+#     FAISS_AVAILABLE = True
+#     # Check for GPU support
+#     try:
+#         faiss.StandardGpuResources()
+#         FAISS_GPU_AVAILABLE = True
+#     except:
+#         FAISS_GPU_AVAILABLE = False
+# except ImportError:
+#     FAISS_AVAILABLE = False
+#     FAISS_GPU_AVAILABLE = False
+
+
+# STATE_COLUMNS = [
+#     "ema50_slope_z",
+#     "ema200_slope_z",
+#     "trend_alignment",
+#     "return_5m_z",
+#     "return_15m_z",
+#     "rsi_z",
+#     "atr_percentile",
+#     "volume_z",
+#     "vwap_distance_z",
+#     "range_position",
+# ]
+
+# # Minimal RollingNormalizer class
+# class RollingNormalizer:
+#     def __init__(self, window: int):
+#         self.window = window
+
+#     def zscore(self, series: pd.Series) -> pd.Series:
+#         mean = series.rolling(self.window).mean()
+#         std = series.rolling(self.window).std()
+#         return (series - mean) / (std + 1e-9)
+
+
+# class SimilarityEngine:
+#     """
+#     KNN-based similarity search engine with two backend options:
+
+#     1. "bruteforce" (default): Exact KNN using numpy
+#        - 100% accurate
+#        - Slow on large datasets (~50ms per query on 700K samples)
+
+#     2. "faiss": Approximate KNN using Facebook's FAISS library
+#        - ~95-99% accurate (may miss a few true neighbors)
+#        - Very fast (~0.5ms per query)
+#        - Requires: pip install faiss-cpu (or faiss-gpu)
+#     """
+    
+
+#     def __init__(
+#         self,
+#         outcome_df: pd.DataFrame,
+#         regime_df: pd.DataFrame,
+#         k: int = 200,
+#         backend: Literal["bruteforce", "faiss"] = "bruteforce",
+#         faiss_nlist: int = 100,  # Number of clusters for IVF
+#         faiss_nprobe: int = 10,  # Number of clusters to search
+#         use_gpu: bool = False,  # Use GPU for FAISS operations
+#     ):
+#         """
+#         Args:
+#             outcome_df: State vectors + outcome labels (MFE / MAE)
+#             regime_df: Regime labels
+#             k: Number of nearest neighbors to retrieve
+#             backend: "bruteforce" for exact KNN, "faiss" for approximate KNN
+#             faiss_nlist: Number of IVF clusters (higher = more accurate, slower build)
+#             faiss_nprobe: Clusters to search at query time (higher = more accurate, slower query)
+#         """
+#         self.k = k
+#         self.backend = backend
+#         self.faiss_nlist = faiss_nlist
+#         self.faiss_nprobe = faiss_nprobe
+#         self.use_gpu = use_gpu and FAISS_GPU_AVAILABLE
+#         self.gpu_res = None
+
+#         # Initialize GPU resources if enabled
+#         if self.use_gpu:
+#             self.gpu_res = faiss.StandardGpuResources()
+#             print("FAISS GPU mode enabled (T4)")
+
+#         # Validate FAISS availability
+#         if backend == "faiss" and not FAISS_AVAILABLE:
+#             raise ImportError(
+#                 "FAISS backend requested but faiss is not installed. "
+#                 "Install with: pip install faiss-cpu"
+#             )
+
+#         # Join outcome and regime data
+#         self.df = (
+#             outcome_df
+#             .join(regime_df, how="inner")
+#             .dropna()
+#         )
+        
+#         # --- Apply normalization internally (optional) ---
+#         NORMALIZATION_WINDOW =[180, 300] # <--- configure window here
+#         if NORMALIZATION_WINDOW > 0:
+#             normalizer = RollingNormalizer(NORMALIZATION_WINDOW)
+#             for col in STATE_COLUMNS:
+#                 if col in self.df.columns:
+#                     self.df[col] = normalizer.zscore(self.df[col])
+
+
+#         # FAISS indices (built per regime for efficiency)
+#         self._faiss_indices: Dict[str, faiss.Index] = {}
+#         self._faiss_data: Dict[str, pd.DataFrame] = {}
+
+#         # Pre-build FAISS indices if using FAISS backend
+#         if self.backend == "faiss":
+#             self._build_faiss_indices()
+
+#     def _build_faiss_indices(self):
+#         """Build FAISS IVF indices for each regime."""
+#         print("Building FAISS indices...")
+
+#         regimes = self.df["regime"].unique()
+#         dim = len(STATE_COLUMNS)
+
+#         for regime in regimes:
+#             df_regime = self.df[self.df["regime"] == regime]
+
+#             if len(df_regime) < self.faiss_nlist:
+#                 # Not enough data for IVF, use flat index
+#                 print(f"  {regime}: {len(df_regime):,} samples (using FlatL2)")
+#                 X = df_regime[STATE_COLUMNS].values.astype(np.float32)
+#                 index = faiss.IndexFlatL2(dim)
+#                 index.add(X)
+#             else:
+#                 # Use IVF index for large datasets
+#                 print(f"  {regime}: {len(df_regime):,} samples (using IVF)")
+#                 X = df_regime[STATE_COLUMNS].values.astype(np.float32)
+
+#                 # Create IVF index
+#                 quantizer = faiss.IndexFlatL2(dim)
+#                 nlist = min(self.faiss_nlist, len(df_regime) // 40)  # At least 40 samples per cluster
+#                 index = faiss.IndexIVFFlat(quantizer, dim, nlist)
+
+#                 # Train and add vectors
+#                 index.train(X)
+#                 index.add(X)
+#                 index.nprobe = self.faiss_nprobe
+
+#             # Move index to GPU if enabled
+#             if self.use_gpu:
+#                 index = faiss.index_cpu_to_gpu(self.gpu_res, 0, index)
+#                 print(f"    → Moved to GPU")
+
+#             self._faiss_indices[regime] = index
+#             # Store with original timestamp index as a column named 'timestamp'
+#             df_reset = df_regime.reset_index()
+#             # Rename the index column to 'timestamp' for consistent access
+#             if df_reset.columns[0] != 'timestamp':
+#                 df_reset = df_reset.rename(columns={df_reset.columns[0]: 'timestamp'})
+#             self._faiss_data[regime] = df_reset
+
+#         print("FAISS indices built successfully.")
+
+#     def _euclidean_distance(
+#         self,
+#         X: np.ndarray,
+#         y: np.ndarray
+#     ) -> np.ndarray:
+#         """Vectorized Euclidean distance (dtype-safe)."""
+#         X = X.astype(np.float64)
+#         y = y.astype(np.float64)
+#         diff = X - y
+#         return np.sqrt(np.einsum("ij,ij->i", diff, diff))
+
+#     def _aggregate_neighbors(
+#         self,
+#         neighbors: pd.DataFrame,
+#         distances: np.ndarray,
+#         horizon: int
+#     ) -> Dict:
+#         """Aggregate neighbor statistics for long and short directions."""
+#         # Long-side stats
+#         mfe_long = neighbors[f"mfe_long_{horizon}m"]
+#         mae_long = neighbors[f"mae_long_{horizon}m"]
+#         long_stats = {
+#             "mean_mfe": float(mfe_long.mean()),
+#             "mean_mae": float(mae_long.mean()),
+#             "expectancy": float(mfe_long.mean() + mae_long.mean()),
+#             "mae_5pct": float(mae_long.quantile(0.05)),
+#         }
+
+#         # Short-side stats (use dedicated columns if present)
+#         short_mfe_col = f"mfe_short_{horizon}m"
+#         short_mae_col = f"mae_short_{horizon}m"
+#         if short_mfe_col in neighbors.columns and short_mae_col in neighbors.columns:
+#             mfe_short = neighbors[short_mfe_col]
+#             mae_short = neighbors[short_mae_col]
+#         else:
+#             # Fallback: derive from long side if short cols missing
+#             mfe_short = -mae_long
+#             mae_short = -mfe_long
+
+#         short_stats = {
+#             "mean_mfe": float(mfe_short.mean()),
+#             "mean_mae": float(mae_short.mean()),
+#             "expectancy": float(mfe_short.mean() + mae_short.mean()),
+#             "mae_5pct": float(mae_short.quantile(0.05)),
+#         }
+
+#         return {
+#             # Backward-compatible top-level fields (reflect long side)
+#             "status": "OK",
+#             "neighbors": len(neighbors),
+#             "mean_mfe": long_stats["mean_mfe"],
+#             "mean_mae": long_stats["mean_mae"],
+#             "expectancy": long_stats["expectancy"],
+#             "mae_5pct": long_stats["mae_5pct"],
+#             "distance_mean": float(distances.mean()) if isinstance(distances, np.ndarray) else 0.0,
+#             "distance_max": float(distances.max()) if isinstance(distances, np.ndarray) else 0.0,
+#             "long": long_stats,
+#             "short": short_stats,
+#         }
+
+#     def _query_bruteforce(
+#         self,
+#         current_state: pd.Series,
+#         regime: str,
+#         horizon: int,
+#         max_timestamp: Optional[pd.Timestamp]
+#     ) -> Dict:
+#         """Brute force KNN query (exact)."""
+
+#         # 1. Filter by regime
+#         df_regime = self.df[self.df["regime"] == regime]
+
+#         # 2. Enforce time boundary (prevent look-ahead bias in backtesting)
+#         if max_timestamp is not None:
+#             df_regime = df_regime[df_regime.index < max_timestamp]
+
+#         if len(df_regime) < self.k:
+#             return {"status": "INSUFFICIENT_DATA", "available": len(df_regime), "required": self.k}
+
+#         # 3. Distance computation
+#         X = df_regime[STATE_COLUMNS].values
+#         y = current_state[STATE_COLUMNS].values
+
+#         distances = self._euclidean_distance(X, y)
+
+#         # 4. Select nearest neighbors
+#         idx = np.argsort(distances)[: self.k]
+#         neighbors = df_regime.iloc[idx]
+
+#         # 5. Aggregate outcomes
+#         return self._aggregate_neighbors(neighbors, distances[idx], horizon)
+
+#     def _query_faiss(
+#         self,
+#         current_state: pd.Series,
+#         regime: str,
+#         horizon: int,
+#         max_timestamp: Optional[pd.Timestamp]
+#     ) -> Dict:
+#         """FAISS approximate KNN query (fast)."""
+
+#         if regime not in self._faiss_indices:
+#             return {"status": "UNKNOWN_REGIME", "regime": regime}
+
+#         index = self._faiss_indices[regime]
+#         df_regime = self._faiss_data[regime]
+
+#         # Handle time boundary for backtesting
+#         if max_timestamp is not None:
+#             # OPTIMIZATION: Check once per regime if filtering is needed
+#             cache_key = f"{regime}_filter_needed"
+#             if not hasattr(self, '_filter_cache'):
+#                 self._filter_cache = {}
+
+#             if cache_key not in self._filter_cache:
+#                 # First call for this regime - check if filtering removes any data
+#                 max_train_ts = df_regime["timestamp"].max()
+#                 self._filter_cache[cache_key] = max_train_ts >= max_timestamp
+#                 print(f"DEBUG: {regime} - max_train={max_train_ts}, query={max_timestamp}, filter_needed={self._filter_cache[cache_key]}")
+
+#             if not self._filter_cache[cache_key]:
+#                 # NO FILTERING NEEDED - use GPU directly (fast path)
+#                 if index.ntotal < self.k:
+#                     return {"status": "INSUFFICIENT_DATA", "available": index.ntotal, "required": self.k}
+#                 query_vector = current_state[STATE_COLUMNS].values.astype(np.float32).reshape(1, -1)
+#                 distances, indices = index.search(query_vector, self.k)
+#                 neighbors = df_regime.iloc[indices[0]]
+#                 distances = np.sqrt(distances[0])
+#             else:
+#                 # Filtering needed - fall back to CPU
+#                 df_filtered = df_regime[df_regime["timestamp"] < max_timestamp]
+#                 if len(df_filtered) < self.k:
+#                     return {"status": "INSUFFICIENT_DATA", "available": len(df_filtered), "required": self.k}
+#                 X = df_filtered[STATE_COLUMNS].values
+#                 y = current_state[STATE_COLUMNS].values.astype(np.float64)
+#                 all_distances = self._euclidean_distance(X, y)
+#                 idx = np.argsort(all_distances)[:self.k]
+#                 neighbors = df_filtered.iloc[idx]
+#                 distances = all_distances[idx]
+
+#         else:
+#             # No time boundary - use FAISS directly (production mode)
+#             if index.ntotal < self.k:
+#                 return {"status": "INSUFFICIENT_DATA", "available": index.ntotal, "required": self.k}
+
+#             # Query FAISS
+#             query_vector = current_state[STATE_COLUMNS].values.astype(np.float32).reshape(1, -1)
+#             distances, indices = index.search(query_vector, self.k)
+
+#             # Get neighbor data
+#             neighbors = df_regime.iloc[indices[0]]
+#             distances = np.sqrt(distances[0])  # FAISS returns squared L2
+
+#         # Aggregate outcomes
+#         return self._aggregate_neighbors(neighbors, distances, horizon)
+
+#     def query(
+#         self,
+#         current_state: pd.Series,
+#         regime: str,
+#         horizon: int = 30,
+#         max_timestamp: pd.Timestamp = None
+#     ) -> Dict:
+#         """
+#         Find similar historical states and aggregate outcomes.
+
+#         Args:
+#             current_state: The state vector to query
+#             regime: Market regime to filter by
+#             horizon: Outcome horizon in minutes
+#             max_timestamp: Only search states BEFORE this time (prevents look-ahead bias)
+
+#         Returns:
+#             Dict with status, neighbor stats, and aggregated MFE/MAE outcomes
+#         """
+#         if self.backend == "faiss":
+#             return self._query_faiss(current_state, regime, horizon, max_timestamp)
+#         else:
+#             return self._query_bruteforce(current_state, regime, horizon, max_timestamp)
+
+
 import numpy as np
 import pandas as pd
 from typing import Dict, Optional, Literal
@@ -30,6 +377,16 @@ STATE_COLUMNS = [
     "range_position",
 ]
 
+# RollingNormalizer class (needed for normalization)
+class RollingNormalizer:
+    def __init__(self, window: int):
+        self.window = window
+
+    def zscore(self, series: pd.Series) -> pd.Series:
+        mean = series.rolling(self.window).mean()
+        std = series.rolling(self.window).std()
+        return (series - mean) / (std + 1e-9)
+
 
 class SimilarityEngine:
     """
@@ -54,6 +411,7 @@ class SimilarityEngine:
         faiss_nlist: int = 100,  # Number of clusters for IVF
         faiss_nprobe: int = 10,  # Number of clusters to search
         use_gpu: bool = False,  # Use GPU for FAISS operations
+        normalization_window: Optional[int] = None,  # for backward compatibility
     ):
         """
         Args:
@@ -90,6 +448,24 @@ class SimilarityEngine:
             .dropna()
         )
 
+        # --- Apply multiple normalization windows ---
+        # Store all windows internally, original STATE_COLUMNS remain compatible
+        normalization_windows = [180, 300]
+        for window in normalization_windows:
+            normalizer = RollingNormalizer(window)
+            for col in STATE_COLUMNS:
+                if col in self.df.columns:
+                    self.df[f"{col}_z_{window}"] = normalizer.zscore(self.df[col])
+
+        # Optionally overwrite STATE_COLUMNS with a default window for KNN
+        default_window = 300
+        for col in STATE_COLUMNS:
+            if col in self.df.columns:
+                self.df[col] = self.df[f"{col}_z_{default_window}"]
+
+        # Drop rows with NaN/Inf created by rolling normalization (CRITICAL for FAISS)
+        self.df = self.df.replace([np.inf, -np.inf], np.nan).dropna(subset=STATE_COLUMNS)
+
         # FAISS indices (built per regime for efficiency)
         self._faiss_indices: Dict[str, faiss.Index] = {}
         self._faiss_data: Dict[str, pd.DataFrame] = {}
@@ -112,22 +488,39 @@ class SimilarityEngine:
                 # Not enough data for IVF, use flat index
                 print(f"  {regime}: {len(df_regime):,} samples (using FlatL2)")
                 X = df_regime[STATE_COLUMNS].values.astype(np.float32)
+                # Safety check for NaN/Inf
+                if not np.isfinite(X).all():
+                    print(f"    WARNING: {regime} has NaN/Inf values, cleaning...")
+                    mask = np.isfinite(X).all(axis=1)
+                    X = X[mask]
+                    df_regime = df_regime.iloc[mask]
                 index = faiss.IndexFlatL2(dim)
                 index.add(X)
             else:
                 # Use IVF index for large datasets
                 print(f"  {regime}: {len(df_regime):,} samples (using IVF)")
                 X = df_regime[STATE_COLUMNS].values.astype(np.float32)
+                # Safety check for NaN/Inf
+                if not np.isfinite(X).all():
+                    print(f"    WARNING: {regime} has NaN/Inf values, cleaning...")
+                    mask = np.isfinite(X).all(axis=1)
+                    X = X[mask]
+                    df_regime = df_regime.iloc[mask]
 
-                # Create IVF index
-                quantizer = faiss.IndexFlatL2(dim)
-                nlist = min(self.faiss_nlist, len(df_regime) // 40)  # At least 40 samples per cluster
-                index = faiss.IndexIVFFlat(quantizer, dim, nlist)
-
-                # Train and add vectors
-                index.train(X)
-                index.add(X)
-                index.nprobe = self.faiss_nprobe
+                # Create IVF index (fallback to FlatL2 if too few samples after cleaning)
+                nlist = min(self.faiss_nlist, len(X) // 40)  # At least 40 samples per cluster
+                if nlist < 2 or len(X) < 100:
+                    # Fallback to FlatL2 for small datasets
+                    print(f"    Fallback to FlatL2 (only {len(X):,} clean samples)")
+                    index = faiss.IndexFlatL2(dim)
+                    index.add(X)
+                else:
+                    quantizer = faiss.IndexFlatL2(dim)
+                    index = faiss.IndexIVFFlat(quantizer, dim, nlist)
+                    # Train and add vectors
+                    index.train(X)
+                    index.add(X)
+                    index.nprobe = self.faiss_nprobe
 
             # Move index to GPU if enabled
             if self.use_gpu:
@@ -137,7 +530,6 @@ class SimilarityEngine:
             self._faiss_indices[regime] = index
             # Store with original timestamp index as a column named 'timestamp'
             df_reset = df_regime.reset_index()
-            # Rename the index column to 'timestamp' for consistent access
             if df_reset.columns[0] != 'timestamp':
                 df_reset = df_reset.rename(columns={df_reset.columns[0]: 'timestamp'})
             self._faiss_data[regime] = df_reset
@@ -155,6 +547,51 @@ class SimilarityEngine:
         diff = X - y
         return np.sqrt(np.einsum("ij,ij->i", diff, diff))
 
+    def _aggregate_neighbors(
+        self,
+        neighbors: pd.DataFrame,
+        distances: np.ndarray,
+        horizon: int
+    ) -> Dict:
+        """Aggregate neighbor statistics for long and short directions."""
+        mfe_long = neighbors[f"mfe_long_{horizon}m"]
+        mae_long = neighbors[f"mae_long_{horizon}m"]
+        long_stats = {
+            "mean_mfe": float(mfe_long.mean()),
+            "mean_mae": float(mae_long.mean()),
+            "expectancy": float(mfe_long.mean() + mae_long.mean()),
+            "mae_5pct": float(mae_long.quantile(0.05)),
+        }
+
+        short_mfe_col = f"mfe_short_{horizon}m"
+        short_mae_col = f"mae_short_{horizon}m"
+        if short_mfe_col in neighbors.columns and short_mae_col in neighbors.columns:
+            mfe_short = neighbors[short_mfe_col]
+            mae_short = neighbors[short_mae_col]
+        else:
+            mfe_short = -mae_long
+            mae_short = -mfe_long
+
+        short_stats = {
+            "mean_mfe": float(mfe_short.mean()),
+            "mean_mae": float(mae_short.mean()),
+            "expectancy": float(mfe_short.mean() + mae_short.mean()),
+            "mae_5pct": float(mae_short.quantile(0.05)),
+        }
+
+        return {
+            "status": "OK",
+            "neighbors": len(neighbors),
+            "mean_mfe": long_stats["mean_mfe"],
+            "mean_mae": long_stats["mean_mae"],
+            "expectancy": long_stats["expectancy"],
+            "mae_5pct": long_stats["mae_5pct"],
+            "distance_mean": float(distances.mean()) if isinstance(distances, np.ndarray) else 0.0,
+            "distance_max": float(distances.max()) if isinstance(distances, np.ndarray) else 0.0,
+            "long": long_stats,
+            "short": short_stats,
+        }
+
     def _query_bruteforce(
         self,
         current_state: pd.Series,
@@ -162,43 +599,21 @@ class SimilarityEngine:
         horizon: int,
         max_timestamp: Optional[pd.Timestamp]
     ) -> Dict:
-        """Brute force KNN query (exact)."""
-
-        # 1. Filter by regime
         df_regime = self.df[self.df["regime"] == regime]
 
-        # 2. Enforce time boundary (prevent look-ahead bias in backtesting)
         if max_timestamp is not None:
             df_regime = df_regime[df_regime.index < max_timestamp]
 
         if len(df_regime) < self.k:
             return {"status": "INSUFFICIENT_DATA", "available": len(df_regime), "required": self.k}
 
-        # 3. Distance computation
         X = df_regime[STATE_COLUMNS].values
         y = current_state[STATE_COLUMNS].values
-
         distances = self._euclidean_distance(X, y)
-
-        # 4. Select nearest neighbors
         idx = np.argsort(distances)[: self.k]
         neighbors = df_regime.iloc[idx]
 
-        # 5. Aggregate outcomes
-        mfe = neighbors[f"mfe_long_{horizon}m"]
-        mae = neighbors[f"mae_long_{horizon}m"]
-        expectancy = mfe.mean() + mae.mean()
-
-        return {
-            "status": "OK",
-            "neighbors": len(neighbors),
-            "mean_mfe": float(mfe.mean()),
-            "mean_mae": float(mae.mean()),
-            "expectancy": float(expectancy),
-            "mae_5pct": float(mae.quantile(0.05)),
-            "distance_mean": float(distances[idx].mean()),
-            "distance_max": float(distances[idx].max()),
-        }
+        return self._aggregate_neighbors(neighbors, distances[idx], horizon)
 
     def _query_faiss(
         self,
@@ -207,29 +622,23 @@ class SimilarityEngine:
         horizon: int,
         max_timestamp: Optional[pd.Timestamp]
     ) -> Dict:
-        """FAISS approximate KNN query (fast)."""
-
         if regime not in self._faiss_indices:
             return {"status": "UNKNOWN_REGIME", "regime": regime}
 
         index = self._faiss_indices[regime]
         df_regime = self._faiss_data[regime]
 
-        # Handle time boundary for backtesting
         if max_timestamp is not None:
-            # OPTIMIZATION: Check once per regime if filtering is needed
             cache_key = f"{regime}_filter_needed"
             if not hasattr(self, '_filter_cache'):
                 self._filter_cache = {}
 
             if cache_key not in self._filter_cache:
-                # First call for this regime - check if filtering removes any data
                 max_train_ts = df_regime["timestamp"].max()
                 self._filter_cache[cache_key] = max_train_ts >= max_timestamp
                 print(f"DEBUG: {regime} - max_train={max_train_ts}, query={max_timestamp}, filter_needed={self._filter_cache[cache_key]}")
 
             if not self._filter_cache[cache_key]:
-                # NO FILTERING NEEDED - use GPU directly (fast path)
                 if index.ntotal < self.k:
                     return {"status": "INSUFFICIENT_DATA", "available": index.ntotal, "required": self.k}
                 query_vector = current_state[STATE_COLUMNS].values.astype(np.float32).reshape(1, -1)
@@ -237,7 +646,6 @@ class SimilarityEngine:
                 neighbors = df_regime.iloc[indices[0]]
                 distances = np.sqrt(distances[0])
             else:
-                # Filtering needed - fall back to CPU
                 df_filtered = df_regime[df_regime["timestamp"] < max_timestamp]
                 if len(df_filtered) < self.k:
                     return {"status": "INSUFFICIENT_DATA", "available": len(df_filtered), "required": self.k}
@@ -249,33 +657,14 @@ class SimilarityEngine:
                 distances = all_distances[idx]
 
         else:
-            # No time boundary - use FAISS directly (production mode)
             if index.ntotal < self.k:
                 return {"status": "INSUFFICIENT_DATA", "available": index.ntotal, "required": self.k}
-
-            # Query FAISS
             query_vector = current_state[STATE_COLUMNS].values.astype(np.float32).reshape(1, -1)
             distances, indices = index.search(query_vector, self.k)
-
-            # Get neighbor data
             neighbors = df_regime.iloc[indices[0]]
-            distances = np.sqrt(distances[0])  # FAISS returns squared L2
+            distances = np.sqrt(distances[0])
 
-        # Aggregate outcomes
-        mfe = neighbors[f"mfe_long_{horizon}m"]
-        mae = neighbors[f"mae_long_{horizon}m"]
-        expectancy = mfe.mean() + mae.mean()
-
-        return {
-            "status": "OK",
-            "neighbors": len(neighbors),
-            "mean_mfe": float(mfe.mean()),
-            "mean_mae": float(mae.mean()),
-            "expectancy": float(expectancy),
-            "mae_5pct": float(mae.quantile(0.05)),
-            "distance_mean": float(distances.mean()) if isinstance(distances, np.ndarray) else 0.0,
-            "distance_max": float(distances.max()) if isinstance(distances, np.ndarray) else 0.0,
-        }
+        return self._aggregate_neighbors(neighbors, distances, horizon)
 
     def query(
         self,
@@ -284,18 +673,6 @@ class SimilarityEngine:
         horizon: int = 30,
         max_timestamp: pd.Timestamp = None
     ) -> Dict:
-        """
-        Find similar historical states and aggregate outcomes.
-
-        Args:
-            current_state: The state vector to query
-            regime: Market regime to filter by
-            horizon: Outcome horizon in minutes
-            max_timestamp: Only search states BEFORE this time (prevents look-ahead bias)
-
-        Returns:
-            Dict with status, neighbor stats, and aggregated MFE/MAE outcomes
-        """
         if self.backend == "faiss":
             return self._query_faiss(current_state, regime, horizon, max_timestamp)
         else:

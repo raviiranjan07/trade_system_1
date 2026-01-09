@@ -374,25 +374,33 @@ class PipelineOrchestrator:
         self, pair: str, start_date: str, end_date: str, timeframe: str
     ) -> pd.DataFrame:
         """Stage 1: Build state vectors from raw data."""
-        # Sub-stage 1a: Fetch from DB
-        timer = LiveTimer("Fetching OHLCV data from database")
-        timer.start()
-        loader = OHLCVLoader()
-        df = loader.fetch_ohlcv(pair=pair, start_time=start_date, end_time=end_date)
+        # Sub-stage 1a: Fetch OHLCV data
+        data_source = self.config.get("data.source", "local")
+        ohlcv_dir = Path(self.config.get("paths.data_dir", "data")) / "ohlcv"
+        ohlcv_path = ohlcv_dir / f"{pair}_{timeframe}_ohlcv.parquet"
+
+        if data_source == "local":
+            timer = LiveTimer("Loading OHLCV data from local file")
+            timer.start()
+            if not ohlcv_path.exists():
+                raise FileNotFoundError(f"Local OHLCV file not found: {ohlcv_path}")
+            df = pd.read_parquet(ohlcv_path)
+        else:
+            timer = LiveTimer("Fetching OHLCV data from database")
+            timer.start()
+            loader = OHLCVLoader()
+            df = loader.fetch_ohlcv(pair=pair, start_time=start_date, end_time=end_date)
+            # Save OHLCV to parquet for offline backtesting (grid search)
+            ohlcv_dir.mkdir(parents=True, exist_ok=True)
+            df[["open", "high", "low", "close", "volume"]].to_parquet(ohlcv_path, engine="pyarrow")
+            self.logger.info(f"      OHLCV saved to {ohlcv_path}")
 
         # Validate with gap handling from config
         max_gap = self.config.get("data.max_gap_tolerance", 0)
         fill_gaps = self.config.get("data.fill_small_gaps", False)
         df = validate_ohlcv(df, max_gap_tolerance=max_gap, fill_gaps=fill_gaps)
         timer.stop()
-        self.logger.info(f"      Loaded {len(df):,} candles")
-
-        # Save OHLCV to parquet for offline backtesting (grid search)
-        ohlcv_dir = Path(self.config.get("paths.data_dir", "data")) / "ohlcv"
-        ohlcv_dir.mkdir(parents=True, exist_ok=True)
-        ohlcv_path = ohlcv_dir / f"{pair}_{timeframe}_ohlcv.parquet"
-        df[["open", "high", "low", "close", "volume"]].to_parquet(ohlcv_path, engine="pyarrow")
-        self.logger.info(f"      OHLCV saved to {ohlcv_path}")
+        self.logger.info(f"      Loaded {len(df):,} candles ({data_source})")
 
         # Sub-stage 1b: Compute features
         timer = LiveTimer("Computing technical features")
@@ -456,9 +464,18 @@ class PipelineOrchestrator:
         if self.state_df is None:
             self._load_state_vectors(pair, timeframe)
 
-        # Fetch prices
-        loader = OHLCVLoader()
-        ohlcv = loader.fetch_ohlcv(pair=pair)
+        # Fetch prices based on data source
+        data_source = self.config.get("data.source", "local")
+        if data_source == "local":
+            ohlcv_dir = Path(self.config.get("paths.data_dir", "data")) / "ohlcv"
+            ohlcv_path = ohlcv_dir / f"{pair}_{timeframe}_ohlcv.parquet"
+            if not ohlcv_path.exists():
+                raise FileNotFoundError(f"Local OHLCV file not found: {ohlcv_path}")
+            ohlcv = pd.read_parquet(ohlcv_path)
+        else:
+            loader = OHLCVLoader()
+            ohlcv = loader.fetch_ohlcv(pair=pair)
+
         close_prices = ohlcv["close"].loc[self.state_df.index]
 
         # Label outcomes
@@ -517,6 +534,12 @@ class PipelineOrchestrator:
         decision_engine = DecisionEngine(
             capital=self.config.get("decision.capital", 10000),
             risk_per_trade=self.config.get("decision.risk_per_trade", 0.005),
+            min_expectancy=self.config.get("decision.min_expectancy", 0.001),
+            max_distance=self.config.get("decision.max_distance", 3.0),
+            blocked_regimes=self.config.get("decision.blocked_regimes", []),
+            min_mfe=self.config.get("decision.min_mfe", 0.0),
+            max_leverage=self.config.get("decision.max_leverage", 1.0),
+            stop_floor=self.config.get("decision.stop_floor", 1e-4),
         )
 
         # Get current context

@@ -41,6 +41,11 @@ if __name__ == "__main__":
     horizon = config.get("similarity.default_horizon", 30)
     capital = config.get("decision.capital", 10000)
     risk_per_trade = config.get("decision.risk_per_trade", 0.005)
+    min_expectancy = config.get("decision.min_expectancy", 0.001)
+    max_distance = config.get("decision.max_distance", 3.0)
+    blocked_regimes = config.get("decision.blocked_regimes", [])
+    min_mfe = config.get("decision.min_mfe", 0.0)
+    max_leverage = config.get("decision.max_leverage", 1.0)
 
     # Paths
     base_dir = Path(config.get("paths.data_dir", "data"))
@@ -63,7 +68,12 @@ if __name__ == "__main__":
 
     decision_engine = DecisionEngine(
         capital=capital,
-        risk_per_trade=risk_per_trade
+        risk_per_trade=risk_per_trade,
+        min_expectancy=min_expectancy,
+        max_distance=max_distance,
+        blocked_regimes=blocked_regimes,
+        min_mfe=min_mfe,
+        max_leverage=max_leverage,
     )
 
     # Current context

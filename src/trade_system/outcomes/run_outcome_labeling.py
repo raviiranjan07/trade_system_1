@@ -10,6 +10,7 @@ Usage:
 """
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -41,15 +42,23 @@ if __name__ == "__main__":
     # Paths
     base_dir = Path(config.get("paths.data_dir", "data"))
     state_path = base_dir / config.get("paths.state_vectors_dir", "state_vectors") / f"{pair}_{timeframe}_state.parquet"
+    ohlcv_path = base_dir / "ohlcv" / f"{pair}_{timeframe}_ohlcv.parquet"
 
     print(f"Computing outcomes for {pair} ({timeframe})")
 
     # 1. Load state vectors
     state_df = pd.read_parquet(state_path)
 
-    # 2. Load close prices
-    loader = OHLCVLoader()
-    ohlcv = loader.fetch_ohlcv(pair=pair)
+    # 2. Load close prices (prefer local parquet if configured)
+    use_local_ohlcv = os.getenv("USE_LOCAL_OHLCV", "1") == "1"
+    if use_local_ohlcv and ohlcv_path.exists():
+        print(f"Loading OHLCV from local file: {ohlcv_path}")
+        ohlcv = pd.read_parquet(ohlcv_path)
+    else:
+        print("Loading OHLCV from database via OHLCVLoader()")
+        loader = OHLCVLoader()
+        ohlcv = loader.fetch_ohlcv(pair=pair)
+
     close_prices = ohlcv["close"].loc[state_df.index]
 
     # 3. Label outcomes

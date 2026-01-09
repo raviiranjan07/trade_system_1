@@ -74,6 +74,7 @@ regime:
 outcomes:
   # Forward-looking horizons (in bars/minutes)
   horizons:
+    - 3    # 3-minute outcomes
     - 5    # 5-minute outcomes
     - 10   # 10-minute outcomes
     - 15   # 15-minute outcomes

@@ -27,8 +27,13 @@ data:
   start_date: "2020-01-01"
   end_date: "2025-12-31"
 
-  # Database connection (can be overridden by DATABASE_URL env var)
-  # For remote connection, set DATABASE_URL in .env file
+  # Data source: "local" or "database"
+  # - local: Load from data/ohlcv/{pair}_{timeframe}_ohlcv.parquet (fast, offline)
+  # - database: Fetch from PostgreSQL via OHLCVLoader (requires DB connection)
+  source: "local"
+
+  # Database connection (only used when source: "database")
+  # Can be overridden by DATABASE_URL env var
   database_url: "postgresql://localhost/crypto_data"
 
   # Gap handling for missing candles
@@ -82,13 +87,12 @@ regime:
 outcomes:
   # Forward-looking horizons (in bars/minutes)
   horizons:
-    - 1    # 1-minute outcomes (scalping)
     - 2    # 2-minute outcomes (scalping)
+    - 3    # 3-minute outcomes (scalping)
     - 5    # 5-minute outcomes
     - 10   # 10-minute outcomes
     - 15   # 15-minute outcomes
     - 30   # 30-minute outcomes
-    - 120  # 2-hour outcomes
 
 # -----------------------------------------------------------------------------
 # Similarity Engine (KNN)
