@@ -185,6 +185,8 @@ Best combination (H=3, Target=20bps, Stop=40bps) had EV = -0.03 bps per trade.
 | 150bp | 0.1 | 0.2 | 0.5 | 0.9 | 2.2 | 4.9 | 9.9 | 18.3 | 24.9 | 30.2 | 34.4 |
 | 200bp | 0.1 | 0.1 | 0.2 | 0.4 | 1.1 | 2.5 | 5.7 | 11.4 | 16.8 | 21.2 | 25.0 |
 
+**Key insight:** ~95% of all winners are Dirty Wins (experienced drawdown before hitting target). Clean Wins are rare (~5%).
+
 ---
 
 ### TABLE 3: MAE Median (bp drawdown before hitting target - WINNERS ONLY)
@@ -259,7 +261,21 @@ Best combination (H=3, Target=20bps, Stop=40bps) had EV = -0.03 bps per trade.
 
 ---
 
-### TABLE 7: Time to Target - Median (bars from entry to hitting target - WINNERS ONLY)
+### TABLE 6b: Bars in Drawdown - 95th Percentile (worst 5% of winners)
+
+| Target | H=3 | H=5 | H=10 | H=15 | H=30 | H=60 | H=120 | H=240 | H=360 | H=480 | H=600 |
+|--------|-----|-----|------|------|------|------|-------|-------|-------|-------|-------|
+| 12bp | 3 | 4 | 7 | 11 | 20 | 38 | 69 | 120 | 166 | 203 | 237 |
+| 15bp | 3 | 4 | 7 | 11 | 20 | 39 | 73 | 131 | 185 | 229 | 274 |
+| 25bp | 2 | 4 | 7 | 10 | 20 | 39 | 77 | 146 | 215 | 276 | 333 |
+| 50bp | 2 | 4 | 7 | 9 | 18 | 37 | 75 | 152 | 228 | 300 | 374 |
+| 100bp | 2 | 4 | 6 | 9 | 17 | 34 | 71 | 143 | 218 | 294 | 365 |
+| 150bp | 2 | 4 | 5 | 8 | 16 | 32 | 66 | 138 | 210 | 281 | 350 |
+| 200bp | 2 | 4 | 5 | 8 | 17 | 29 | 61 | 128 | 203 | 263 | 334 |
+
+---
+
+### TABLE 7: Time to Hit Target - Median (bars from entry to hitting target - WINNERS ONLY)
 
 | Target | H=3 | H=5 | H=10 | H=15 | H=30 | H=60 | H=120 | H=240 | H=360 | H=480 | H=600 |
 |--------|-----|-----|------|------|------|------|-------|-------|-------|-------|-------|
@@ -273,14 +289,47 @@ Best combination (H=3, Target=20bps, Stop=40bps) had EV = -0.03 bps per trade.
 
 ---
 
+### TABLE 7b: Time to Target - 75th Percentile (slower 25% of winners)
+
+| Target | H=3 | H=5 | H=10 | H=15 | H=30 | H=60 | H=120 | H=240 | H=360 | H=480 | H=600 |
+|--------|-----|-----|------|------|------|------|-------|-------|-------|-------|-------|
+| 12bp | 2 | 4 | 6 | 8 | 12 | 17 | 24 | 32 | 36 | 39 | 41 |
+| 15bp | 3 | 4 | 6 | 8 | 14 | 21 | 30 | 42 | 48 | 53 | 57 |
+| 25bp | 3 | 4 | 7 | 10 | 17 | 29 | 48 | 72 | 89 | 100 | 110 |
+| 50bp | 3 | 4 | 8 | 11 | 21 | 39 | 69 | 119 | 158 | 188 | 214 |
+| 100bp | 3 | 4 | 9 | 12 | 23 | 44 | 84 | 155 | 220 | 276 | 325 |
+| 150bp | 3 | 4 | 9 | 12 | 24 | 46 | 91 | 172 | 245 | 315 | 379 |
+| 200bp | 3 | 5 | 9 | 13 | 25 | 46 | 93 | 180 | 265 | 339 | 411 |
+
+---
+
+### TABLE 7c: Time to Target - 95th Percentile (slowest 5% of winners)
+
+| Target | H=3 | H=5 | H=10 | H=15 | H=30 | H=60 | H=120 | H=240 | H=360 | H=480 | H=600 |
+|--------|-----|-----|------|------|------|------|-------|-------|-------|-------|-------|
+| 12bp | 3 | 5 | 9 | 13 | 25 | 46 | 81 | 136 | 183 | 220 | 257 |
+| 15bp | 3 | 5 | 9 | 14 | 26 | 48 | 88 | 152 | 209 | 255 | 301 |
+| 25bp | 3 | 5 | 10 | 14 | 27 | 52 | 100 | 182 | 257 | 325 | 384 |
+| 50bp | 3 | 5 | 10 | 15 | 28 | 56 | 108 | 208 | 302 | 393 | 477 |
+| 100bp | 3 | 5 | 10 | 15 | 29 | 57 | 112 | 221 | 328 | 428 | 533 |
+| 150bp | 3 | 5 | 10 | 15 | 29 | 58 | 114 | 226 | 334 | 444 | 550 |
+| 200bp | 3 | 5 | 10 | 15 | 29 | 57 | 115 | 229 | 341 | 448 | 560 |
+
+---
+
 ### LONG vs SHORT Comparison (H=30, Target=15bp)
+
+**⚠️ INCONSISTENT DATA - DO NOT USE**
 
 | Direction | Clean Win | Dirty Win | Never Hit |
 |-----------|-----------|-----------|-----------|
 | LONG | 1.4% | 57.3% | 41.3% |
 | SHORT | 1.2% | 57.8% | 41.0% |
 
-Confirms 50/50 market - LONG and SHORT have nearly identical outcomes.
+**Issues:**
+1. LONG Clean Win shows 1.4%, but TABLE 2 shows 3.3% for same parameters
+2. SHORT was never properly calculated - all tables (1-7) are LONG only
+3. This table needs to be re-calculated or removed
 
 ---
 
