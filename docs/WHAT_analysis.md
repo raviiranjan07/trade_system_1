@@ -29,6 +29,16 @@ We ran extensive analysis on 3.15 million 1-minute BTC candles (full 6-year data
 
 **Using 12bp threshold (Rule #1):**
 
+**Column definitions:**
+
+| Category | Meaning |
+|----------|---------|
+| Noise (<12bp) | Hit NEITHER +12bp nor -12bp within H bars |
+| Real UP only | Hit +12bp but NOT -12bp within H bars |
+| Real DOWN only | Hit -12bp but NOT +12bp within H bars |
+| Real BOTH | Hit BOTH +12bp AND -12bp within H bars |
+| Total Real | UP only + DOWN only + BOTH (= 100% - Noise) |
+
 | Horizon | Noise (<12bp) | Real UP only | Real DOWN only | Real BOTH | Total Real |
 |---------|---------------|--------------|----------------|-----------|------------|
 | H=3     | 58.7%         | 18.4%        | 18.7%          | 4.2%      | 41.3%      |
