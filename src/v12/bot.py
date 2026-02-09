@@ -1,0 +1,685 @@
+"""V1.2 Trading Bot — Live/Paper trading using Binance WebSocket.
+
+Connects to Binance Futures 15m kline stream and runs V1.2+RE strategy.
+Uses the SAME strategy + position_manager as the backtest (verified identical).
+
+Run: PYTHONPATH=src python -m v12.bot
+"""
+
+import asyncio
+import csv
+import logging
+import signal
+from dataclasses import asdict
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Optional
+
+import numpy as np
+import pandas as pd
+from sqlalchemy import create_engine, text
+
+from .config.constants import SYMBOL, TIMEFRAME
+from .config.loader import load_config
+from .config.schema import AppConfig
+from .position_manager import V12PositionManager, TradeRecord
+from .strategy import V12Strategy, Direction, Signal
+
+logger = logging.getLogger(__name__)
+
+# Need 200+ bars for SMA200 warm-up + margin
+MIN_BUFFER_SIZE = 300
+BUFFER_SIZE = 500
+
+
+
+class V12Bot:
+    """Live/Paper trading bot for V1.2 strategy."""
+
+    def __init__(self, config: AppConfig):
+        self.cfg = config
+        self.strategy = V12Strategy(config)
+        self.pm = V12PositionManager(config)
+
+        # Track bar index for position manager
+        self._bar_count = 0
+        self._last_signal: Optional[Signal] = None
+
+        # Trade logging
+        self._trades_dir = Path("data/v12_trades")
+        self._trades_dir.mkdir(parents=True, exist_ok=True)
+        self._trades_csv = self._trades_dir / f"trades_{config.execution.mode}_{config.config_hash()}.csv"
+        self._init_csv()
+
+        # Session state
+        self._running = False
+        self._connector = None
+
+        # Dashboard state (optional — set via set_dashboard())
+        self._dashboard = None
+        self._chart_history_loaded = False
+
+    def set_dashboard(self, dashboard_state) -> None:
+        """Attach dashboard state for real-time UI updates."""
+        self._dashboard = dashboard_state
+        # Push config to dashboard
+        dashboard_state.set_config(
+            pair=SYMBOL,
+            timeframe=TIMEFRAME,
+            mode=self.cfg.execution.mode,
+            trailing_stop_long=self.cfg.exit.long_trailing_stop_bps,
+            trailing_stop_short=self.cfg.exit.short_trailing_stop_bps,
+            max_bars=self.cfg.exit.max_bars,
+            reentry_enabled=self.cfg.reentry.enabled,
+            config_hash=self.cfg.config_hash(),
+        )
+        # Reload previous trades so dashboard survives restarts
+        self._load_trades_from_csv()
+
+    def _load_trades_from_csv(self) -> None:
+        """Load previous trades from CSV into position manager + dashboard."""
+        if not self._trades_csv.exists():
+            return
+        try:
+            df = pd.read_csv(self._trades_csv)
+        except Exception:
+            return
+        if df.empty:
+            return
+
+        logger.info("Reloading %d previous trades from %s", len(df), self._trades_csv.name)
+
+        for _, row in df.iterrows():
+            trade = TradeRecord(
+                signal_time=row["signal_time"],
+                entry_time=row["entry_time"],
+                exit_time=row["exit_time"],
+                direction=str(row["direction"]),
+                entry_price=float(row["entry_price"]),
+                exit_price=float(row["exit_price"]),
+                gross_profit_bps=float(row["gross_profit_bps"]),
+                net_profit_bps=float(row["net_profit_bps"]),
+                mfe_bps=float(row["mfe_bps"]),
+                mae_bps=float(row["mae_bps"]),
+                exit_bar=int(row["exit_bar"]),
+                exit_reason=str(row["exit_reason"]),
+                is_reentry=str(row["is_reentry"]).strip().lower() == "true",
+            )
+            self.pm.trades.append(trade)
+
+        # Push trades + stats to dashboard
+        if not self._dashboard:
+            return
+
+        for i, trade in enumerate(self.pm.trades):
+            self._dashboard.add_trade({
+                "trade_id": f"R{i+1}",
+                "direction": trade.direction,
+                "entry_price": trade.entry_price,
+                "exit_price": trade.exit_price,
+                "net_profit_bps": trade.net_profit_bps,
+                "mfe_bps": trade.mfe_bps,
+                "mae_bps": trade.mae_bps,
+                "exit_bar": trade.exit_bar,
+                "exit_reason": trade.exit_reason,
+                "is_reentry": trade.is_reentry,
+                "exit_time": str(trade.exit_time),
+                "entry_time": str(trade.entry_time),
+            })
+
+        trades = self.pm.trades
+        wins = [t for t in trades if t.net_profit_bps > 0]
+        losses = [t for t in trades if t.net_profit_bps <= 0]
+        total_bps = sum(t.net_profit_bps for t in trades)
+        gross_win = sum(t.net_profit_bps for t in wins) if wins else 0
+        gross_loss = abs(sum(t.net_profit_bps for t in losses)) if losses else 0
+
+        self._dashboard.update_stats(
+            total_trades=len(trades),
+            wins=len(wins),
+            losses=len(losses),
+            win_rate=len(wins) / len(trades) if trades else 0,
+            total_bps=round(total_bps, 1),
+            avg_bps=round(total_bps / len(trades), 1) if trades else 0,
+            profit_factor=round(gross_win / gross_loss, 2) if gross_loss > 0 else 0,
+        )
+        logger.info(
+            "Restored dashboard: %d trades, %+.0f bps, PF %.2f",
+            len(trades), total_bps,
+            round(gross_win / gross_loss, 2) if gross_loss > 0 else 0,
+        )
+
+    def _init_csv(self) -> None:
+        """Initialize CSV for trade logging."""
+        if not self._trades_csv.exists():
+            headers = [
+                "signal_time", "entry_time", "exit_time", "direction",
+                "entry_price", "exit_price", "gross_profit_bps", "net_profit_bps",
+                "mfe_bps", "mae_bps", "exit_bar", "exit_reason", "is_reentry",
+            ]
+            with open(self._trades_csv, "w", newline="") as f:
+                csv.writer(f).writerow(headers)
+            logger.info("Created trades CSV: %s", self._trades_csv)
+
+    def _log_trade(self, trade: TradeRecord) -> None:
+        """Append trade to CSV."""
+        row = [
+            trade.signal_time, trade.entry_time, trade.exit_time,
+            trade.direction, f"{trade.entry_price:.2f}", f"{trade.exit_price:.2f}",
+            f"{trade.gross_profit_bps:.1f}", f"{trade.net_profit_bps:.1f}",
+            f"{trade.mfe_bps:.1f}", f"{trade.mae_bps:.1f}",
+            trade.exit_bar, trade.exit_reason, trade.is_reentry,
+        ]
+        with open(self._trades_csv, "a", newline="") as f:
+            csv.writer(f).writerow(row)
+
+    def _push_trade_to_dashboard(self, trade: TradeRecord) -> None:
+        """Push completed trade + updated stats to dashboard."""
+        if not self._dashboard:
+            return
+
+        self._dashboard.add_trade({
+            "trade_id": f"{trade.direction[0]}{self._bar_count}",
+            "direction": trade.direction,
+            "entry_price": trade.entry_price,
+            "exit_price": trade.exit_price,
+            "net_profit_bps": trade.net_profit_bps,
+            "mfe_bps": trade.mfe_bps,
+            "mae_bps": trade.mae_bps,
+            "exit_bar": trade.exit_bar,
+            "exit_reason": trade.exit_reason,
+            "is_reentry": trade.is_reentry,
+            "exit_time": str(trade.exit_time),
+        })
+
+        # Clear position
+        self._dashboard.clear_position()
+
+        # Update stats
+        trades = self.pm.trades
+        wins = [t for t in trades if t.net_profit_bps > 0]
+        losses = [t for t in trades if t.net_profit_bps <= 0]
+        total_bps = sum(t.net_profit_bps for t in trades)
+        gross_win = sum(t.net_profit_bps for t in wins) if wins else 0
+        gross_loss = abs(sum(t.net_profit_bps for t in losses)) if losses else 0
+
+        self._dashboard.update_stats(
+            total_trades=len(trades),
+            wins=len(wins),
+            losses=len(losses),
+            win_rate=len(wins) / len(trades) if trades else 0,
+            total_bps=round(total_bps, 1),
+            avg_bps=round(total_bps / len(trades), 1) if trades else 0,
+            profit_factor=round(gross_win / gross_loss, 2) if gross_loss > 0 else 0,
+        )
+
+    def _load_chart_history(self) -> None:
+        """Load 15m candle history from Binance REST API and push to dashboard.
+
+        Uses native Binance 15m candles (not aggregated from 1-min DB data)
+        so SMA200 and other indicators match Binance exactly.
+        Falls back to TimescaleDB if the Binance API call fails.
+        """
+        if not self._dashboard:
+            return
+
+        df = self._fetch_chart_from_binance()
+        if df is None:
+            df = self._fetch_chart_from_db()
+        if df is None:
+            return
+
+        # Compute indicators on full dataset (SMA200 needs warmup)
+        df = self.strategy.compute_indicators(df)
+        df = df.dropna(subset=["open", "high", "low", "close"])
+        # Trim warmup: keep only last 11 days for display
+        cutoff = df.index.max() - pd.Timedelta(days=11)
+        df = df[df.index >= cutoff]
+
+        # Convert to chart format
+        candles = []
+        for idx, row in df.iterrows():
+            candles.append({
+                "time": int(idx.timestamp()),
+                "open": round(float(row["open"]), 2),
+                "high": round(float(row["high"]), 2),
+                "low": round(float(row["low"]), 2),
+                "close": round(float(row["close"]), 2),
+                "volume": round(float(row["volume"]), 2),
+                "sma": round(float(row["sma"]), 2) if pd.notna(row.get("sma")) else None,
+                "rsi": round(float(row["rsi"]), 1) if pd.notna(row.get("rsi")) else None,
+            })
+
+        self._dashboard.set_candle_history(candles)
+
+        # Also set status indicators so top cards match chart from startup
+        last_row = df.iloc[-1]
+        regime = "BULL" if last_row.get("bull_market", False) else "BEAR"
+        self._dashboard.update_status(
+            price=round(float(last_row["close"]), 2),
+            regime=regime,
+            rsi=round(float(last_row["rsi"]), 1) if pd.notna(last_row.get("rsi")) else 0,
+            atr_percentile=round(float(last_row["atr_percentile"]), 1) if pd.notna(last_row.get("atr_percentile")) else 0,
+            ema_separation=round(float(last_row["ema_separation"]), 4) if pd.notna(last_row.get("ema_separation")) else 0,
+        )
+
+        self._chart_history_loaded = True
+        logger.info("Loaded %d 15m candles for chart display", len(candles))
+
+    def _fetch_chart_from_binance(self) -> Optional[pd.DataFrame]:
+        """Fetch native 15m candles from Binance REST API.
+
+        Returns ~1500 candles (~15.6 days) which provides 11 days display
+        plus warmup for SMA200. Returns None on failure.
+        """
+        import requests as req
+
+        logger.info("Loading chart history from Binance REST API...")
+        try:
+            resp = req.get(
+                "https://fapi.binance.com/fapi/v1/klines",
+                params={"symbol": SYMBOL, "interval": TIMEFRAME, "limit": 1500},
+                timeout=15,
+            )
+            resp.raise_for_status()
+            raw = resp.json()
+        except Exception as e:
+            logger.warning("Binance API chart fetch failed: %s", e)
+            return None
+
+        if not raw:
+            logger.warning("No candles returned from Binance API")
+            return None
+
+        # Binance kline: [open_time, open, high, low, close, volume, close_time, ...]
+        rows = []
+        for k in raw:
+            rows.append({
+                "time": pd.Timestamp(k[0], unit="ms"),
+                "open": float(k[1]),
+                "high": float(k[2]),
+                "low": float(k[3]),
+                "close": float(k[4]),
+                "volume": float(k[5]),
+            })
+
+        df = pd.DataFrame(rows)
+        df.set_index("time", inplace=True)
+        # Drop last candle — it's the currently forming (incomplete) candle.
+        # Using it would give stale RSI/SMA that won't match the final close.
+        # The live candle mechanism handles the current candle separately.
+        if len(df) > 1:
+            df = df.iloc[:-1]
+        logger.info("Fetched %d native 15m candles from Binance", len(df))
+        return df
+
+    def _fetch_chart_from_db(self) -> Optional[pd.DataFrame]:
+        """Fallback: fetch 15m candles from TimescaleDB (aggregated from 1-min).
+
+        Returns None on failure.
+        """
+        import os
+        from dotenv import load_dotenv
+        load_dotenv()
+        db_url = os.getenv("DATABASE_URL")
+        if not db_url:
+            logger.warning("DATABASE_URL not set, skipping DB chart fallback")
+            return None
+
+        logger.info("Falling back to TimescaleDB for chart history...")
+        try:
+            engine = create_engine(db_url, connect_args={"connect_timeout": 10})
+            query = text("""
+                SELECT
+                    time_bucket('15 minutes', time) AS time,
+                    first(open, time) AS open,
+                    max(high) AS high,
+                    min(low) AS low,
+                    last(close, time) AS close,
+                    sum(volume) AS volume
+                FROM ohlcv_data
+                WHERE pair = :pair
+                  AND time >= NOW() - INTERVAL '14 days'
+                GROUP BY 1
+                ORDER BY 1
+            """)
+            df = pd.read_sql(query, engine, params={"pair": SYMBOL})
+            engine.dispose()
+        except Exception as e:
+            logger.error("DB chart fetch failed: %s", e)
+            return None
+
+        if df.empty:
+            logger.warning("No chart history returned from DB")
+            return None
+
+        df["time"] = pd.to_datetime(df["time"])
+        df.set_index("time", inplace=True)
+        df.index = df.index.tz_localize(None)
+        logger.info("Fetched %d aggregated 15m candles from DB", len(df))
+        return df
+
+    def _push_position_to_dashboard(self, close_price: float) -> None:
+        """Push current position state to dashboard."""
+        if not self._dashboard or not self.pm.position:
+            return
+
+        pos = self.pm.position
+        if pos.direction == Direction.LONG:
+            current_pnl = (close_price - pos.entry_price) / pos.entry_price * 10000
+        else:
+            current_pnl = (pos.entry_price - close_price) / pos.entry_price * 10000
+
+        self._dashboard.update_position(
+            has_position=True,
+            side=pos.direction.value,
+            entry_price=pos.entry_price,
+            trailing_stop_bps=pos.trailing_stop_bps,
+            highest_profit_bps=round(pos.highest_profit_bps, 1),
+            current_pnl_bps=round(current_pnl, 1),
+            bars_held=pos.bars_held,
+            max_bars=pos.max_bars,
+            mfe_bps=round(pos.mfe_bps, 1),
+            mae_bps=round(pos.mae_bps, 1),
+            is_reentry=pos.is_reentry,
+        )
+
+    async def start(self) -> None:
+        """Start the bot with Binance WebSocket."""
+        # Load connector directly — bypass live/__init__.py (old orchestrator imports)
+        import importlib.util, pathlib
+        _spec = importlib.util.spec_from_file_location(
+            "binance_connector",
+            pathlib.Path(__file__).parents[1] / "trade_system" / "live" / "binance_connector.py",
+        )
+        _mod = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)
+        BinanceConnector = _mod.BinanceConnector
+
+        logger.info(
+            "Starting V1.2 Bot | mode=%s | hash=%s | leverage=%dx | size=$%.0f",
+            self.cfg.execution.mode,
+            self.cfg.config_hash(),
+            self.cfg.execution.leverage,
+            self.cfg.execution.position_size_usd,
+        )
+
+        self._running = True
+        self._initial_push_done = False
+        self._connector = BinanceConnector(
+            symbol=SYMBOL,
+            interval=TIMEFRAME,
+            buffer_size=BUFFER_SIZE,
+            on_candle_close=self._on_candle_close,
+            on_candle_update=self._on_candle_update,
+        )
+
+        # Start dashboard — mark as RUNNING so web server can show loading UI
+        if self._dashboard:
+            self._dashboard.start()
+
+        # Yield to event loop so the web server task can bind its port
+        await asyncio.sleep(0.1)
+
+        # Load chart history in a thread (blocking I/O: requests.get + pd.read_sql)
+        # so the web server stays responsive and UI renders immediately
+        if self._dashboard:
+            await asyncio.get_event_loop().run_in_executor(
+                None, self._load_chart_history
+            )
+
+        # Handle graceful shutdown
+        loop = asyncio.get_event_loop()
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            try:
+                loop.add_signal_handler(sig, lambda: asyncio.create_task(self.stop()))
+            except NotImplementedError:
+                pass  # Windows doesn't support add_signal_handler
+
+        try:
+            await self._connector.start()
+        except KeyboardInterrupt:
+            await self.stop()
+
+    async def stop(self) -> None:
+        """Stop the bot gracefully."""
+        logger.info("Stopping V1.2 Bot...")
+        self._running = False
+        if self._connector:
+            await self._connector.stop()
+
+        if self._dashboard:
+            self._dashboard.stop()
+
+        # Log final stats
+        trades = self.pm.trades
+        if trades:
+            total = sum(t.net_profit_bps for t in trades)
+            wins = sum(1 for t in trades if t.net_profit_bps > 0)
+            logger.info(
+                "Session complete: %d trades, %d wins (%.1f%%), %+.0f bps total",
+                len(trades), wins, wins / len(trades) * 100, total,
+            )
+
+    async def _on_candle_update(self, candle: dict) -> None:
+        """Called on every WebSocket tick. Pushes initial state + live price."""
+        if not self._dashboard:
+            return
+
+        # First tick after buffer is ready: mark as initialized
+        if not self._initial_push_done:
+            df = self._connector.get_candle_buffer()
+            if len(df) < MIN_BUFFER_SIZE:
+                return
+
+            if self._chart_history_loaded:
+                # DB loaded OK — indicators already set from DB, just update price
+                self._dashboard.update_status(
+                    price=candle["close"],
+                    bar_count=self._bar_count,
+                )
+            else:
+                # DB was unreachable — set indicators from live buffer as fallback
+                df = self.strategy.compute_indicators(df)
+                latest = df.iloc[-1]
+                regime = "BULL" if latest.get("bull_market", False) else "BEAR"
+                self._dashboard.update_status(
+                    price=candle["close"],
+                    regime=regime,
+                    bar_count=self._bar_count,
+                    rsi=round(float(latest.get("rsi", 0)), 1),
+                    atr_percentile=round(float(latest.get("atr_percentile", 0)), 1),
+                    ema_separation=round(float(latest.get("ema_separation", 0)), 4),
+                )
+
+            self._initial_push_done = True
+            logger.info("Dashboard initialized from historical buffer (%d bars)", len(df))
+            return
+
+        # Subsequent ticks: update price + live candle
+        self._dashboard.update_status(price=candle["close"])
+        self._dashboard.update_current_candle({
+            "time": int(candle["open_time"].timestamp()),
+            "open": round(candle["open"], 2),
+            "high": round(candle["high"], 2),
+            "low": round(candle["low"], 2),
+            "close": round(candle["close"], 2),
+            "volume": round(candle.get("volume", 0), 2),
+        })
+
+    async def _on_candle_close(self, candle: dict) -> None:
+        """Called on each 15m candle close. Core bot logic."""
+        self._bar_count += 1
+
+        # Build indicator DataFrame from buffer
+        df = self._connector.get_candle_buffer()
+        if len(df) < MIN_BUFFER_SIZE:
+            logger.debug("Warming up: %d/%d bars", len(df), MIN_BUFFER_SIZE)
+            return
+
+        # Compute indicators
+        df = self.strategy.compute_indicators(df)
+        latest_idx = len(df) - 1
+        latest = df.iloc[latest_idx]
+
+        current_price = candle["close"]
+        bar_time = candle["open_time"]
+
+        # Determine regime
+        regime = "BULL" if latest.get("bull_market", False) else "BEAR"
+
+        # Push status + indicators + closed candle to dashboard
+        if self._dashboard:
+            self._dashboard.update_status(
+                price=current_price,
+                regime=regime,
+                bar_count=self._bar_count,
+                rsi=round(float(latest.get("rsi", 0)), 1),
+                atr_percentile=round(float(latest.get("atr_percentile", 0)), 1),
+                ema_separation=round(float(latest.get("ema_separation", 0)), 4),
+            )
+            self._dashboard.close_candle({
+                "time": int(df.index[-1].timestamp()),
+                "open": round(float(latest["open"]), 2),
+                "high": round(float(latest["high"]), 2),
+                "low": round(float(latest["low"]), 2),
+                "close": round(float(latest["close"]), 2),
+                "volume": round(float(latest.get("volume", 0)), 2),
+                "sma": round(float(latest["sma"]), 2) if pd.notna(latest.get("sma")) else None,
+                "rsi": round(float(latest["rsi"]), 1) if pd.notna(latest.get("rsi")) else None,
+            })
+
+        # === If in position: update with new bar ===
+        if self.pm.is_in_position:
+            trade = self.pm.on_bar(
+                high=candle["high"],
+                low=candle["low"],
+                close=candle["close"],
+                bar_time=bar_time,
+                bar_index=self._bar_count,
+            )
+            if trade:
+                self._log_trade(trade)
+                self._push_trade_to_dashboard(trade)
+                logger.info(
+                    "[%s] CLOSED %s | %s | %+.1f bps | bar %d | %s",
+                    self.cfg.execution.mode.upper(),
+                    trade.direction,
+                    trade.exit_reason,
+                    trade.net_profit_bps,
+                    trade.exit_bar,
+                    bar_time,
+                )
+            else:
+                # Still in position — update dashboard with current state
+                self._push_position_to_dashboard(current_price)
+            return
+
+        # === Not in position: check re-entry ===
+        if self.pm.reentry_direction is not None:
+            regime_ok = self._check_regime(self.pm.reentry_direction, latest)
+            if self.pm.can_reenter(self._bar_count, regime_ok):
+                entry_price = current_price
+                self.pm.open_position(
+                    direction=self.pm.reentry_direction,
+                    entry_price=entry_price,
+                    entry_time=bar_time,
+                    signal_time=bar_time,
+                    is_reentry=True,
+                )
+                if self._dashboard:
+                    self._push_position_to_dashboard(current_price)
+                    self._dashboard.add_signal({
+                        "action": "REENTRY",
+                        "direction": self.pm.reentry_direction.value,
+                        "rsi": float(latest.get("rsi", 0)),
+                        "time": str(bar_time),
+                    })
+                logger.info(
+                    "[%s] RE-ENTRY %s @ %.2f | %s",
+                    self.cfg.execution.mode.upper(),
+                    self.pm.reentry_direction.value,
+                    entry_price,
+                    bar_time,
+                )
+                return
+
+        # === Check for new signal ===
+        signals = self.strategy.generate_signals(df)
+        if not signals:
+            return
+
+        # Only care about signal on the latest bar
+        latest_signal = signals[-1]
+        if latest_signal.bar_index != latest_idx:
+            return
+
+        # New signal fires
+        self.pm.reset_reentry()
+        entry_price = current_price
+
+        self.pm.open_position(
+            direction=latest_signal.direction,
+            entry_price=entry_price,
+            entry_time=bar_time,
+            signal_time=latest_signal.timestamp,
+        )
+
+        if self._dashboard:
+            self._push_position_to_dashboard(current_price)
+            self._dashboard.add_signal({
+                "action": "ENTRY",
+                "direction": latest_signal.direction.value,
+                "rsi": float(latest_signal.rsi),
+                "atr_ok": True,
+                "ema_ok": True,
+                "time": str(bar_time),
+            })
+
+        logger.info(
+            "[%s] ENTRY %s @ %.2f | RSI=%.1f | %s",
+            self.cfg.execution.mode.upper(),
+            latest_signal.direction.value,
+            entry_price,
+            latest_signal.rsi,
+            bar_time,
+        )
+
+    def _check_regime(self, direction: Direction, latest_bar: pd.Series) -> bool:
+        """Check if market regime is valid for given direction."""
+        if direction == Direction.LONG:
+            return bool(latest_bar["bull_market"])
+        else:
+            return bool(latest_bar["bear_market"])
+
+
+async def main():
+    """Run the V1.2 bot with dashboard."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    config = load_config()
+    bot = V12Bot(config)
+
+    # Start dashboard web server
+    from src.web.server import run_server
+    from src.web.state import dashboard_state
+
+    port = 8080
+    bot.set_dashboard(dashboard_state)
+
+    # Run web server and bot concurrently
+    web_task = asyncio.create_task(run_server(port=port, state=dashboard_state))
+    logger.info("Dashboard running at http://localhost:%d", port)
+
+    try:
+        await bot.start()
+    finally:
+        web_task.cancel()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

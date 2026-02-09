@@ -1,0 +1,41 @@
+# V1.2 Trading Bot Configuration
+# Every parameter traced to experiment source
+# Config hash ensures reproducibility across runs
+
+# --- Signal Generation (EXP-001: V1 original) ---
+strategy:
+  rsi_period: 14
+  rsi_oversold: 20       # RSI < 20 = oversold signal
+  rsi_overbought: 80     # RSI > 80 = overbought signal
+  sma_period: 200        # SMA200 for bull/bear market regime
+
+# --- LONG Filters (EXP-006: WHEN analysis) ---
+long_filters:
+  atr_period: 14
+  atr_rolling_window: 200     # percentile calculated over 200 bars
+  atr_percentile_min: 25      # skip LONG when ATR < 25th percentile
+  ema_short: 50               # EMA50 for separation calc
+  ema_long: 200               # EMA200 for separation calc
+  ema_separation_min: 0.5     # skip LONG when EMA sep < 0.5%
+
+# --- SHORT Filters (EXP-007: ALL filters REJECTED) ---
+short_filters:
+  enabled: false  # SHORT is robust in all conditions — do not filter
+
+# --- Exit Mechanics (EXP-001 + EXP-009: time exit validated) ---
+exit:
+  long_trailing_stop_bps: 20   # 20 bps trailing stop for LONG
+  short_trailing_stop_bps: 30  # 30 bps trailing stop for SHORT
+  max_bars: 10                 # bar 10 time exit
+
+# --- Re-entry (EXP-012: Config A+RE validated) ---
+reentry:
+  enabled: true
+  max_reentries: 1    # 1 re-entry per original signal
+  cooldown_bars: 2    # wait 2 bars after trailing stop exit
+
+# --- Execution ---
+execution:
+  mode: paper          # paper | live
+  leverage: 20
+  position_size_usd: 10
