@@ -1,7 +1,7 @@
-"""V1.2 Backtest — Uses the SAME strategy + position_manager modules as the live bot.
+"""V1.3 Backtest — Uses the SAME strategy + position_manager modules as the live bot.
 
-Verification target (EXP-012 Config A+RE):
-  289 trades, +4,182 bps, PF 1.99
+Verification target (EXP-013 Combined):
+  349 trades, +5,423 bps, PF 2.09
 
 If this backtest doesn't match, the live bot logic is wrong.
 
@@ -19,7 +19,7 @@ from .config.constants import SYMBOL, TIMEFRAME
 from .config.loader import load_config
 from .config.schema import AppConfig
 from .position_manager import V12PositionManager, TradeRecord
-from .strategy import V12Strategy, Direction
+from .strategy import V12Strategy, Direction, SignalType
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ def run_backtest(
     start: str = "2024-01-01",
     end: str = "2025-12-31",
 ) -> list[TradeRecord]:
-    """Run V1.2+RE backtest using the same modules as the live bot.
+    """Run V1.3 backtest using the same modules as the live bot.
 
     This is the ground truth. If live bot matches this, we're good.
     """
@@ -83,23 +83,25 @@ def run_backtest(
             i += 1
             continue
 
-        # Not in position — check re-entry first
-        if pm.can_reenter(i, _regime_valid(pm.reentry_direction, bull, bear, i)):
-            # Re-enter at next bar's open
-            if i + 1 < n:
-                entry_price = opens[i + 1]
-                pm.open_position(
-                    direction=pm.reentry_direction,
-                    entry_price=entry_price,
-                    entry_time=times[i + 1],
-                    signal_time=times[i],
-                    is_reentry=True,
-                )
-                i += 2  # skip entry bar, start feeding from bar after entry
-                continue
+        # Not in position — check re-entry first (signal-type-based regime)
+        if pm.reentry_signal_type is not None:
+            regime_ok = _regime_valid(pm.reentry_signal_type, bull, bear, i)
+            if pm.can_reenter(i, regime_ok):
+                # Re-enter at next bar's open
+                if i + 1 < n:
+                    entry_price = opens[i + 1]
+                    pm.open_position(
+                        direction=pm.reentry_direction,
+                        signal_type=pm.reentry_signal_type,
+                        entry_price=entry_price,
+                        entry_time=times[i + 1],
+                        signal_time=times[i],
+                        is_reentry=True,
+                    )
+                    i += 2  # skip entry bar, start feeding from bar after entry
+                    continue
 
         # Check for new signal on this bar
-        # Use position in the test slice, not absolute df index
         if i in signal_map:
             sig = signal_map[i]
             pm.reset_reentry()
@@ -109,6 +111,7 @@ def run_backtest(
                 entry_price = opens[i + 1]
                 pm.open_position(
                     direction=sig.direction,
+                    signal_type=sig.signal_type,
                     entry_price=entry_price,
                     entry_time=times[i + 1],
                     signal_time=sig.timestamp,
@@ -121,11 +124,16 @@ def run_backtest(
     return pm.trades
 
 
-def _regime_valid(direction: Direction, bull: any, bear: any, idx: int) -> bool:
-    """Check if market regime is still valid for re-entry direction."""
-    if direction == Direction.LONG:
+def _regime_valid(signal_type: SignalType, bull, bear, idx: int) -> bool:
+    """Check if market regime is still valid for re-entry signal type.
+
+    V1.3: regime depends on SIGNAL TYPE, not just direction:
+      V12_LONG / BULL_SHORT -> needs bull (price > SMA200)
+      V12_SHORT / BEAR_LONG -> needs bear (price < SMA200)
+    """
+    if signal_type in (SignalType.V12_LONG, SignalType.BULL_SHORT):
         return bool(bull[idx])
-    else:
+    else:  # V12_SHORT, BEAR_LONG
         return bool(bear[idx])
 
 
@@ -152,7 +160,7 @@ def print_results(trades: list[TradeRecord], config: AppConfig) -> None:
     max_dd = (equity - equity.cummax()).min()
 
     print("=" * 70)
-    print(f"V1.2 BACKTEST RESULTS | config_hash={config.config_hash()}")
+    print(f"V1.3 BACKTEST RESULTS | config_hash={config.config_hash()}")
     print("=" * 70)
     print(f"Trades: {len(tdf)} ({len(orig)} orig + {len(re_trades)} RE)")
     print(f"Win Rate: {len(winners)/len(tdf)*100:.1f}%")
@@ -163,9 +171,21 @@ def print_results(trades: list[TradeRecord], config: AppConfig) -> None:
     print(f"LONG:  {len(lt)}t, {lt['net_profit_bps'].sum():+.0f} bps")
     print(f"SHORT: {len(st)}t, {st['net_profit_bps'].sum():+.0f} bps")
 
+    # Signal type breakdown
+    print()
+    print("By Signal Type:")
+    for st_name in sorted(tdf["signal_type"].unique()):
+        st_df = tdf[tdf["signal_type"] == st_name]
+        st_w = st_df[st_df["net_profit_bps"] > 0]
+        st_l = st_df[st_df["net_profit_bps"] <= 0]
+        st_gw = st_w["net_profit_bps"].sum() if len(st_w) > 0 else 0
+        st_gl = abs(st_l["net_profit_bps"].sum()) if len(st_l) > 0 else 1
+        print(f"  {st_name:<12} {len(st_df):>4}t | Win: {len(st_w)/len(st_df)*100:>5.1f}% | "
+              f"Net: {st_df['net_profit_bps'].sum():>+7.0f} bps | PF: {st_gw/st_gl:.2f}")
+
     if len(re_trades) > 0:
         re_w = re_trades[re_trades["net_profit_bps"] > 0]
-        print(f"RE:    {len(re_trades)}t, win {len(re_w)/len(re_trades)*100:.1f}%, "
+        print(f"\nRE:    {len(re_trades)}t, win {len(re_w)/len(re_trades)*100:.1f}%, "
               f"{re_trades['net_profit_bps'].sum():+.0f} bps")
 
     # Year split

@@ -1,8 +1,10 @@
-"""V1.2 Strategy — Pure signal generation logic.
+"""V1.3 Strategy — Pure signal generation logic.
 
 Entry rules (from experiments):
-  LONG:  RSI crosses below 20 + price > SMA200 + ATR >= 25th pctl + EMA sep >= 0.5%
-  SHORT: RSI crosses above 80 + price < SMA200 (no filters — EXP-007)
+  V12_LONG:    RSI crosses below 20 + bull (price>SMA200) + ATR>=25 + EMA>=0.5%  [EXP-006]
+  V12_SHORT:   RSI crosses above 80 + bear (price<SMA200) [no filters]            [EXP-007]
+  BEAR_LONG:   RSI crosses below 10 + bear (price<SMA200) + EMA>=1.0%             [EXP-013]
+  BULL_SHORT:  RSI crosses above 90 + bull (price>SMA200) + ATR>=60 + EMA>=1.0%   [EXP-013]
 
 This module is stateless: takes data, returns signals. No execution or side effects.
 """
@@ -22,9 +24,17 @@ class Direction(Enum):
     SHORT = "SHORT"
 
 
+class SignalType(Enum):
+    V12_LONG = "V12_LONG"
+    V12_SHORT = "V12_SHORT"
+    BEAR_LONG = "BEAR_LONG"
+    BULL_SHORT = "BULL_SHORT"
+
+
 @dataclass
 class Signal:
     direction: Direction
+    signal_type: SignalType
     bar_index: int
     timestamp: pd.Timestamp
     rsi: float
@@ -34,7 +44,7 @@ class Signal:
 
 
 class V12Strategy:
-    """V1.2 signal generator. Pure logic — no side effects."""
+    """V1.3 signal generator. Pure logic — no side effects."""
 
     def __init__(self, config: AppConfig):
         self.cfg = config
@@ -62,7 +72,7 @@ class V12Strategy:
         # SMA for regime
         out["sma"] = out["close"].rolling(c.strategy.sma_period).mean()
 
-        # EMA separation (LONG filter)
+        # EMA separation
         lf = c.long_filters
         out["ema_short"] = out["close"].ewm(span=lf.ema_short, adjust=False).mean()
         out["ema_long"] = out["close"].ewm(span=lf.ema_long, adjust=False).mean()
@@ -70,7 +80,7 @@ class V12Strategy:
             abs(out["ema_short"] - out["ema_long"]) / out["close"] * 100
         )
 
-        # ATR + percentile (LONG filter)
+        # ATR + percentile
         tr = np.maximum(
             out["high"] - out["low"],
             np.maximum(
@@ -82,11 +92,17 @@ class V12Strategy:
         atr_bps = out["atr"] / out["close"] * 10000
         out["atr_percentile"] = atr_bps.rolling(lf.atr_rolling_window).rank(pct=True) * 100
 
-        # Signal detection (cross = first bar entering zone)
+        # V1.2 RSI crosses (20/80)
         rsi_oversold = out["rsi"] < c.strategy.rsi_oversold
         rsi_overbought = out["rsi"] > c.strategy.rsi_overbought
         out["rsi_oversold_cross"] = rsi_oversold & ~rsi_oversold.shift(1, fill_value=False)
         out["rsi_overbought_cross"] = rsi_overbought & ~rsi_overbought.shift(1, fill_value=False)
+
+        # V1.3 extreme RSI crosses (10/90)
+        rsi_extreme_os = out["rsi"] < c.bear_long_filters.rsi_threshold
+        rsi_extreme_ob = out["rsi"] > c.bull_short_filters.rsi_threshold
+        out["rsi_extreme_oversold_cross"] = rsi_extreme_os & ~rsi_extreme_os.shift(1, fill_value=False)
+        out["rsi_extreme_overbought_cross"] = rsi_extreme_ob & ~rsi_extreme_ob.shift(1, fill_value=False)
 
         # Regime
         out["bull_market"] = out["close"] > out["sma"]
@@ -96,6 +112,8 @@ class V12Strategy:
 
     def generate_signals(self, df: pd.DataFrame) -> list[Signal]:
         """Generate all entry signals from indicator DataFrame.
+
+        Signal priority (elif chain): V12 signals fire first if multiple conditions met.
 
         Args:
             df: DataFrame with indicators (output of compute_indicators).
@@ -113,11 +131,13 @@ class V12Strategy:
         bear = df["bear_market"].values
         oversold_cross = df["rsi_oversold_cross"].values
         overbought_cross = df["rsi_overbought_cross"].values
+        extreme_os_cross = df["rsi_extreme_oversold_cross"].values
+        extreme_ob_cross = df["rsi_extreme_overbought_cross"].values
         prices = df["close"].values
         times = df.index
 
         for i in range(len(df)):
-            # LONG: RSI oversold cross + bull market + filters
+            # Signal 1: V12_LONG — RSI<20 cross + bull + ATR>=25 + EMA>=0.5
             if oversold_cross[i] and bull[i]:
                 ap = atr_pctl[i]
                 es = ema_sep[i]
@@ -131,6 +151,7 @@ class V12Strategy:
 
                 signals.append(Signal(
                     direction=Direction.LONG,
+                    signal_type=SignalType.V12_LONG,
                     bar_index=i,
                     timestamp=times[i],
                     rsi=rsi_vals[i],
@@ -139,14 +160,55 @@ class V12Strategy:
                     ema_separation=es,
                 ))
 
-            # SHORT: RSI overbought cross + bear market (no filters)
+            # Signal 2: V12_SHORT — RSI>80 cross + bear (no filters)
             elif overbought_cross[i] and bear[i]:
                 signals.append(Signal(
                     direction=Direction.SHORT,
+                    signal_type=SignalType.V12_SHORT,
                     bar_index=i,
                     timestamp=times[i],
                     rsi=rsi_vals[i],
                     price=prices[i],
+                ))
+
+            # Signal 3: BEAR_LONG — RSI<10 cross + bear + EMA>=1.0
+            elif extreme_os_cross[i] and bear[i]:
+                es = ema_sep[i]
+                if np.isnan(es):
+                    continue
+                if es < c.bear_long_filters.ema_separation_min:
+                    continue
+
+                signals.append(Signal(
+                    direction=Direction.LONG,
+                    signal_type=SignalType.BEAR_LONG,
+                    bar_index=i,
+                    timestamp=times[i],
+                    rsi=rsi_vals[i],
+                    price=prices[i],
+                    ema_separation=es,
+                ))
+
+            # Signal 4: BULL_SHORT — RSI>90 cross + bull + ATR>=60 + EMA>=1.0
+            elif extreme_ob_cross[i] and bull[i]:
+                ap = atr_pctl[i]
+                es = ema_sep[i]
+                if np.isnan(ap) or np.isnan(es):
+                    continue
+                if ap < c.bull_short_filters.atr_percentile_min:
+                    continue
+                if es < c.bull_short_filters.ema_separation_min:
+                    continue
+
+                signals.append(Signal(
+                    direction=Direction.SHORT,
+                    signal_type=SignalType.BULL_SHORT,
+                    bar_index=i,
+                    timestamp=times[i],
+                    rsi=rsi_vals[i],
+                    price=prices[i],
+                    atr_percentile=ap,
+                    ema_separation=es,
                 ))
 
         return signals

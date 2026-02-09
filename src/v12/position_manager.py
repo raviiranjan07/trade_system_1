@@ -1,4 +1,4 @@
-"""V1.2 Position Manager — Tracks open positions, handles exits and re-entry.
+"""V1.3 Position Manager — Tracks open positions, handles exits and re-entry.
 
 Exit mechanics (from experiments):
   - Trailing stop: 20 bps LONG, 30 bps SHORT (EXP-001)
@@ -11,7 +11,7 @@ from typing import Optional
 
 from .config.constants import FEES_BPS
 from .config.schema import AppConfig
-from .strategy import Direction
+from .strategy import Direction, SignalType
 
 
 @dataclass
@@ -21,6 +21,7 @@ class TradeRecord:
     entry_time: object
     exit_time: object
     direction: str
+    signal_type: str
     entry_price: float
     exit_price: float
     gross_profit_bps: float
@@ -36,6 +37,7 @@ class TradeRecord:
 class OpenPosition:
     """State of an open position being tracked bar-by-bar."""
     direction: Direction
+    signal_type: SignalType
     entry_price: float
     entry_time: object
     signal_time: object
@@ -60,6 +62,7 @@ class V12PositionManager:
 
         # Re-entry state
         self._last_exit_direction: Optional[Direction] = None
+        self._last_exit_signal_type: Optional[SignalType] = None
         self._last_exit_reason: Optional[str] = None
         self._last_exit_bar_index: int = -999
         self._reentry_count: int = 0
@@ -71,6 +74,7 @@ class V12PositionManager:
     def open_position(
         self,
         direction: Direction,
+        signal_type: SignalType,
         entry_price: float,
         entry_time: object,
         signal_time: object,
@@ -84,6 +88,7 @@ class V12PositionManager:
 
         self.position = OpenPosition(
             direction=direction,
+            signal_type=signal_type,
             entry_price=entry_price,
             entry_time=entry_time,
             signal_time=signal_time,
@@ -149,6 +154,7 @@ class V12PositionManager:
             entry_time=pos.entry_time,
             exit_time=exit_time,
             direction=pos.direction.value,
+            signal_type=pos.signal_type.value,
             entry_price=pos.entry_price,
             exit_price=exit_price,
             gross_profit_bps=gross_profit_bps,
@@ -163,6 +169,7 @@ class V12PositionManager:
 
         # Track re-entry state
         self._last_exit_direction = pos.direction
+        self._last_exit_signal_type = pos.signal_type
         self._last_exit_reason = reason
         self._last_exit_bar_index = bar_index
 
@@ -209,9 +216,15 @@ class V12PositionManager:
         """Direction for re-entry (same as last closed trade)."""
         return self._last_exit_direction
 
+    @property
+    def reentry_signal_type(self) -> Optional[SignalType]:
+        """Signal type for re-entry (same as last closed trade)."""
+        return self._last_exit_signal_type
+
     def reset_reentry(self) -> None:
         """Reset re-entry state (called when a new original signal fires)."""
         self._reentry_count = 0
         self._last_exit_reason = None
         self._last_exit_direction = None
+        self._last_exit_signal_type = None
         self._last_exit_bar_index = -999

@@ -1,4 +1,4 @@
-"""Pydantic models for V1.2 configuration. All models are frozen (immutable after load)."""
+"""Pydantic models for V1.3 configuration. All models are frozen (immutable after load)."""
 
 import hashlib
 import json
@@ -36,6 +36,23 @@ class ShortFilters(BaseModel):
     # Explicitly empty — SHORT is robust in all conditions
     # Do NOT add filters here without running EXP-007 again
     enabled: bool = False
+
+
+class BearLongFilters(BaseModel):
+    """BEAR_LONG entry filters. Source: EXP-013 (counter-trend LONG in bear)."""
+    model_config = ConfigDict(frozen=True)
+
+    rsi_threshold: float = Field(ge=1, le=20)
+    ema_separation_min: float = Field(ge=0, le=10)
+
+
+class BullShortFilters(BaseModel):
+    """BULL_SHORT entry filters. Source: EXP-013 (counter-trend SHORT in bull)."""
+    model_config = ConfigDict(frozen=True)
+
+    rsi_threshold: float = Field(ge=80, le=99)
+    atr_percentile_min: float = Field(ge=0, le=100)
+    ema_separation_min: float = Field(ge=0, le=10)
 
 
 class ExitConfig(BaseModel):
@@ -82,6 +99,8 @@ class AppConfig(BaseModel):
     strategy: StrategyConfig
     long_filters: LongFilters
     short_filters: ShortFilters
+    bear_long_filters: BearLongFilters
+    bull_short_filters: BullShortFilters
     exit: ExitConfig
     reentry: ReentryConfig
     execution: ExecutionConfig

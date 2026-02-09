@@ -1,4 +1,4 @@
-# V1.2 Trading Bot Configuration
+# V1.3 Trading Bot Configuration
 # Every parameter traced to experiment source
 # Config hash ensures reproducibility across runs
 
@@ -22,6 +22,17 @@ long_filters:
 short_filters:
   enabled: false  # SHORT is robust in all conditions — do not filter
 
+# --- BEAR_LONG Filters (EXP-013: counter-trend LONG in bear market) ---
+bear_long_filters:
+  rsi_threshold: 10          # RSI < 10 = extreme oversold in bear
+  ema_separation_min: 1.0    # only when EMAs separated by 1%+
+
+# --- BULL_SHORT Filters (EXP-013: counter-trend SHORT in bull market) ---
+bull_short_filters:
+  rsi_threshold: 90          # RSI > 90 = extreme overbought in bull
+  atr_percentile_min: 60     # only in high volatility (60th+ percentile)
+  ema_separation_min: 1.0    # only when EMAs separated by 1%+
+
 # --- Exit Mechanics (EXP-001 + EXP-009: time exit validated) ---
 exit:
   long_trailing_stop_bps: 20   # 20 bps trailing stop for LONG
@@ -30,7 +41,7 @@ exit:
 
 # --- Re-entry (EXP-012: Config A+RE validated) ---
 reentry:
-  enabled: true
+  enabled: false
   max_reentries: 1    # 1 re-entry per original signal
   cooldown_bars: 2    # wait 2 bars after trailing stop exit
 

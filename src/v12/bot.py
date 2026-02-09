@@ -1,6 +1,6 @@
-"""V1.2 Trading Bot — Live/Paper trading using Binance WebSocket.
+"""V1.3 Trading Bot — Live/Paper trading using Binance WebSocket.
 
-Connects to Binance Futures 15m kline stream and runs V1.2+RE strategy.
+Connects to Binance Futures 15m kline stream and runs V1.3 strategy.
 Uses the SAME strategy + position_manager as the backtest (verified identical).
 
 Run: PYTHONPATH=src python -m v12.bot
@@ -23,7 +23,7 @@ from .config.constants import SYMBOL, TIMEFRAME
 from .config.loader import load_config
 from .config.schema import AppConfig
 from .position_manager import V12PositionManager, TradeRecord
-from .strategy import V12Strategy, Direction, Signal
+from .strategy import V12Strategy, Direction, Signal, SignalType
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ BUFFER_SIZE = 500
 
 
 class V12Bot:
-    """Live/Paper trading bot for V1.2 strategy."""
+    """Live/Paper trading bot for V1.3 strategy."""
 
     def __init__(self, config: AppConfig):
         self.cfg = config
@@ -95,6 +95,7 @@ class V12Bot:
                 entry_time=row["entry_time"],
                 exit_time=row["exit_time"],
                 direction=str(row["direction"]),
+                signal_type=str(row.get("signal_type", "V12_LONG" if row["direction"] == "LONG" else "V12_SHORT")),
                 entry_price=float(row["entry_price"]),
                 exit_price=float(row["exit_price"]),
                 gross_profit_bps=float(row["gross_profit_bps"]),
@@ -153,7 +154,7 @@ class V12Bot:
         """Initialize CSV for trade logging."""
         if not self._trades_csv.exists():
             headers = [
-                "signal_time", "entry_time", "exit_time", "direction",
+                "signal_time", "entry_time", "exit_time", "direction", "signal_type",
                 "entry_price", "exit_price", "gross_profit_bps", "net_profit_bps",
                 "mfe_bps", "mae_bps", "exit_bar", "exit_reason", "is_reentry",
             ]
@@ -165,7 +166,8 @@ class V12Bot:
         """Append trade to CSV."""
         row = [
             trade.signal_time, trade.entry_time, trade.exit_time,
-            trade.direction, f"{trade.entry_price:.2f}", f"{trade.exit_price:.2f}",
+            trade.direction, trade.signal_type,
+            f"{trade.entry_price:.2f}", f"{trade.exit_price:.2f}",
             f"{trade.gross_profit_bps:.1f}", f"{trade.net_profit_bps:.1f}",
             f"{trade.mfe_bps:.1f}", f"{trade.mae_bps:.1f}",
             trade.exit_bar, trade.exit_reason, trade.is_reentry,
@@ -262,6 +264,9 @@ class V12Bot:
             atr_percentile=round(float(last_row["atr_percentile"]), 1) if pd.notna(last_row.get("atr_percentile")) else 0,
             ema_separation=round(float(last_row["ema_separation"]), 4) if pd.notna(last_row.get("ema_separation")) else 0,
         )
+
+        # Push signal proximity at startup so tracker shows immediately
+        self._dashboard.update_proximity(self._compute_proximity(last_row))
 
         self._chart_history_loaded = True
         logger.info("Loaded %d 15m candles for chart display", len(candles))
@@ -397,7 +402,7 @@ class V12Bot:
         BinanceConnector = _mod.BinanceConnector
 
         logger.info(
-            "Starting V1.2 Bot | mode=%s | hash=%s | leverage=%dx | size=$%.0f",
+            "Starting V1.3 Bot | mode=%s | hash=%s | leverage=%dx | size=$%.0f",
             self.cfg.execution.mode,
             self.cfg.config_hash(),
             self.cfg.execution.leverage,
@@ -443,7 +448,7 @@ class V12Bot:
 
     async def stop(self) -> None:
         """Stop the bot gracefully."""
-        logger.info("Stopping V1.2 Bot...")
+        logger.info("Stopping V1.3 Bot...")
         self._running = False
         if self._connector:
             await self._connector.stop()
@@ -548,6 +553,7 @@ class V12Bot:
                 "sma": round(float(latest["sma"]), 2) if pd.notna(latest.get("sma")) else None,
                 "rsi": round(float(latest["rsi"]), 1) if pd.notna(latest.get("rsi")) else None,
             })
+            self._dashboard.update_proximity(self._compute_proximity(latest))
 
         # === If in position: update with new bar ===
         if self.pm.is_in_position:
@@ -562,9 +568,10 @@ class V12Bot:
                 self._log_trade(trade)
                 self._push_trade_to_dashboard(trade)
                 logger.info(
-                    "[%s] CLOSED %s | %s | %+.1f bps | bar %d | %s",
+                    "[%s] CLOSED %s (%s) | %s | %+.1f bps | bar %d | %s",
                     self.cfg.execution.mode.upper(),
                     trade.direction,
+                    trade.signal_type,
                     trade.exit_reason,
                     trade.net_profit_bps,
                     trade.exit_bar,
@@ -576,12 +583,13 @@ class V12Bot:
             return
 
         # === Not in position: check re-entry ===
-        if self.pm.reentry_direction is not None:
-            regime_ok = self._check_regime(self.pm.reentry_direction, latest)
+        if self.pm.reentry_signal_type is not None:
+            regime_ok = self._check_regime(self.pm.reentry_signal_type, latest)
             if self.pm.can_reenter(self._bar_count, regime_ok):
                 entry_price = current_price
                 self.pm.open_position(
                     direction=self.pm.reentry_direction,
+                    signal_type=self.pm.reentry_signal_type,
                     entry_price=entry_price,
                     entry_time=bar_time,
                     signal_time=bar_time,
@@ -592,13 +600,15 @@ class V12Bot:
                     self._dashboard.add_signal({
                         "action": "REENTRY",
                         "direction": self.pm.reentry_direction.value,
+                        "signal_type": self.pm.reentry_signal_type.value,
                         "rsi": float(latest.get("rsi", 0)),
                         "time": str(bar_time),
                     })
                 logger.info(
-                    "[%s] RE-ENTRY %s @ %.2f | %s",
+                    "[%s] RE-ENTRY %s (%s) @ %.2f | %s",
                     self.cfg.execution.mode.upper(),
                     self.pm.reentry_direction.value,
+                    self.pm.reentry_signal_type.value,
                     entry_price,
                     bar_time,
                 )
@@ -620,6 +630,7 @@ class V12Bot:
 
         self.pm.open_position(
             direction=latest_signal.direction,
+            signal_type=latest_signal.signal_type,
             entry_price=entry_price,
             entry_time=bar_time,
             signal_time=latest_signal.timestamp,
@@ -630,31 +641,89 @@ class V12Bot:
             self._dashboard.add_signal({
                 "action": "ENTRY",
                 "direction": latest_signal.direction.value,
+                "signal_type": latest_signal.signal_type.value,
                 "rsi": float(latest_signal.rsi),
-                "atr_ok": True,
-                "ema_ok": True,
                 "time": str(bar_time),
             })
 
         logger.info(
-            "[%s] ENTRY %s @ %.2f | RSI=%.1f | %s",
+            "[%s] ENTRY %s (%s) @ %.2f | RSI=%.1f | %s",
             self.cfg.execution.mode.upper(),
             latest_signal.direction.value,
+            latest_signal.signal_type.value,
             entry_price,
             latest_signal.rsi,
             bar_time,
         )
 
-    def _check_regime(self, direction: Direction, latest_bar: pd.Series) -> bool:
-        """Check if market regime is valid for given direction."""
-        if direction == Direction.LONG:
+    def _compute_proximity(self, latest: pd.Series) -> dict:
+        """Compute signal proximity for all 4 signal types."""
+        c = self.cfg
+        rsi = float(latest.get("rsi", 50))
+        atr_pctl = float(latest.get("atr_percentile", 0))
+        ema_sep = float(latest.get("ema_separation", 0))
+        is_bull = bool(latest.get("bull_market", False))
+
+        return {
+            "V12_LONG": {
+                "direction": "LONG",
+                "conditions": [
+                    {"name": "RSI", "op": "<", "threshold": c.strategy.rsi_oversold,
+                     "current": round(rsi, 1), "met": rsi < c.strategy.rsi_oversold},
+                    {"name": "Regime", "needed": "BULL", "met": is_bull},
+                    {"name": "ATR", "op": ">=", "threshold": c.long_filters.atr_percentile_min,
+                     "current": round(atr_pctl, 1), "met": atr_pctl >= c.long_filters.atr_percentile_min},
+                    {"name": "EMA", "op": ">=", "threshold": c.long_filters.ema_separation_min,
+                     "current": round(ema_sep, 2), "met": ema_sep >= c.long_filters.ema_separation_min},
+                ],
+            },
+            "V12_SHORT": {
+                "direction": "SHORT",
+                "conditions": [
+                    {"name": "RSI", "op": ">", "threshold": c.strategy.rsi_overbought,
+                     "current": round(rsi, 1), "met": rsi > c.strategy.rsi_overbought},
+                    {"name": "Regime", "needed": "BEAR", "met": not is_bull},
+                ],
+            },
+            "BEAR_LONG": {
+                "direction": "LONG",
+                "conditions": [
+                    {"name": "RSI", "op": "<", "threshold": c.bear_long_filters.rsi_threshold,
+                     "current": round(rsi, 1), "met": rsi < c.bear_long_filters.rsi_threshold},
+                    {"name": "Regime", "needed": "BEAR", "met": not is_bull},
+                    {"name": "EMA", "op": ">=", "threshold": c.bear_long_filters.ema_separation_min,
+                     "current": round(ema_sep, 2), "met": ema_sep >= c.bear_long_filters.ema_separation_min},
+                ],
+            },
+            "BULL_SHORT": {
+                "direction": "SHORT",
+                "conditions": [
+                    {"name": "RSI", "op": ">", "threshold": c.bull_short_filters.rsi_threshold,
+                     "current": round(rsi, 1), "met": rsi > c.bull_short_filters.rsi_threshold},
+                    {"name": "Regime", "needed": "BULL", "met": is_bull},
+                    {"name": "ATR", "op": ">=", "threshold": c.bull_short_filters.atr_percentile_min,
+                     "current": round(atr_pctl, 1), "met": atr_pctl >= c.bull_short_filters.atr_percentile_min},
+                    {"name": "EMA", "op": ">=", "threshold": c.bull_short_filters.ema_separation_min,
+                     "current": round(ema_sep, 2), "met": ema_sep >= c.bull_short_filters.ema_separation_min},
+                ],
+            },
+        }
+
+    def _check_regime(self, signal_type: SignalType, latest_bar: pd.Series) -> bool:
+        """Check if market regime is still valid for re-entry signal type.
+
+        V1.3: regime depends on SIGNAL TYPE, not just direction:
+          V12_LONG / BULL_SHORT -> needs bull (price > SMA200)
+          V12_SHORT / BEAR_LONG -> needs bear (price < SMA200)
+        """
+        if signal_type in (SignalType.V12_LONG, SignalType.BULL_SHORT):
             return bool(latest_bar["bull_market"])
-        else:
+        else:  # V12_SHORT, BEAR_LONG
             return bool(latest_bar["bear_market"])
 
 
 async def main():
-    """Run the V1.2 bot with dashboard."""
+    """Run the V1.3 bot with dashboard."""
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
