@@ -62,6 +62,8 @@ class ExitConfig(BaseModel):
     long_trailing_stop_bps: float = Field(ge=5, le=100)
     short_trailing_stop_bps: float = Field(ge=5, le=100)
     max_bars: int = Field(ge=1, le=50)
+    tighten_after_bar: int = Field(ge=1, le=50)          # tighten trailing stop after this bar
+    tight_trailing_stop_bps: float = Field(ge=1, le=100)  # tighter stop value
 
 
 class ReentryConfig(BaseModel):

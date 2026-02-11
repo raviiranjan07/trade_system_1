@@ -375,11 +375,18 @@ class V12Bot:
         else:
             current_pnl = (pos.entry_price - close_price) / pos.entry_price * 10000
 
+        # Show active trailing stop (tightened after configured bar)
+        tighten_bar = self.cfg.exit.tighten_after_bar
+        if pos.bars_held > tighten_bar:
+            active_ts = self.cfg.exit.tight_trailing_stop_bps
+        else:
+            active_ts = pos.trailing_stop_bps
+
         self._dashboard.update_position(
             has_position=True,
             side=pos.direction.value,
             entry_price=pos.entry_price,
-            trailing_stop_bps=pos.trailing_stop_bps,
+            trailing_stop_bps=active_ts,
             highest_profit_bps=round(pos.highest_profit_bps, 1),
             current_pnl_bps=round(current_pnl, 1),
             bars_held=pos.bars_held,

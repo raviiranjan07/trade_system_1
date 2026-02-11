@@ -15,7 +15,7 @@ from typing import Optional
 
 import pandas as pd
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
@@ -58,8 +58,51 @@ def create_app(state: Optional[DashboardState] = None) -> FastAPI:
     )
 
     # =========================================================================
+    # Persistence files for drawings & indicators
+    # =========================================================================
+    PERSIST_DIR = Path("data/v12_trades")
+    DRAWINGS_FILE = PERSIST_DIR / "drawings.json"
+    INDICATORS_FILE = PERSIST_DIR / "indicators.json"
+
+    # =========================================================================
     # REST API Endpoints
     # =========================================================================
+
+    @app.get("/api/drawings")
+    async def get_drawings():
+        """Load saved drawings from disk."""
+        if DRAWINGS_FILE.exists():
+            try:
+                return JSONResponse(content=json.loads(DRAWINGS_FILE.read_text()))
+            except Exception:
+                return JSONResponse(content=[])
+        return JSONResponse(content=[])
+
+    @app.post("/api/drawings")
+    async def save_drawings(request: Request):
+        """Save drawings to disk."""
+        body = await request.json()
+        PERSIST_DIR.mkdir(parents=True, exist_ok=True)
+        DRAWINGS_FILE.write_text(json.dumps(body))
+        return JSONResponse(content={"ok": True})
+
+    @app.get("/api/indicators")
+    async def get_indicators():
+        """Load saved indicators from disk."""
+        if INDICATORS_FILE.exists():
+            try:
+                return JSONResponse(content=json.loads(INDICATORS_FILE.read_text()))
+            except Exception:
+                return JSONResponse(content=[])
+        return JSONResponse(content=[])
+
+    @app.post("/api/indicators")
+    async def save_indicators(request: Request):
+        """Save indicators to disk."""
+        body = await request.json()
+        PERSIST_DIR.mkdir(parents=True, exist_ok=True)
+        INDICATORS_FILE.write_text(json.dumps(body))
+        return JSONResponse(content={"ok": True})
 
     @app.get("/api/status")
     async def get_status():
@@ -236,8 +279,11 @@ def create_app(state: Optional[DashboardState] = None) -> FastAPI:
 
         @app.get("/")
         async def serve_index():
-            """Serve React app index."""
-            return FileResponse(frontend_dir / "index.html")
+            """Serve React app index (no-cache so browser always gets latest build)."""
+            return FileResponse(
+                frontend_dir / "index.html",
+                headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+            )
 
         @app.get("/{path:path}")
         async def serve_static(path: str):
@@ -245,7 +291,10 @@ def create_app(state: Optional[DashboardState] = None) -> FastAPI:
             file_path = frontend_dir / path
             if file_path.exists() and file_path.is_file():
                 return FileResponse(file_path)
-            return FileResponse(frontend_dir / "index.html")
+            return FileResponse(
+                frontend_dir / "index.html",
+                headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+            )
     else:
         # Serve simple status page if no frontend build
         @app.get("/")

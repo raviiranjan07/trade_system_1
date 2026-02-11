@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react'
 import { createChart, ColorType, CrosshairMode, CandlestickSeries, LineSeries, HistogramSeries } from 'lightweight-charts'
+import { calculateMA } from '../utils/maCalc'
 
 const IST_OFFSET = 19800 // UTC+5:30 for trade markers
 
@@ -14,16 +15,18 @@ const gridFromBg = (hex) => {
   return `#${lr}${lg}${lb}`
 }
 
-function CandlestickChart({ candles, currentCandle, trades, onTimeRangeChange, onLoadMore, isVisible, onChartReady, chartBg }) {
+function CandlestickChart({ candles, currentCandle, trades, indicators, onTimeRangeChange, onLoadMore, isVisible, onChartReady, chartBg }) {
   const containerRef = useRef(null)
   const chartRef = useRef(null)
   const candleSeriesRef = useRef(null)
-  const smaSeriesRef = useRef(null)
   const volumeSeriesRef = useRef(null)
   const lastTimeRef = useRef(0)
   const firstTimeRef = useRef(0)
   const loadingMoreRef = useRef(false)
   const suppressScrollRef = useRef(false)
+
+  // Dynamic indicator series: { [id]: LineSeries }
+  const indicatorSeriesRef = useRef({})
 
   // Refs for callbacks to avoid stale closures in chart subscription
   const onLoadMoreRef = useRef(onLoadMore)
@@ -71,14 +74,6 @@ function CandlestickChart({ candles, currentCandle, trades, onTimeRangeChange, o
       wickDownColor: '#e63757',
     })
 
-    const smaSeries = chart.addSeries(LineSeries, {
-      color: '#3b82f6',
-      lineWidth: 2,
-      priceLineVisible: false,
-      lastValueVisible: false,
-      title: 'SMA 200',
-    })
-
     const volumeSeries = chart.addSeries(HistogramSeries, {
       priceFormat: { type: 'volume' },
       priceScaleId: 'volume',
@@ -105,7 +100,6 @@ function CandlestickChart({ candles, currentCandle, trades, onTimeRangeChange, o
 
     chartRef.current = chart
     candleSeriesRef.current = candleSeries
-    smaSeriesRef.current = smaSeries
     volumeSeriesRef.current = volumeSeries
 
     if (onChartReady) onChartReady(chart, candleSeries, containerRef.current)
@@ -123,6 +117,7 @@ function CandlestickChart({ candles, currentCandle, trades, onTimeRangeChange, o
 
     return () => {
       ro.disconnect()
+      indicatorSeriesRef.current = {}
       if (onChartReady) onChartReady(null, null, null)
       chart.remove()
     }
@@ -165,10 +160,6 @@ function CandlestickChart({ candles, currentCandle, trades, onTimeRangeChange, o
         }))
       )
 
-      smaSeriesRef.current.setData(
-        valid.filter(c => c.sma != null).map(c => ({ time: c.time, value: c.sma }))
-      )
-
       volumeSeriesRef.current.setData(
         valid.map(c => ({
           time: c.time,
@@ -202,9 +193,6 @@ function CandlestickChart({ candles, currentCandle, trades, onTimeRangeChange, o
         candleSeriesRef.current.update({
           time: c.time, open: c.open, high: c.high, low: c.low, close: c.close,
         })
-        if (c.sma != null) {
-          smaSeriesRef.current.update({ time: c.time, value: c.sma })
-        }
         volumeSeriesRef.current.update({
           time: c.time,
           value: c.volume,
@@ -216,9 +204,6 @@ function CandlestickChart({ candles, currentCandle, trades, onTimeRangeChange, o
         try {
           candleSeriesRef.current.setData(
             valid.map(v => ({ time: v.time, open: v.open, high: v.high, low: v.low, close: v.close }))
-          )
-          smaSeriesRef.current.setData(
-            valid.filter(v => v.sma != null).map(v => ({ time: v.time, value: v.sma }))
           )
           volumeSeriesRef.current.setData(
             valid.map(v => ({
@@ -235,6 +220,59 @@ function CandlestickChart({ candles, currentCandle, trades, onTimeRangeChange, o
     lastTimeRef.current = newLastTime
     firstTimeRef.current = newFirstTime
   }, [candles])
+
+  // Dynamic indicator series management
+  useEffect(() => {
+    if (!chartRef.current || !candles || candles.length === 0) return
+    if (!indicators) return
+
+    const chart = chartRef.current
+    const currentSeries = indicatorSeriesRef.current
+    const activeIds = new Set(indicators.map(i => String(i.id)))
+
+    // Remove series for deleted indicators
+    for (const id of Object.keys(currentSeries)) {
+      if (!activeIds.has(id)) {
+        try { chart.removeSeries(currentSeries[id]) } catch (e) {}
+        delete currentSeries[id]
+      }
+    }
+
+    // Filter valid candles for MA calculation
+    const valid = candles.filter(c =>
+      c.time != null && c.open != null && c.high != null && c.low != null && c.close != null
+    )
+    if (valid.length === 0) return
+
+    // Add or update each indicator
+    for (const ind of indicators) {
+      const id = String(ind.id)
+      let series = currentSeries[id]
+
+      if (!series) {
+        series = chart.addSeries(LineSeries, {
+          color: ind.color,
+          lineWidth: ind.lineWidth || 2,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          visible: ind.visible !== false,
+        })
+        currentSeries[id] = series
+      } else {
+        series.applyOptions({
+          color: ind.color,
+          lineWidth: ind.lineWidth || 2,
+          visible: ind.visible !== false,
+        })
+      }
+
+      // Calculate and set data
+      if (ind.visible !== false) {
+        const data = calculateMA(ind.type, valid, ind.period, ind.source || 'close')
+        try { series.setData(data) } catch (e) {}
+      }
+    }
+  }, [indicators, candles])
 
   // Trade markers (entry/exit arrows)
   useEffect(() => {

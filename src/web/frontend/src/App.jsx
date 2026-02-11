@@ -14,7 +14,11 @@ import DrawingToolbar from './components/DrawingToolbar'
 import DrawingOverlay from './components/DrawingOverlay'
 import ChartLegend from './components/ChartLegend'
 import ChartSettings from './components/ChartSettings'
+import IndicatorPanel from './components/IndicatorPanel'
 import SignalProximity from './components/SignalProximity'
+import AlertManager from './components/AlertManager'
+import PerformancePanel from './components/PerformancePanel'
+import PnLCalendar from './components/PnLCalendar'
 
 // IST = UTC + 5:30 = 19800 seconds
 const IST_OFFSET = 19800
@@ -37,7 +41,7 @@ function App() {
   const [timeRange, setTimeRange] = useState(null)
   const [hasMoreCandles, setHasMoreCandles] = useState(true)
 
-  // Drawing tools state
+  // Drawing tools state — init from localStorage (instant), server fetch overrides later
   const [drawingTool, setDrawingTool] = useState('pointer')
   const [drawings, setDrawings] = useState(() => {
     try {
@@ -48,6 +52,19 @@ function App() {
   const [chartInstance, setChartInstance] = useState(null)
   const [seriesInstance, setSeriesInstance] = useState(null)
   const [chartContainerEl, setChartContainerEl] = useState(null)
+
+  // Default indicators (shown on first load when no saved state exists)
+  const DEFAULT_INDICATORS = [
+    { id: 'default_sma200', type: 'SMA', period: 200, color: '#3b82f6', lineWidth: 2, source: 'close', visible: true },
+  ]
+
+  // Indicators state — init from localStorage, server fetch overrides later
+  const [indicators, setIndicators] = useState(() => {
+    try {
+      const saved = localStorage.getItem('indicators')
+      return saved ? JSON.parse(saved) : DEFAULT_INDICATORS
+    } catch { return DEFAULT_INDICATORS }
+  })
 
   // RSI chart instance (for crosshair sync)
   const [rsiChartInstance, setRsiChartInstance] = useState(null)
@@ -61,21 +78,100 @@ function App() {
     localStorage.setItem('chartBg', color)
   }, [])
 
+  // Gate server saves until initial server data is loaded
+  const serverLoadedRef = useRef(false)
+  const drawingsRef = useRef(drawings)
+  const indicatorsRef = useRef(indicators)
+  useEffect(() => { drawingsRef.current = drawings }, [drawings])
+  useEffect(() => { indicatorsRef.current = indicators }, [indicators])
+
   // Persist UI preferences to localStorage
   useEffect(() => { localStorage.setItem('activeTab', activeTab) }, [activeTab])
   useEffect(() => { localStorage.setItem('chartView', chartView) }, [chartView])
+
+  // Fetch drawings + indicators from server on mount (overrides localStorage)
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/drawings').then(r => r.json()).catch(() => []),
+      fetch('/api/indicators').then(r => r.json()).catch(() => []),
+    ]).then(([serverDrawings, serverIndicators]) => {
+      if (Array.isArray(serverDrawings) && serverDrawings.length > 0) {
+        setDrawings(serverDrawings)
+      }
+      if (Array.isArray(serverIndicators) && serverIndicators.length > 0) {
+        setIndicators(serverIndicators)
+      }
+      serverLoadedRef.current = true
+
+      // If server was empty but localStorage has data, sync to server
+      if ((!serverDrawings || serverDrawings.length === 0)) {
+        try {
+          const local = JSON.parse(localStorage.getItem('drawings') || '[]')
+          if (local.length > 0) {
+            fetch('/api/drawings', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(local),
+            }).catch(() => {})
+          }
+        } catch {}
+      }
+      if ((!serverIndicators || serverIndicators.length === 0)) {
+        try {
+          const local = JSON.parse(localStorage.getItem('indicators') || '[]')
+          if (local.length > 0) {
+            fetch('/api/indicators', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(local),
+            }).catch(() => {})
+          }
+        } catch {}
+      }
+    })
+  }, [])
+
+  // Persist drawings to localStorage + server (debounced)
   useEffect(() => {
     try { localStorage.setItem('drawings', JSON.stringify(drawings)) } catch {}
+    if (!serverLoadedRef.current) return
+    const timer = setTimeout(() => {
+      fetch('/api/drawings', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(drawings),
+      }).catch(console.error)
+    }, 500)
+    return () => clearTimeout(timer)
   }, [drawings])
 
-  // Safety: flush drawings on page unload (belt and suspenders)
+  // Persist indicators to localStorage + server (debounced)
+  useEffect(() => {
+    try { localStorage.setItem('indicators', JSON.stringify(indicators)) } catch {}
+    if (!serverLoadedRef.current) return
+    const timer = setTimeout(() => {
+      fetch('/api/indicators', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(indicators),
+      }).catch(console.error)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [indicators])
+
+  // Flush drawings + indicators on page unload (sendBeacon for reliability)
   useEffect(() => {
     const handler = () => {
-      try { localStorage.setItem('drawings', JSON.stringify(drawings)) } catch {}
+      try { localStorage.setItem('drawings', JSON.stringify(drawingsRef.current)) } catch {}
+      try { localStorage.setItem('indicators', JSON.stringify(indicatorsRef.current)) } catch {}
+      try {
+        navigator.sendBeacon('/api/drawings',
+          new Blob([JSON.stringify(drawingsRef.current)], { type: 'application/json' }))
+      } catch {}
+      try {
+        navigator.sendBeacon('/api/indicators',
+          new Blob([JSON.stringify(indicatorsRef.current)], { type: 'application/json' }))
+      } catch {}
     }
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
-  }, [drawings])
+  }, [])
 
   // Re-fetch all data from REST API (called on mount + every reconnect)
   const fetchAllData = () => {
@@ -103,7 +199,6 @@ function App() {
       wsRef.current.onopen = () => {
         console.log('WebSocket connected')
         setConnected(true)
-        // Re-fetch all data on every (re)connect so dashboard stays fresh
         fetchAllData()
       }
 
@@ -117,7 +212,6 @@ function App() {
         }
 
         if (message.type === 'candle_close') {
-          // Append closed candle to chart data (IST-shifted)
           const shifted = shiftIST(message.candle)
           setChartCandles(prev => {
             if (!prev) return [shifted]
@@ -127,7 +221,6 @@ function App() {
           return
         }
 
-        // Full state update
         setData(message)
       }
 
@@ -148,9 +241,7 @@ function App() {
   }
 
   useEffect(() => {
-    // Connect WS — onopen handler calls fetchAllData() for initial + reconnect
     connectWebSocket()
-
     return () => {
       if (wsRef.current) wsRef.current.close()
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current)
@@ -172,7 +263,6 @@ function App() {
 
   const handleLoadMore = useCallback(() => {
     if (!chartCandles || chartCandles.length === 0 || !hasMoreCandles) return
-    // Reverse IST offset for API call (API expects UTC)
     const oldestTime = chartCandles[0].time - IST_OFFSET
     fetch(`/api/candles/history?before=${oldestTime}&limit=1000`)
       .then(res => res.json())
@@ -191,6 +281,7 @@ function App() {
     setChartContainerEl(containerEl)
   }, [])
 
+  // Drawing handlers
   const handleAddDrawing = useCallback((drawing) => {
     setDrawings(prev => [...prev, drawing])
   }, [])
@@ -209,6 +300,23 @@ function App() {
 
   const handleDrawingCancel = useCallback(() => {
     setDrawingTool('pointer')
+  }, [])
+
+  // Indicator handlers
+  const handleAddIndicator = useCallback((indicator) => {
+    setIndicators(prev => [...prev, indicator])
+  }, [])
+
+  const handleRemoveIndicator = useCallback((id) => {
+    setIndicators(prev => prev.filter(i => i.id !== id))
+  }, [])
+
+  const handleUpdateIndicator = useCallback((id, updates) => {
+    setIndicators(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i))
+  }, [])
+
+  const handleToggleIndicator = useCallback((id) => {
+    setIndicators(prev => prev.map(i => i.id === id ? { ...i, visible: !i.visible } : i))
   }, [])
 
   const handleRsiChartReady = useCallback((chart, series) => {
@@ -291,6 +399,7 @@ function App() {
           )}
         </h1>
         <div className="header-right">
+          <AlertManager trades={trades} signals={signals} position={position} />
           <span className="uptime">{formatUptime(status?.uptime_seconds)}</span>
           <span className="mode-badge">{config?.mode?.toUpperCase() || 'PAPER'}</span>
           <div className="connection-status">
@@ -335,6 +444,7 @@ function App() {
                 candles={chartCandles}
                 currentCandle={liveCandle}
                 trades={trades}
+                indicators={indicators}
                 onTimeRangeChange={handleTimeRangeChange}
                 onLoadMore={handleLoadMore}
                 isVisible={chartView === 'bot'}
@@ -367,7 +477,16 @@ function App() {
                   liveCandle={liveCandle}
                   pair={config?.pair}
                   timeframe={config?.timeframe}
-                />
+                  indicators={indicators}
+                >
+                  <IndicatorPanel
+                    indicators={indicators}
+                    onAdd={handleAddIndicator}
+                    onRemove={handleRemoveIndicator}
+                    onUpdate={handleUpdateIndicator}
+                    onToggle={handleToggleIndicator}
+                  />
+                </ChartLegend>
               )}
             </div>
             <div className="bot-chart-rsi">
@@ -422,6 +541,13 @@ function App() {
               <>
                 <SignalStats signals={signals} />
                 <SignalLog signals={signals} fullHeight />
+              </>
+            )}
+
+            {activeTab === 'analytics' && (
+              <>
+                <PnLCalendar trades={trades} />
+                <PerformancePanel trades={trades} />
               </>
             )}
           </div>

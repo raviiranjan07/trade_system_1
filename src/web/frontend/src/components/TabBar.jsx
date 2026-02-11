@@ -4,6 +4,7 @@ function TabBar({ activeTab, onTabChange }) {
   const tabs = [
     { id: 'trades', label: 'Trades' },
     { id: 'signals', label: 'Signals' },
+    { id: 'analytics', label: 'Analytics' },
   ]
 
   return (

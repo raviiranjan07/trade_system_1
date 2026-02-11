@@ -1330,3 +1330,705 @@ body {
   color: var(--accent-red);
   background: var(--accent-red-dim);
 }
+
+/* ============================
+   Indicator Panel (TradingView style)
+   ============================ */
+.indicator-panel {
+  position: relative;
+  display: inline-flex;
+  pointer-events: auto;
+  margin-left: 6px;
+}
+
+.indicator-panel-btn {
+  height: 30px;
+  padding: 0 10px;
+  gap: 5px;
+  background: rgba(19, 25, 32, 0.9);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  position: relative;
+  backdrop-filter: blur(8px);
+  font-family: inherit;
+}
+
+.indicator-panel-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.indicator-panel-btn:hover {
+  opacity: 1;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-color: var(--border-light);
+}
+
+.indicator-panel-btn.active {
+  opacity: 1;
+  background: var(--accent-blue-dim);
+  color: var(--accent-blue);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.indicator-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--accent-blue);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.indicator-panel-popup {
+  position: absolute;
+  top: 42px;
+  left: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  min-width: 280px;
+  max-width: 320px;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.indicator-panel-popup::-webkit-scrollbar {
+  width: 4px;
+}
+
+.indicator-panel-popup::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 2px;
+}
+
+.indicator-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.indicator-add-btn {
+  width: 24px;
+  height: 24px;
+  background: var(--accent-blue-dim);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 4px;
+  color: var(--accent-blue);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.indicator-add-btn:hover {
+  background: var(--accent-blue);
+  color: #fff;
+}
+
+.indicator-list {
+  padding: 4px 0;
+}
+
+.indicator-empty {
+  padding: 16px 12px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.indicator-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-color);
+  transition: background 0.15s ease;
+}
+
+.indicator-item:last-child {
+  border-bottom: none;
+}
+
+.indicator-item:hover {
+  background: var(--bg-elevated);
+}
+
+.indicator-item.hidden-ind {
+  opacity: 0.4;
+}
+
+.indicator-eye-btn,
+.indicator-edit-btn,
+.indicator-remove-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 3px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+  flex-shrink: 0;
+}
+
+.indicator-eye-btn:hover {
+  color: var(--accent-blue);
+  background: var(--accent-blue-dim);
+}
+
+.indicator-edit-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+.indicator-remove-btn:hover {
+  color: var(--accent-red);
+  background: var(--accent-red-dim);
+}
+
+.indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.indicator-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+  min-width: 0;
+}
+
+.indicator-source {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-right: auto;
+}
+
+/* Indicator Add/Edit Form */
+.indicator-form {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.indicator-form-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.indicator-form-row label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 50px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.indicator-form-row select,
+.indicator-form-row input[type="number"] {
+  flex: 1;
+  padding: 5px 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.indicator-form-row select:focus,
+.indicator-form-row input[type="number"]:focus {
+  border-color: var(--accent-blue);
+}
+
+.indicator-color-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.indicator-color-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.12s ease;
+}
+
+.indicator-color-swatch:hover {
+  transform: scale(1.15);
+  border-color: var(--text-secondary);
+}
+
+.indicator-color-swatch.active {
+  border-color: #fff;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+.indicator-color-input {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  cursor: pointer;
+  background: transparent;
+}
+
+.indicator-width-row {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.indicator-width-btn {
+  flex: 1;
+  height: 28px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+}
+
+.indicator-width-btn:hover {
+  border-color: var(--border-light);
+}
+
+.indicator-width-btn.active {
+  border-color: var(--accent-blue);
+  background: var(--accent-blue-dim);
+}
+
+.indicator-width-preview {
+  width: 18px;
+  background: var(--text-secondary);
+  border-radius: 1px;
+}
+
+.indicator-width-btn.active .indicator-width-preview {
+  background: var(--accent-blue);
+}
+
+.indicator-form-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.indicator-btn-cancel,
+.indicator-btn-apply {
+  padding: 5px 14px;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.indicator-btn-cancel {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.indicator-btn-cancel:hover {
+  color: var(--text-primary);
+  border-color: var(--border-light);
+}
+
+.indicator-btn-apply {
+  background: var(--accent-blue);
+  color: #fff;
+}
+
+.indicator-btn-apply:hover {
+  background: #2563eb;
+}
+
+/* ============================
+   Alert Manager (header bell icon)
+   ============================ */
+.alert-manager {
+  position: relative;
+}
+
+.alert-btn {
+  width: 36px;
+  height: 36px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.alert-btn:hover {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-color: var(--border-light);
+}
+
+.alert-btn.active {
+  color: var(--accent-yellow);
+}
+
+.alert-dot-active {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: 0 0 6px var(--accent-green);
+}
+
+.alert-menu {
+  position: absolute;
+  top: 42px;
+  right: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  min-width: 220px;
+  z-index: 100;
+  padding: 8px 0;
+}
+
+.alert-menu-header {
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 4px;
+}
+
+.alert-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.alert-toggle-row:hover {
+  background: var(--bg-elevated);
+}
+
+.alert-toggle-row input[type="checkbox"] {
+  accent-color: var(--accent-green);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.alert-permission-btn {
+  display: block;
+  width: calc(100% - 28px);
+  margin: 8px 14px;
+  padding: 6px 12px;
+  background: var(--accent-blue-dim);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 4px;
+  color: var(--accent-blue);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.alert-permission-btn:hover {
+  background: var(--accent-blue);
+  color: #fff;
+}
+
+.alert-menu-footer {
+  padding: 8px 14px 4px;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-color);
+  margin-top: 4px;
+}
+
+/* ============================
+   Performance Analytics Panel
+   ============================ */
+.perf-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.perf-empty {
+  text-align: center;
+  padding: 24px 16px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.perf-card {
+  padding: 12px;
+}
+
+.perf-metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.perf-metric {
+  padding: 8px 10px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.perf-metric-label {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.perf-metric-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.perf-metric-sub {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+
+/* Direction / Exit breakdown tables */
+.perf-dir-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.perf-dir-header {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 0.7fr 1fr;
+  gap: 4px;
+  padding: 6px 8px;
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.perf-dir-row {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 0.7fr 1fr;
+  gap: 4px;
+  padding: 7px 8px;
+  font-size: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+  transition: background 0.15s ease;
+}
+
+.perf-dir-row:last-child {
+  border-bottom: none;
+}
+
+.perf-dir-row:hover {
+  background: var(--bg-elevated);
+}
+
+.perf-reason-name {
+  font-size: 0.68rem;
+  font-weight: 600;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: var(--text-secondary);
+}
+
+/* ============================
+   PnL Calendar Heatmap
+   ============================ */
+.cal-section {
+  padding: 12px;
+}
+
+.cal-section .card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cal-summary {
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.cal-container {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  overflow-x: auto;
+}
+
+.cal-container::-webkit-scrollbar {
+  height: 4px;
+}
+
+.cal-container::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 2px;
+}
+
+.cal-day-labels {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+  padding-top: 18px;
+}
+
+.cal-day-label {
+  height: 11px;
+  font-size: 9px;
+  color: var(--text-muted);
+  line-height: 11px;
+  text-align: right;
+  padding-right: 4px;
+}
+
+.cal-grid-wrapper {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.cal-month-labels {
+  position: relative;
+  height: 14px;
+  margin-bottom: 4px;
+}
+
+.cal-month-label {
+  position: absolute;
+  font-size: 9px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.cal-grid {
+  display: flex;
+  gap: 2px;
+}
+
+.cal-week {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cal-cell {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  border: 1px solid var(--border-color);
+  transition: all 0.12s ease;
+  cursor: default;
+}
+
+.cal-cell.future {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cal-cell.has-data:hover {
+  transform: scale(1.4);
+  z-index: 2;
+  position: relative;
+  border-color: var(--text-secondary);
+}
+
+.cal-legend {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.cal-legend-label {
+  font-size: 9px;
+  color: var(--text-muted);
+  margin: 0 2px;
+}
+
+.cal-legend-cell {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  border: 1px solid var(--border-color);
+}

@@ -126,11 +126,18 @@ class V12PositionManager:
         if bar_mfe > pos.highest_profit_bps:
             pos.highest_profit_bps = bar_mfe
 
-        # Check trailing stop
+        # Check trailing stop (tighten after configured bar — V1.3.1)
+        tighten_bar = self.cfg.exit.tighten_after_bar
+        if pos.bars_held > tighten_bar:
+            active_trailing = self.cfg.exit.tight_trailing_stop_bps
+        else:
+            active_trailing = pos.trailing_stop_bps
+
         drawdown = pos.highest_profit_bps - bar_close_pnl
-        if drawdown >= pos.trailing_stop_bps and pos.highest_profit_bps > 0:
-            exit_profit = pos.highest_profit_bps - pos.trailing_stop_bps
-            return self._close_position(exit_profit, bar_time, bar_index, "TRAILING_STOP")
+        if drawdown >= active_trailing and pos.highest_profit_bps > 0:
+            exit_profit = pos.highest_profit_bps - active_trailing
+            reason = "TIGHT_TS" if pos.bars_held > tighten_bar else "TRAILING_STOP"
+            return self._close_position(exit_profit, bar_time, bar_index, reason)
 
         # Check time exit
         if pos.bars_held >= pos.max_bars:
