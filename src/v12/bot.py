@@ -24,6 +24,11 @@ from .config.loader import load_config
 from .config.schema import AppConfig
 from .position_manager import V12PositionManager, TradeRecord
 from .strategy import V12Strategy, Direction, Signal, SignalType
+from .risk.risk_calculator import RiskCalculator, RiskConfig, RiskDecision
+from .risk.account_health import AccountHealthMonitor, HealthConfig
+from .risk.exchange_constants import DEFAULT_CAPITAL
+from .risk.tests.decision_logger import DecisionLogger
+from .risk.tests.preflight import run_preflight
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +53,19 @@ class V12Bot:
         # Trade logging
         self._trades_dir = Path("data/v12_trades")
         self._trades_dir.mkdir(parents=True, exist_ok=True)
-        self._trades_csv = self._trades_dir / f"trades_{config.execution.mode}_{config.config_hash()}.csv"
+        self._trades_csv = self._trades_dir / f"trades_{config.execution.mode}.csv"
         self._init_csv()
+
+        # Risk management
+        self._wallet = DEFAULT_CAPITAL
+        self._health = AccountHealthMonitor()
+        self._risk_calc = RiskCalculator(worst_loss_bps=865, health=self._health)
+        self._decision_logger = DecisionLogger()
+        self._current_qty = 0.0
+        self._current_decision: Optional[RiskDecision] = None
+        self._total_skips = 0
+        self._risk_state_path = Path("data/v12_trades/risk_state.json")
+        self._load_risk_state()
 
         # Session state
         self._running = False
@@ -58,6 +74,77 @@ class V12Bot:
         # Dashboard state (optional — set via set_dashboard())
         self._dashboard = None
         self._chart_history_loaded = False
+
+    def _load_risk_state(self) -> None:
+        """Load wallet + health state from disk (survives bot restarts)."""
+        if not self._risk_state_path.exists():
+            self._health.update(self._wallet)
+            logger.info("No risk state found — starting fresh: wallet=$%.2f", self._wallet)
+            return
+        import json
+        try:
+            with open(self._risk_state_path) as f:
+                state = json.load(f)
+            self._wallet = state.get('wallet', DEFAULT_CAPITAL)
+            health_data = state.get('health', {})
+            if health_data:
+                self._health = AccountHealthMonitor.from_dict(health_data)
+                self._risk_calc = RiskCalculator(worst_loss_bps=865, health=self._health)
+            self._health.update(self._wallet)
+            logger.info(
+                "Loaded risk state: wallet=$%.2f | peak=$%.2f | streak=%d",
+                self._wallet, self._health.peak, self._health.consecutive_losses,
+            )
+        except Exception as e:
+            logger.warning("Failed to load risk state: %s — starting fresh", e)
+            self._health.update(self._wallet)
+
+    def _save_risk_state(self) -> None:
+        """Save wallet + health state to disk."""
+        import json
+        state = {
+            'wallet': self._wallet,
+            'health': self._health.to_dict(),
+        }
+        with open(self._risk_state_path, 'w') as f:
+            json.dump(state, f, indent=2)
+
+    def _update_risk_after_trade(self, trade: TradeRecord) -> None:
+        """Update wallet, health monitor, and decision logger after trade close."""
+        if self._current_qty > 0:
+            pnl_usd = self._current_qty * trade.entry_price * (trade.net_profit_bps / 10000)
+            self._wallet += pnl_usd
+            self._wallet = max(self._wallet, 0.01)
+
+            self._health.update(self._wallet, trade.net_profit_bps)
+            self._decision_logger.log_outcome(trade.net_profit_bps, pnl_usd)
+            self._save_risk_state()
+
+            logger.info(
+                "Risk: wallet=$%.2f | pnl=%+.2f | qty=%.3f | health=%.2f",
+                self._wallet, pnl_usd, self._current_qty,
+                self._health.get_risk_multiplier(self._wallet),
+            )
+            self._push_risk_to_dashboard(last_pnl_usd=pnl_usd)
+
+        self._current_qty = 0.0
+        self._current_decision = None
+
+    def _push_risk_to_dashboard(self, last_pnl_usd: float = 0.0) -> None:
+        """Push current risk state to dashboard."""
+        if not self._dashboard:
+            return
+        self._dashboard.update_risk(
+            wallet_usd=self._wallet,
+            drawdown_pct=self._health.get_drawdown_pct(self._wallet),
+            health_multiplier=self._health.get_risk_multiplier(self._wallet),
+            consecutive_losses=self._health.consecutive_losses,
+            recent_winrate=self._health.get_recent_winrate(),
+            peak_usd=self._health.peak,
+            last_qty=self._current_qty,
+            last_pnl_usd=last_pnl_usd,
+            total_skips=self._total_skips,
+        )
 
     def set_dashboard(self, dashboard_state) -> None:
         """Attach dashboard state for real-time UI updates."""
@@ -73,6 +160,8 @@ class V12Bot:
             reentry_enabled=self.cfg.reentry.enabled,
             config_hash=self.cfg.config_hash(),
         )
+        # Push initial risk state
+        self._push_risk_to_dashboard()
         # Reload previous trades so dashboard survives restarts
         self._load_trades_from_csv()
 
@@ -157,6 +246,7 @@ class V12Bot:
                 "signal_time", "entry_time", "exit_time", "direction", "signal_type",
                 "entry_price", "exit_price", "gross_profit_bps", "net_profit_bps",
                 "mfe_bps", "mae_bps", "exit_bar", "exit_reason", "is_reentry",
+                "config_hash",
             ]
             with open(self._trades_csv, "w", newline="") as f:
                 csv.writer(f).writerow(headers)
@@ -171,6 +261,7 @@ class V12Bot:
             f"{trade.gross_profit_bps:.1f}", f"{trade.net_profit_bps:.1f}",
             f"{trade.mfe_bps:.1f}", f"{trade.mae_bps:.1f}",
             trade.exit_bar, trade.exit_reason, trade.is_reentry,
+            self.cfg.config_hash(),
         ]
         with open(self._trades_csv, "a", newline="") as f:
             csv.writer(f).writerow(row)
@@ -574,6 +665,7 @@ class V12Bot:
             if trade:
                 self._log_trade(trade)
                 self._push_trade_to_dashboard(trade)
+                self._update_risk_after_trade(trade)
                 logger.info(
                     "[%s] CLOSED %s (%s) | %s | %+.1f bps | bar %d | %s",
                     self.cfg.execution.mode.upper(),
@@ -593,6 +685,25 @@ class V12Bot:
         if self.pm.reentry_signal_type is not None:
             regime_ok = self._check_regime(self.pm.reentry_signal_type, latest)
             if self.pm.can_reenter(self._bar_count, regime_ok):
+                # Risk check for re-entry
+                decision = self._risk_calc.calculate(self._wallet, current_price)
+                self._decision_logger.log_decision(
+                    decision, self._wallet, current_price,
+                    self.pm.reentry_signal_type.value,
+                )
+                if decision.action == "SKIP":
+                    self._total_skips += 1
+                    self._push_risk_to_dashboard()
+                    logger.info(
+                        "[%s] SKIP re-entry %s: %s",
+                        self.cfg.execution.mode.upper(),
+                        self.pm.reentry_signal_type.value,
+                        decision.skip_reason,
+                    )
+                    return
+                self._current_qty = decision.qty
+                self._current_decision = decision
+
                 entry_price = current_price
                 self.pm.open_position(
                     direction=self.pm.reentry_direction,
@@ -631,8 +742,28 @@ class V12Bot:
         if latest_signal.bar_index != latest_idx:
             return
 
-        # New signal fires
+        # New signal fires — clear old re-entry state regardless of risk outcome
         self.pm.reset_reentry()
+
+        # Risk check before opening
+        decision = self._risk_calc.calculate(self._wallet, current_price)
+        self._decision_logger.log_decision(
+            decision, self._wallet, current_price,
+            latest_signal.signal_type.value,
+        )
+        if decision.action == "SKIP":
+            self._total_skips += 1
+            self._push_risk_to_dashboard()
+            logger.info(
+                "[%s] SKIP %s (%s): %s",
+                self.cfg.execution.mode.upper(),
+                latest_signal.direction.value,
+                latest_signal.signal_type.value,
+                decision.skip_reason,
+            )
+            return
+        self._current_qty = decision.qty
+        self._current_decision = decision
         entry_price = current_price
 
         self.pm.open_position(
@@ -739,6 +870,16 @@ async def main():
 
     config = load_config()
     bot = V12Bot(config)
+
+    # Run risk calculator preflight check
+    logger.info("Running risk calculator preflight...")
+    if not run_preflight(wallet=bot._wallet, btc_price=100000):
+        logger.error("Risk calculator preflight FAILED — refusing to start")
+        return
+    logger.info(
+        "Preflight PASSED | wallet=$%.2f | decision_log=%s",
+        bot._wallet, bot._decision_logger.log_path,
+    )
 
     # Start dashboard web server
     from src.web.server import run_server

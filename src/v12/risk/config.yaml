@@ -1,0 +1,39 @@
+# Risk Management Configuration
+# ALL parameters below are PLACEHOLDERS — actual values will be determined
+# through backtesting (parameter sweep on TRAIN, validated on OOS).
+
+risk:
+  enabled: true
+
+  # Position sizing — base approach
+  # At small wallets: use exchange minimum margin
+  # At larger wallets: determined through testing
+  base_risk_pct: 0.10              # PLACEHOLDER — risk % of wallet per trade
+  weak_multiplier: 0.5             # PLACEHOLDER — WEAK signal size reduction
+  strong_multiplier: 1.5           # PLACEHOLDER — STRONG signal size increase
+  safety_pct: 0.60                 # PLACEHOLDER — safety stop as % of liq distance
+
+  # Account health — drawdown thresholds
+  drawdown_threshold_1: 0.15       # PLACEHOLDER — when to start reducing risk
+  drawdown_threshold_2: 0.30       # PLACEHOLDER — when to aggressively reduce
+  drawdown_reduction_1: 0.70       # PLACEHOLDER — risk multiplier at threshold 1
+  drawdown_reduction_2: 0.40       # PLACEHOLDER — risk multiplier at threshold 2
+
+  # Account health — consecutive loss streak
+  consec_loss_threshold: 5         # PLACEHOLDER — streak length to trigger reduction
+  consec_loss_reduction: 0.50      # PLACEHOLDER — risk multiplier during streak
+
+  # Account health — recent performance window
+  recent_lookback: 20              # PLACEHOLDER — rolling window size
+  recent_winrate_floor: 0.35       # PLACEHOLDER — win rate below this = reduce
+  recent_reduction: 0.60           # PLACEHOLDER — risk multiplier for poor recent
+
+  # Floor — never reduce below this
+  risk_floor: 0.20                 # PLACEHOLDER — minimum risk multiplier
+
+  # SKIP logic
+  max_risk_pct_per_trade: 0.50     # PLACEHOLDER — skip if worst case > this (in drawdown)
+  skip_weak_in_drawdown: true      # PLACEHOLDER — skip WEAK signals during drawdown
+
+  # Strategy stats source (for worst-case loss, Kelly, etc.)
+  stats_path: "experiments/layer1/L1R-001/train_stats.json"
