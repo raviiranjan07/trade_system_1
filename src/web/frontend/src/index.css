@@ -147,6 +147,96 @@ body {
 }
 
 /* ============================
+   Page Navigation (top nav)
+   ============================ */
+.page-nav {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  background: rgba(19, 25, 32, 0.9);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  backdrop-filter: blur(8px);
+}
+
+.page-nav-btn {
+  padding: 6px 18px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  letter-spacing: 0.3px;
+}
+
+.page-nav-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+.page-nav-btn.active {
+  color: var(--text-primary);
+  background: var(--accent-blue-dim);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* ============================
+   Full-Width Page Layouts
+   ============================ */
+.page-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  gap: 20px;
+  overflow-y: auto;
+  background: var(--bg-primary);
+}
+
+/* Trades Page */
+.page-trades .trades-full-container,
+.page-trades .signals-full-container {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+
+.page-trades .trades-full-container .card-header,
+.page-trades .signals-full-container .card-header {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.page-trades .trades-table {
+  width: 100%;
+}
+
+.page-trades .trades-table th,
+.page-trades .trades-table td {
+  padding: 10px 12px;
+}
+
+/* Analytics Page */
+.analytics-equity {
+  width: 100%;
+}
+
+.page-analytics .equity-section {
+  margin: 0;
+}
+
+/* ============================
    Main Layout: Chart + Sidebar
    ============================ */
 .main-layout {
@@ -593,37 +683,99 @@ body {
   color: var(--accent-red);
 }
 
-/* Stats Section */
-.stats-section {
+/* Stats Hero Section */
+.stats-hero {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
   margin-bottom: 10px;
 }
 
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-
-.stat-item {
-  padding: 10px;
-  background: var(--bg-elevated);
-  border-radius: var(--radius-sm);
-  text-align: center;
+.stats-hero-main {
+  background: var(--bg-card);
   border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 20px 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 180px;
 }
 
-.stat-item .label {
-  font-size: 0.6rem;
-  font-weight: 500;
+.stats-hero-pnl-label {
+  font-size: 0.65rem;
+  font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
   margin-bottom: 4px;
 }
 
-.stat-item .value {
-  font-size: 0.95rem;
-  font-weight: 700;
+.stats-hero-pnl {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.stats-hero-unit {
+  font-size: 0.9rem;
+  font-weight: 500;
+  opacity: 0.7;
+}
+
+.stats-hero-wallet {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.stats-hero-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  flex: 1;
+}
+
+.stats-hero-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 14px 12px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.stats-hero-card-value {
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.stats-hero-card-label {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
+.stats-hero-card-sub {
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+@media (max-width: 900px) {
+  .stats-hero {
+    flex-direction: column;
+  }
+  .stats-hero-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 /* Trades List */
@@ -698,6 +850,76 @@ body {
   border-radius: 3px;
   margin-left: 3px;
   vertical-align: middle;
+}
+
+/* Signal type tag */
+.signal-tag {
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid;
+  white-space: nowrap;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+/* Side tag (LONG / SHORT in table) */
+.side-tag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+
+.side-tag.long {
+  color: var(--accent-green);
+  background: var(--accent-green-dim);
+}
+
+.side-tag.short {
+  color: var(--accent-red);
+  background: var(--accent-red-dim);
+}
+
+/* Exit reason tag */
+.reason-tag {
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+/* Trade table cell helpers */
+.trade-num {
+  color: var(--text-muted);
+  font-size: 0.65rem;
+}
+
+.trade-price {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.72rem;
+}
+
+.trade-pnl {
+  font-weight: 700;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+.trade-bar {
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.trade-date {
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+}
+
+.trade-time {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-family: 'SF Mono', 'Fira Code', monospace;
 }
 
 /* Signal Log */
@@ -865,44 +1087,6 @@ body {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
-}
-
-/* ============================
-   Tab Bar (sidebar)
-   ============================ */
-.tab-bar {
-  display: flex;
-  gap: 4px;
-  padding: 3px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-}
-
-.tab-button {
-  flex: 1;
-  padding: 8px 14px;
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-  letter-spacing: 0.3px;
-  font-family: inherit;
-}
-
-.tab-button:hover {
-  color: var(--text-primary);
-  background: var(--bg-elevated);
-}
-
-.tab-button.active {
-  color: var(--text-primary);
-  background: var(--bg-card);
-  box-shadow: var(--shadow-sm);
 }
 
 /* ============================
@@ -1211,8 +1395,9 @@ body {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .stats-grid {
-    grid-template-columns: repeat(3, 1fr);
+  .page-content {
+    padding: 12px;
+    gap: 12px;
   }
 }
 
@@ -1223,19 +1408,136 @@ body {
     text-align: center;
   }
 
+  .page-nav {
+    width: 100%;
+    justify-content: center;
+  }
+
   .header-right {
     flex-wrap: wrap;
     justify-content: center;
     gap: 8px;
   }
 
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .signal-stats-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ===== Risk Panel ===== */
+.risk-panel {
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.risk-wallet {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.risk-wallet-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.risk-wallet-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--accent-green);
+}
+
+.risk-last-pnl {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.risk-last-pnl.positive { color: var(--accent-green); }
+.risk-last-pnl.negative { color: var(--accent-red); }
+
+.risk-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.risk-row > .label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  min-width: 62px;
+}
+
+.risk-dd-bar-container {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-elevated);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.risk-dd-bar-fill {
+  height: 100%;
+  background: var(--accent-green);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.risk-dd-bar-fill.warn {
+  background: var(--accent-yellow);
+}
+
+.risk-dd-bar-fill.danger {
+  background: var(--accent-red);
+}
+
+.risk-dd-value {
+  font-size: 0.75rem;
+  font-weight: 600;
+  min-width: 36px;
+  text-align: right;
+}
+
+.risk-dd-value.warning { color: var(--accent-yellow); }
+.risk-dd-value.negative { color: var(--accent-red); }
+
+.risk-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.risk-item {
+  text-align: center;
+}
+
+.risk-item .label {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.risk-item .value {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.risk-item .value.positive { color: var(--accent-green); }
+.risk-item .value.negative { color: var(--accent-red); }
+.risk-item .value.warning { color: var(--accent-yellow); }
+
+.risk-footer {
+  text-align: center;
+}
+
+.risk-footer .label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
 }
 
 /* ===== Signal Proximity ===== */
@@ -1830,8 +2132,14 @@ body {
 
 .perf-metrics-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .perf-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .perf-metric {
@@ -1906,129 +2214,204 @@ body {
   color: var(--text-secondary);
 }
 
-/* ============================
-   PnL Calendar Heatmap
-   ============================ */
-.cal-section {
-  padding: 12px;
+/* Side-by-side breakdown tables */
+.perf-tables-row {
+  display: flex;
+  gap: 10px;
 }
 
-.cal-section .card-header {
+.perf-table-half {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .perf-tables-row {
+    flex-direction: column;
+  }
+}
+
+/* Signal type 5-column header/row */
+.perf-sig-header {
+  grid-template-columns: 1.2fr 1.2fr 0.7fr 0.8fr 1fr;
+}
+
+.perf-sig-row {
+  grid-template-columns: 1.2fr 1.2fr 0.7fr 0.8fr 1fr;
+}
+
+/* W/L sub-text in perf tables */
+.perf-wl {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+}
+
+/* ============================
+   PnL Calendar — Full Month View
+   ============================ */
+.cal-section {
+  padding: 10px;
+}
+
+.cal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.cal-nav-btn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.cal-nav-btn:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
+.cal-title {
+  text-align: center;
+}
+
+.cal-month-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: block;
 }
 
 .cal-summary {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 500;
   color: var(--text-secondary);
-  text-transform: none;
-  letter-spacing: 0;
 }
 
-.cal-container {
-  display: flex;
-  gap: 4px;
-  margin-top: 8px;
-  overflow-x: auto;
-}
-
-.cal-container::-webkit-scrollbar {
-  height: 4px;
-}
-
-.cal-container::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 2px;
-}
-
-.cal-day-labels {
-  display: flex;
-  flex-direction: column;
+/* Day headers row */
+.cal-day-headers {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr) 0.6fr;
   gap: 2px;
-  flex-shrink: 0;
-  padding-top: 18px;
+  margin-bottom: 2px;
 }
 
-.cal-day-label {
-  height: 11px;
-  font-size: 9px;
+.cal-day-hdr {
+  text-align: center;
+  font-size: 0.55rem;
+  font-weight: 600;
   color: var(--text-muted);
-  line-height: 11px;
-  text-align: right;
-  padding-right: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 2px 0;
 }
 
-.cal-grid-wrapper {
-  flex: 1;
-  min-width: 0;
-  position: relative;
+.cal-week-hdr {
+  color: var(--accent-cyan);
 }
 
-.cal-month-labels {
-  position: relative;
-  height: 14px;
-  margin-bottom: 4px;
-}
-
-.cal-month-label {
-  position: absolute;
-  font-size: 9px;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.cal-grid {
-  display: flex;
-  gap: 2px;
-}
-
-.cal-week {
+/* Calendar grid */
+.cal-month-grid {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.cal-cell {
-  width: 11px;
-  height: 11px;
-  border-radius: 2px;
+.cal-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr) 0.6fr;
+  gap: 2px;
+}
+
+/* Day cell */
+.cal-day {
+  border-radius: 3px;
   border: 1px solid var(--border-color);
-  transition: all 0.12s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 1px;
+  min-height: 30px;
+  transition: all 0.15s ease;
   cursor: default;
 }
 
-.cal-cell.future {
-  opacity: 0;
-  pointer-events: none;
+.cal-day.empty {
+  border-color: transparent;
+  background: transparent;
 }
 
-.cal-cell.has-data:hover {
-  transform: scale(1.4);
+.cal-day.future {
+  opacity: 0.3;
+}
+
+.cal-day.today {
+  border-color: var(--accent-blue);
+  border-width: 2px;
+}
+
+.cal-day.has-trade:hover {
+  transform: scale(1.05);
   z-index: 2;
   position: relative;
   border-color: var(--text-secondary);
 }
 
-.cal-legend {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  justify-content: flex-end;
-  margin-top: 8px;
+.cal-day-num {
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  line-height: 1;
 }
 
-.cal-legend-label {
-  font-size: 9px;
-  color: var(--text-muted);
-  margin: 0 2px;
+.cal-day.has-trade .cal-day-num {
+  color: var(--text-primary);
 }
 
-.cal-legend-cell {
-  width: 11px;
-  height: 11px;
-  border-radius: 2px;
+.cal-day-bps {
+  font-size: 0.5rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-top: 1px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+/* Weekly total column */
+.cal-week-total {
+  border-color: transparent;
+  background: transparent;
+  font-size: 0.55rem;
+  font-weight: 700;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  min-height: 30px;
+}
+
+.cal-week-total.week-positive {
+  color: var(--accent-green);
+}
+
+.cal-week-total.week-negative {
+  color: var(--accent-red);
+}
+
+/* Monthly total bar */
+.cal-month-total {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 6px;
+  margin-top: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
   border: 1px solid var(--border-color);
 }

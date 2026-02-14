@@ -448,22 +448,11 @@ class SimilarityEngine:
             .dropna()
         )
 
-        # --- Apply multiple normalization windows ---
-        # Store all windows internally, original STATE_COLUMNS remain compatible
-        normalization_windows = [180, 300]
-        for window in normalization_windows:
-            normalizer = RollingNormalizer(window)
-            for col in STATE_COLUMNS:
-                if col in self.df.columns:
-                    self.df[f"{col}_z_{window}"] = normalizer.zscore(self.df[col])
+        # NOTE: Data is already z-normalized in outcome_df (columns ending in _z)
+        # No additional normalization needed - use pre-normalized data as-is
+        # This avoids problematic double-normalization
 
-        # Optionally overwrite STATE_COLUMNS with a default window for KNN
-        default_window = 300
-        for col in STATE_COLUMNS:
-            if col in self.df.columns:
-                self.df[col] = self.df[f"{col}_z_{default_window}"]
-
-        # Drop rows with NaN/Inf created by rolling normalization (CRITICAL for FAISS)
+        # Drop rows with NaN/Inf (safety check for FAISS)
         self.df = self.df.replace([np.inf, -np.inf], np.nan).dropna(subset=STATE_COLUMNS)
 
         # FAISS indices (built per regime for efficiency)
@@ -553,11 +542,25 @@ class SimilarityEngine:
         distances: np.ndarray,
         horizon: int
     ) -> Dict:
-        """Aggregate neighbor statistics for long and short directions."""
+        """Aggregate neighbor statistics for long and short directions.
+
+        Returns comprehensive stats including:
+        - mean_mfe, mean_mae: Average outcomes
+        - mfe_std: Standard deviation (for consistency filtering)
+        - mfe_40pct, mfe_50pct, mfe_60pct: Percentiles for TP selection
+        - win_rate: Percentage of neighbors with positive MFE
+        - expectancy: mean_mfe + mean_mae
+        - mae_5pct: 5th percentile MAE for stop loss
+        """
         mfe_long = neighbors[f"mfe_long_{horizon}m"]
         mae_long = neighbors[f"mae_long_{horizon}m"]
         long_stats = {
             "mean_mfe": float(mfe_long.mean()),
+            "mfe_std": float(mfe_long.std()),                 # NEW: for consistency filtering
+            "mfe_40pct": float(mfe_long.quantile(0.40)),      # NEW: achievable TP (60% reach this)
+            "mfe_50pct": float(mfe_long.quantile(0.50)),      # NEW: median
+            "mfe_60pct": float(mfe_long.quantile(0.60)),      # Existing: aggressive TP
+            "win_rate": float((mfe_long > 0).mean()),         # NEW: % positive outcomes
             "mean_mae": float(mae_long.mean()),
             "expectancy": float(mfe_long.mean() + mae_long.mean()),
             "mae_5pct": float(mae_long.quantile(0.05)),
@@ -574,10 +577,24 @@ class SimilarityEngine:
 
         short_stats = {
             "mean_mfe": float(mfe_short.mean()),
+            "mfe_std": float(mfe_short.std()),                # NEW: for consistency filtering
+            "mfe_40pct": float(mfe_short.quantile(0.40)),     # NEW: achievable TP
+            "mfe_50pct": float(mfe_short.quantile(0.50)),     # NEW: median
+            "mfe_60pct": float(mfe_short.quantile(0.60)),     # Existing: aggressive TP
+            "win_rate": float((mfe_short > 0).mean()),        # NEW: % positive outcomes
             "mean_mae": float(mae_short.mean()),
             "expectancy": float(mfe_short.mean() + mae_short.mean()),
             "mae_5pct": float(mae_short.quantile(0.05)),
         }
+
+        # Get neighbor timestamps for ExpansionQueryEngine
+        # Note: _faiss_data uses reset_index(), so timestamps are in 'timestamp' column
+        if 'timestamp' in neighbors.columns:
+            neighbor_indices = list(neighbors['timestamp'])
+        elif hasattr(neighbors, 'index'):
+            neighbor_indices = list(neighbors.index)
+        else:
+            neighbor_indices = []
 
         return {
             "status": "OK",
@@ -590,6 +607,7 @@ class SimilarityEngine:
             "distance_max": float(distances.max()) if isinstance(distances, np.ndarray) else 0.0,
             "long": long_stats,
             "short": short_stats,
+            "_neighbor_indices": neighbor_indices,  # For ExpansionQueryEngine
         }
 
     def _query_bruteforce(

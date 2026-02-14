@@ -95,6 +95,17 @@ from trade_system.normalization import RollingNormalizer
 from trade_system.state.state_builder import build_state
 from trade_system.state.state_store import save_state_vectors_parquet
 
+# Expansion module imports
+from trade_system.expansion import (
+    ThresholdAnalyzer,
+    ExpansionLabeler,
+    ExpansionConfig,
+    save_thresholds,
+    load_thresholds,
+    save_expansion_labels,
+    load_expansion_labels,
+)
+
 
 @dataclass
 class PipelineResult:
@@ -106,6 +117,8 @@ class PipelineResult:
     state_df: Optional[pd.DataFrame] = None
     regime_df: Optional[pd.DataFrame] = None
     outcome_df: Optional[pd.DataFrame] = None
+    thresholds: Optional[Dict[int, Any]] = None  # Expansion thresholds
+    expansion_df: Optional[pd.DataFrame] = None  # Expansion labels
     similarity_result: Optional[Dict[str, Any]] = None
     decision: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
@@ -145,6 +158,8 @@ class PipelineOrchestrator:
         self.state_df: Optional[pd.DataFrame] = None
         self.regime_df: Optional[pd.DataFrame] = None
         self.outcome_df: Optional[pd.DataFrame] = None
+        self.thresholds: Optional[Dict[int, Any]] = None
+        self.expansion_df: Optional[pd.DataFrame] = None
 
     def _setup_logging(self) -> logging.Logger:
         """Configure logging based on config settings."""
@@ -221,7 +236,15 @@ class PipelineOrchestrator:
             pipeline_config = self.config.get_section("pipeline").get("stages", {})
             stages = [s for s, enabled in pipeline_config.items() if enabled]
 
-        all_stages = ["state_vectors", "regime_labeling", "outcome_labeling", "similarity", "decision"]
+        all_stages = [
+            "state_vectors",
+            "regime_labeling",
+            "outcome_labeling",
+            "expansion_analysis",   # NEW: Analyze thresholds
+            "expansion_labeling",   # NEW: Label expansion events
+            "similarity",
+            "decision",
+        ]
         stages = [s for s in all_stages if s in stages]
 
         self.logger.info("=" * 60)
@@ -240,7 +263,7 @@ class PipelineOrchestrator:
         try:
             # Stage 1: State Vectors
             if "state_vectors" in stages:
-                self.logger.info("[1/5] Building state vectors...")
+                self.logger.info("[1/7] Building state vectors...")
                 self.state_df = self._run_state_vectors(pair, start_date, end_date, timeframe)
                 completed.append("state_vectors")
                 result.state_df = self.state_df
@@ -251,7 +274,7 @@ class PipelineOrchestrator:
 
             # Stage 2: Regime Labeling
             if "regime_labeling" in stages:
-                self.logger.info("[2/5] Labeling regimes...")
+                self.logger.info("[2/7] Labeling regimes...")
                 timer = LiveTimer("Classifying market regimes")
                 timer.start()
                 self.regime_df = self._run_regime_labeling(pair, timeframe)
@@ -264,7 +287,7 @@ class PipelineOrchestrator:
 
             # Stage 3: Outcome Labeling
             if "outcome_labeling" in stages:
-                self.logger.info("[3/5] Labeling outcomes...")
+                self.logger.info("[3/7] Labeling outcomes...")
                 timer = LiveTimer("Computing MFE/MAE outcomes")
                 timer.start()
                 self.outcome_df = self._run_outcome_labeling(pair, timeframe)
@@ -277,9 +300,37 @@ class PipelineOrchestrator:
             else:
                 self._load_outcomes(pair, timeframe)
 
-            # Stage 4: Similarity Analysis
+            # Stage 4: Expansion Threshold Analysis
+            if "expansion_analysis" in stages:
+                self.logger.info("[4/7] Analyzing expansion thresholds...")
+                timer = LiveTimer("Computing optimal expansion thresholds")
+                timer.start()
+                self.thresholds = self._run_expansion_analysis(pair, timeframe)
+                timer.stop()
+                completed.append("expansion_analysis")
+                result.thresholds = self.thresholds
+                for h, t in self.thresholds.items():
+                    self.logger.info(f"      H={h}: expansion={t.expansion_bps} bps, invalidation={t.invalidation_bps} bps")
+            else:
+                self._load_thresholds(pair, timeframe)
+
+            # Stage 5: Expansion Labeling
+            if "expansion_labeling" in stages:
+                self.logger.info("[5/7] Labeling expansion events...")
+                timer = LiveTimer("Computing expansion labels for all bars")
+                timer.start()
+                self.expansion_df = self._run_expansion_labeling(pair, timeframe)
+                timer.stop()
+                completed.append("expansion_labeling")
+                result.expansion_df = self.expansion_df
+                # Show expansion statistics
+                self._log_expansion_stats(self.expansion_df)
+            else:
+                self._load_expansion_labels(pair, timeframe)
+
+            # Stage 6: Similarity Analysis
             if "similarity" in stages:
-                self.logger.info("[4/5] Running similarity analysis...")
+                self.logger.info("[6/7] Running similarity analysis...")
                 timer = LiveTimer("Finding similar historical states")
                 timer.start()
                 result.similarity_result = self._run_similarity(pair, timeframe)
@@ -287,9 +338,9 @@ class PipelineOrchestrator:
                 completed.append("similarity")
                 self.logger.info(f"      Similarity result: expectancy={result.similarity_result.get('expectancy', 'N/A'):.4f}")
 
-            # Stage 5: Decision
+            # Stage 7: Decision
             if "decision" in stages:
-                self.logger.info("[5/5] Generating decision...")
+                self.logger.info("[7/7] Generating decision...")
                 timer = LiveTimer("Generating trading decision")
                 timer.start()
                 result.decision = self._run_decision(pair, timeframe)
@@ -619,4 +670,152 @@ class PipelineOrchestrator:
                 )
 
         self.logger.info("      " + "-" * 50)
+        self.logger.info("")
+
+    # =========================================================================
+    # EXPANSION STAGES
+    # =========================================================================
+
+    def _run_expansion_analysis(self, pair: str, timeframe: str) -> Dict[int, Any]:
+        """Stage 4: Analyze price data for expansion thresholds."""
+        # Load OHLCV data
+        ohlcv_dir = Path(self.config.get("paths.data_dir", "data")) / "ohlcv"
+        ohlcv_path = ohlcv_dir / f"{pair}_{timeframe}_ohlcv.parquet"
+
+        if not ohlcv_path.exists():
+            raise FileNotFoundError(f"OHLCV file not found: {ohlcv_path}")
+
+        ohlcv = pd.read_parquet(ohlcv_path)
+
+        # Get horizons from config
+        horizons = self.config.get("expansion.horizons", [3, 5])
+        percentile = self.config.get("expansion.percentile", 0.75)
+        invalidation_ratio = self.config.get("expansion.invalidation_ratio", 0.5)
+
+        # Analyze thresholds
+        analyzer = ThresholdAnalyzer(ohlcv)
+        thresholds = analyzer.analyze_multiple(
+            horizons=horizons,
+            expansion_percentile=percentile,
+            invalidation_ratio=invalidation_ratio,
+        )
+
+        # Save thresholds
+        base_dir = Path(self.config.get("paths.data_dir", "data"))
+        expansion_dir = base_dir / "expansion"
+        expansion_dir.mkdir(parents=True, exist_ok=True)
+        output_path = expansion_dir / f"{pair}_{timeframe}_thresholds.json"
+
+        save_thresholds(thresholds, str(output_path), metadata={
+            "pair": pair,
+            "timeframe": timeframe,
+            "percentile": percentile,
+            "invalidation_ratio": invalidation_ratio,
+        })
+
+        self.logger.info(f"      Thresholds saved to {output_path}")
+        return thresholds
+
+    def _run_expansion_labeling(self, pair: str, timeframe: str) -> pd.DataFrame:
+        """Stage 5: Label expansion events for all bars."""
+        # Ensure thresholds are loaded
+        if self.thresholds is None:
+            self._load_thresholds(pair, timeframe)
+
+        # Load OHLCV data
+        ohlcv_dir = Path(self.config.get("paths.data_dir", "data")) / "ohlcv"
+        ohlcv_path = ohlcv_dir / f"{pair}_{timeframe}_ohlcv.parquet"
+
+        if not ohlcv_path.exists():
+            raise FileNotFoundError(f"OHLCV file not found: {ohlcv_path}")
+
+        ohlcv = pd.read_parquet(ohlcv_path)
+
+        # Build configs from thresholds
+        configs = {}
+        for h, threshold in self.thresholds.items():
+            configs[h] = ExpansionConfig.from_threshold_result(threshold)
+
+        # Label expansions
+        labeler = ExpansionLabeler(ohlcv)
+        expansion_df = labeler.label_multiple(configs, show_progress=True)
+
+        # Save expansion labels
+        base_dir = Path(self.config.get("paths.data_dir", "data"))
+        expansion_dir = base_dir / "expansion"
+        expansion_dir.mkdir(parents=True, exist_ok=True)
+        output_path = expansion_dir / f"{pair}_{timeframe}_expansions.parquet"
+
+        # Get summary for metadata
+        summary = labeler.get_summary(expansion_df)
+
+        save_expansion_labels(expansion_df, str(output_path), metadata={
+            "pair": pair,
+            "timeframe": timeframe,
+            "thresholds": {h: c.to_dict() for h, c in configs.items()},
+            "summary": summary,
+        })
+
+        self.logger.info(f"      Expansion labels saved to {output_path}")
+        return expansion_df
+
+    def _load_thresholds(self, pair: str, timeframe: str) -> None:
+        """Load existing expansion thresholds from disk."""
+        base_dir = Path(self.config.get("paths.data_dir", "data"))
+        expansion_dir = base_dir / "expansion"
+        path = expansion_dir / f"{pair}_{timeframe}_thresholds.json"
+
+        if not path.exists():
+            # Thresholds not required if expansion stages not run
+            self.logger.warning(f"Thresholds not found: {path} (will skip expansion)")
+            self.thresholds = None
+            return
+
+        self.thresholds = load_thresholds(str(path))
+
+    def _load_expansion_labels(self, pair: str, timeframe: str) -> None:
+        """Load existing expansion labels from disk."""
+        base_dir = Path(self.config.get("paths.data_dir", "data"))
+        expansion_dir = base_dir / "expansion"
+        path = expansion_dir / f"{pair}_{timeframe}_expansions.parquet"
+
+        if not path.exists():
+            # Expansion labels not required if expansion stages not run
+            self.logger.warning(f"Expansion labels not found: {path}")
+            self.expansion_df = None
+            return
+
+        self.expansion_df = load_expansion_labels(str(path))
+
+    def _log_expansion_stats(self, expansion_df: pd.DataFrame) -> None:
+        """Log expansion statistics after labeling."""
+        # Find all horizons in the dataframe
+        horizons = set()
+        for col in expansion_df.columns:
+            if "expansion" in col and "time" not in col:
+                h = col.split("_")[-1].replace("m", "")
+                if h.isdigit():
+                    horizons.add(int(h))
+
+        self.logger.info("")
+        self.logger.info("      Expansion Statistics:")
+        self.logger.info("      " + "-" * 55)
+        self.logger.info(f"      {'Horizon':<10} {'LONG Rate':>12} {'SHORT Rate':>12} {'Avg Time':>12}")
+        self.logger.info("      " + "-" * 55)
+
+        for h in sorted(horizons):
+            long_col = f"long_expansion_{h}m"
+            short_col = f"short_expansion_{h}m"
+            time_col = f"long_time_{h}m"
+
+            if long_col in expansion_df.columns:
+                long_rate = expansion_df[long_col].mean() * 100
+                short_rate = expansion_df[short_col].mean() * 100
+                avg_time = expansion_df[time_col].dropna().mean()
+
+                self.logger.info(
+                    f"      {h:>3}m        {long_rate:>10.1f}%  {short_rate:>10.1f}%  {avg_time:>10.1f} bars"
+                )
+
+        self.logger.info("      " + "-" * 55)
         self.logger.info("")

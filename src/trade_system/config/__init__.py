@@ -64,6 +64,31 @@ class Config:
                 self._config["data"] = {}
             self._config["data"]["database_url"] = env_db_url
 
+        # Override adaptive horizon settings from environment if set
+        self._load_adaptive_horizon_env()
+
+    def _load_adaptive_horizon_env(self) -> None:
+        """Load adaptive horizon settings from environment variables."""
+        if "adaptive_horizon" not in self._config:
+            self._config["adaptive_horizon"] = {}
+
+        # ADAPTIVE_HORIZON_ENABLED (true/false)
+        env_enabled = os.getenv("ADAPTIVE_HORIZON_ENABLED")
+        if env_enabled is not None:
+            self._config["adaptive_horizon"]["enabled"] = env_enabled.lower() in ("true", "1", "yes")
+        else:
+            # Default to disabled if not set
+            self._config["adaptive_horizon"]["enabled"] = False
+
+        # ADAPTIVE_HORIZONS (comma-separated list of integers)
+        env_horizons = os.getenv("ADAPTIVE_HORIZONS")
+        if env_horizons:
+            try:
+                horizons = [int(h.strip()) for h in env_horizons.split(",")]
+                self._config["adaptive_horizon"]["horizons"] = horizons
+            except ValueError:
+                pass  # Keep default from config.yaml
+
     def validate(self) -> List[str]:
         """
         Validate configuration values.
@@ -200,6 +225,15 @@ class Config:
     def paths(self) -> Dict[str, Any]:
         """Quick access to paths section."""
         return self._config.get("paths", {})
+
+    @property
+    def adaptive_horizon(self) -> Dict[str, Any]:
+        """Quick access to adaptive_horizon section."""
+        return self._config.get("adaptive_horizon", {})
+
+    def is_adaptive_horizon_enabled(self) -> bool:
+        """Check if adaptive horizon mode is enabled."""
+        return self._config.get("adaptive_horizon", {}).get("enabled", False)
 
     def get_output_path(self, data_type: str, pair: str, timeframe: str) -> Path:
         """

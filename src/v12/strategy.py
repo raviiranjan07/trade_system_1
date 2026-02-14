@@ -1,10 +1,15 @@
-"""V1.3 Strategy — Pure signal generation logic.
+"""V1.3.2 Strategy — Pure signal generation logic.
 
 Entry rules (from experiments):
   V12_LONG:    RSI crosses below 20 + bull (price>SMA200) + ATR>=25 + EMA>=0.5%  [EXP-006]
   V12_SHORT:   RSI crosses above 80 + bear (price<SMA200) [no filters]            [EXP-007]
-  BEAR_LONG:   RSI crosses below 10 + bear (price<SMA200) + EMA>=1.0%             [EXP-013]
-  BULL_SHORT:  RSI crosses above 90 + bull (price>SMA200) + ATR>=60 + EMA>=1.0%   [EXP-013]
+  BEAR_LONG:   RSI < 10 (level) + bear (price<SMA200) + EMA>=1.0%                 [EXP-014]
+  BULL_SHORT:  RSI > 90 (level) + bull (price>SMA200) + ATR>=60 + EMA>=1.0%       [EXP-014]
+
+V1.3.2 change: BEAR_LONG and BULL_SHORT switched from cross-based to level-based.
+  Cross = fires only on the bar RSI first crosses the threshold (misses re-entries).
+  Level = fires on ANY bar where RSI is in the extreme zone (catches re-entries after exit).
+  V12_LONG and V12_SHORT remain cross-based (unchanged).
 
 This module is stateless: takes data, returns signals. No execution or side effects.
 """
@@ -44,7 +49,7 @@ class Signal:
 
 
 class V12Strategy:
-    """V1.3 signal generator. Pure logic — no side effects."""
+    """V1.3.2 signal generator. Pure logic — no side effects."""
 
     def __init__(self, config: AppConfig):
         self.cfg = config
@@ -98,11 +103,9 @@ class V12Strategy:
         out["rsi_oversold_cross"] = rsi_oversold & ~rsi_oversold.shift(1, fill_value=False)
         out["rsi_overbought_cross"] = rsi_overbought & ~rsi_overbought.shift(1, fill_value=False)
 
-        # V1.3 extreme RSI crosses (10/90)
-        rsi_extreme_os = out["rsi"] < c.bear_long_filters.rsi_threshold
-        rsi_extreme_ob = out["rsi"] > c.bull_short_filters.rsi_threshold
-        out["rsi_extreme_oversold_cross"] = rsi_extreme_os & ~rsi_extreme_os.shift(1, fill_value=False)
-        out["rsi_extreme_overbought_cross"] = rsi_extreme_ob & ~rsi_extreme_ob.shift(1, fill_value=False)
+        # V1.3.2 extreme RSI levels (no cross required — level-based)
+        out["rsi_extreme_oversold"] = out["rsi"] < c.bear_long_filters.rsi_threshold
+        out["rsi_extreme_overbought"] = out["rsi"] > c.bull_short_filters.rsi_threshold
 
         # Regime
         out["bull_market"] = out["close"] > out["sma"]
@@ -131,8 +134,8 @@ class V12Strategy:
         bear = df["bear_market"].values
         oversold_cross = df["rsi_oversold_cross"].values
         overbought_cross = df["rsi_overbought_cross"].values
-        extreme_os_cross = df["rsi_extreme_oversold_cross"].values
-        extreme_ob_cross = df["rsi_extreme_overbought_cross"].values
+        extreme_os_level = df["rsi_extreme_oversold"].values
+        extreme_ob_level = df["rsi_extreme_overbought"].values
         prices = df["close"].values
         times = df.index
 
@@ -171,8 +174,8 @@ class V12Strategy:
                     price=prices[i],
                 ))
 
-            # Signal 3: BEAR_LONG — RSI<10 cross + bear + EMA>=1.0
-            elif extreme_os_cross[i] and bear[i]:
+            # Signal 3: BEAR_LONG — RSI<10 level + bear + EMA>=1.0  [V1.3.2: level-based]
+            elif extreme_os_level[i] and bear[i]:
                 es = ema_sep[i]
                 if np.isnan(es):
                     continue
@@ -189,8 +192,8 @@ class V12Strategy:
                     ema_separation=es,
                 ))
 
-            # Signal 4: BULL_SHORT — RSI>90 cross + bull + ATR>=60 + EMA>=1.0
-            elif extreme_ob_cross[i] and bull[i]:
+            # Signal 4: BULL_SHORT — RSI>90 level + bull + ATR>=60 + EMA>=1.0  [V1.3.2: level-based]
+            elif extreme_ob_level[i] and bull[i]:
                 ap = atr_pctl[i]
                 es = ema_sep[i]
                 if np.isnan(ap) or np.isnan(es):

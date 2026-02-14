@@ -1,0 +1,47 @@
+experiment:
+  id: EXP-006
+  name: "V1.2 - LONG Side WHEN Filters"
+  date: 2026-02-05
+  category: rsi
+  status: IN_PROGRESS
+
+description: |
+  Test adding WHEN filters to V1 LONG side only.
+  SHORT side stays unchanged.
+
+  Problem: V1 LONG is weak (PF 1.47, 49.2% win rate)
+  Cause: LONG enters in choppy/quiet markets where it loses money
+  Solution: Skip LONG trades when market is choppy or quiet
+
+base_strategy:
+  name: V1
+  entry_long: "RSI<20 + price>SMA200"
+  entry_short: "RSI>80 + price<SMA200"
+  exit_long: "20bps trailing stop OR bar 10"
+  exit_short: "30bps trailing stop OR bar 10"
+  fees: 8  # bps round-trip
+
+modification:
+  side: LONG only
+  filters_added:
+    - name: ATR filter
+      rule: "ATR percentile >= 25th (rolling 200-bar window)"
+      source: "WHEN analysis W2 - 100% valid across 36 OOS combos"
+    - name: Trend filter
+      rule: "EMA separation (|EMA50-EMA200|/price) >= 0.5%"
+      source: "WHEN analysis W4 - 100% valid across 36 OOS combos"
+  short_changes: NONE
+
+data:
+  symbol: BTCUSDT
+  timeframe: 15m
+  train: "2020-2023 (filter discovery)"
+  test: "2024-2025 (backtest)"
+
+metrics_to_compare:
+  - total_trades
+  - win_rate
+  - total_net_bps
+  - profit_factor
+  - avg_net_per_trade
+  - year_by_year_consistency

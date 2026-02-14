@@ -1,0 +1,35 @@
+experiment_id: EXP-002
+date: '2026-02-04'
+status: COMPLETE
+result: HYPOTHESIS_REJECTED
+category: rsi
+strategy:
+  name: RSI + MA Trend Filter
+  description: 'Test if MA trend filter improves RSI signal quality'
+parameters:
+  timeframe: 15m
+  symbol: BTCUSDT
+  rsi:
+    period: 14
+    oversold: 20
+    overbought: 80
+  ma_periods: [20, 50, 100]
+  ma_type: SMA
+  horizon: 10
+  entry:
+    rsi_alone: RSI < 20 (oversold)
+    rsi_with_ma: RSI < 20 AND price > SMA(period)
+  exit: {}
+  fees:
+    bps: 8
+    type: round_trip
+data:
+  in_sample_start: '2020-01-01'
+  in_sample_end: '2023-12-31'
+  out_of_sample_start: '2024-01-01'
+  out_of_sample_end: '2025-12-30'
+findings:
+  - MA filter removes 90-97% of signals
+  - RSI works well both WITH and AGAINST trend (99.7%)
+  - Filter only improves success by 0.3%
+  - AGAINST trend has higher MFE (bigger bounces)

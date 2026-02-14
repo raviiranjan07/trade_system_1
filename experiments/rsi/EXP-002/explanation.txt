@@ -1,0 +1,139 @@
+EXPERIMENT EXP-002: RSI + MA Trend Filter
+================================================================================
+
+WHAT ARE WE TESTING?
+--------------------------------------------------------------------------------
+We're testing if adding a Moving Average (MA) filter improves RSI signal quality.
+
+The idea: RSI tells us when price is "oversold" (might bounce up) or "overbought"
+(might drop). But maybe RSI fails when we're trading AGAINST the main trend.
+
+So we test: What if we ONLY take RSI signals that align with the trend?
+- Oversold (buy signal) → Only take if price is ABOVE the MA (uptrend)
+- Overbought (sell signal) → Only take if price is BELOW the MA (downtrend)
+
+
+WHY ARE WE TESTING THIS?
+--------------------------------------------------------------------------------
+From EXP-001 we found RSI has ~99% success rate. But we still have 1% failures.
+
+Hypothesis: Those failures might be when we're trading against the main trend.
+Example: RSI says "oversold, buy!" but we're in a strong downtrend that keeps
+falling. The MA filter should catch this and skip those trades.
+
+
+HOW DOES IT WORK?
+--------------------------------------------------------------------------------
+1. Entry Rules:
+   - RSI Alone (baseline): RSI(14) < 20 → GO LONG
+   - RSI + MA Filter: RSI(14) < 20 AND price > SMA(period) → GO LONG
+
+2. MA Periods Tested: SMA(20), SMA(50), SMA(100)
+
+3. Horizon: 10 bars (150 minutes on 15min timeframe)
+
+
+WHAT HAPPENED?
+================================================================================
+
+RESULT SUMMARY (Out-of-Sample 2024-2025):
+--------------------------------------------------------------------------------
+| Filter           | Signals | Bounce% | Failures | Avg MFE | Avg MAE |
+|-----------------|---------|---------|----------|---------|---------|
+| RSI Alone        |   596   |  99.7%  |    2     |  72.8   |  73.9   |
+| RSI + SMA(20)    |    0    |   N/A   |   N/A    |   N/A   |   N/A   |
+| RSI + SMA(50)    |   21    | 100.0%  |    0     |  53.7   |  60.5   |
+| RSI + SMA(100)   |   63    | 100.0%  |    0     |  52.3   |  58.1   |
+
+
+KEY FINDINGS:
+--------------------------------------------------------------------------------
+
+1. SMA(20) FILTER IS TOO STRICT
+   - Zero signals! When RSI hits oversold (<20), price has dropped so much
+     it's ALWAYS below SMA(20). This makes the filter useless.
+
+2. SMA(50) AND SMA(100) FILTERS WORK... BUT ARE TOO AGGRESSIVE
+   - SMA(50): Filters out 97% of signals (596 → 21)
+   - SMA(100): Filters out 89% of signals (596 → 63)
+   - Yes they achieve 100% bounce rate... but at what cost?
+
+3. THE SURPRISE: RSI AGAINST TREND STILL WORKS!
+
+   Out-of-Sample data:
+   - RSI + SMA(50) AGAINST trend: 575 signals, 99.7% bounce rate
+   - RSI + SMA(50) WITH trend: 21 signals, 100% bounce rate
+
+   The difference is only 0.3%! RSI works well in BOTH directions.
+
+4. MFE IS ACTUALLY LOWER WITH TREND
+   - RSI Alone: Avg MFE = 72.8 bps
+   - RSI + SMA(50) WITH trend: Avg MFE = 53.7 bps
+
+   Why? When RSI is oversold but price > SMA, you're in a mild pullback.
+   When RSI is oversold and price < SMA, you're in a deeper pullback with
+   more room to bounce back (bigger MFE).
+
+
+CONCLUSION:
+================================================================================
+
+HYPOTHESIS REJECTED!
+
+The MA trend filter does NOT meaningfully improve RSI signal quality.
+
+Before testing:
+- We thought: "RSI fails against trend, filter will fix it"
+
+After testing:
+- Reality: RSI works ~99.7% regardless of trend direction
+- MA filter removes 90-97% of opportunities
+- Only improves success rate by 0.3% (99.7% → 100%)
+- Actually REDUCES MFE (smaller bounces when WITH trend)
+
+THE MATH:
+- RSI Alone: 596 signals × 99.7% success = 594 good trades
+- RSI + SMA(50): 21 signals × 100% success = 21 good trades
+- We "saved" 2 failures but LOST 573 good trades!
+
+
+WHAT DID WE LEARN?
+================================================================================
+
+1. RSI is robust to trend direction - works well both WITH and AGAINST trend
+
+2. Over-filtering is dangerous - removing 97% of signals for 0.3% improvement
+   is a bad trade-off
+
+3. AGAINST trend signals have LARGER MFE - bigger bounces because of deeper
+   mean reversion
+
+4. The 1% RSI failures are NOT explained by trend direction - need to look
+   for other causes (volume? volatility? specific price patterns?)
+
+5. Simple is often better - RSI alone outperforms RSI + MA in opportunity count
+
+
+WHAT SHOULD WE DO NEXT?
+================================================================================
+
+Option A: Investigate the RSI failures differently
+   - Look at volume patterns during failures
+   - Check if failures cluster in specific time periods
+   - Analyze price structure before failure (trend strength, not just MA)
+
+Option B: Test different MA-based entry signals
+   - Instead of using MA as FILTER, use MA crossover as ENTRY
+   - Combine with RSI for confirmation
+
+Option C: Accept RSI as-is and focus on EXIT rules
+   - RSI entry is 99.7% reliable
+   - The bigger question is: how do we EXIT profitably?
+   - This is where the real edge might be
+
+
+================================================================================
+EXPERIMENT COMPLETE
+Status: HYPOTHESIS REJECTED
+Date: 2026-02-04
+================================================================================

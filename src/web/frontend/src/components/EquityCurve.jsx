@@ -13,7 +13,7 @@ function EquityCurve({ trades }) {
 
     const chart = createChart(containerRef.current, {
       width: containerRef.current.clientWidth,
-      height: 250,
+      height: 320,
       layout: {
         background: { type: ColorType.Solid, color: '#0a0e14' },
         textColor: '#8892a0',

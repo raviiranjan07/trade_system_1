@@ -1,0 +1,119 @@
+EXPERIMENT EXP-003: RSI Failure Deep Dive
+================================================================================
+
+OBJECTIVE
+---------
+Find the ACTUAL cause of RSI overbought failures (11 failures in OOS 2024-2025).
+Previous experiment (EXP-002) showed MA trend filter doesn't help.
+
+
+WHAT WE TESTED
+--------------
+Analyzed all 11 failure cases to find common patterns:
+- Volume at signal
+- Momentum before signal
+- RSI intensity
+- Time of day / day of week
+- Distance from moving averages
+
+
+KEY FINDING: FAILURES HAVE WEAKER SIGNALS
+==========================================
+
+| Metric            | Failures | Successes | Difference |
+|-------------------|----------|-----------|------------|
+| Volume Ratio      | 1.22x    | 1.94x     | -37% LOWER |
+| 5-bar Momentum    | 60 bps   | 82 bps    | -27% LOWER |
+| RSI Value         | 84.0     | 83.2      | Same       |
+| Dist from SMA20   | 0.97%    | 1.12%     | Same       |
+
+INSIGHT: Failures happen when RSI overbought is triggered by WEAK moves.
+- Low volume = weak conviction
+- Low momentum = price drifting, not surging
+
+Strong signals (high volume + high momentum) = RSI overbought works!
+Weak signals (low volume + low momentum) = RSI overbought fails more
+
+
+FILTER TEST RESULTS
+===================
+
+Tested various filters on OOS (2024-2025):
+
+| Filter                         | Signals | Failures | Success% | Good Lost per Failure Avoided |
+|--------------------------------|---------|----------|----------|-------------------------------|
+| No Filter (Baseline)           | 664     | 11       | 98.3%    | -                             |
+| Volume >= 0.5x                 | 601     | 7        | 98.8%    | 14.8                          |
+| Volume >= 1.0x                 | 416     | 5        | 98.8%    | 40.3                          |
+| Momentum >= 50 bps             | 382     | 4        | 99.0%    | 39.3                          |
+| Vol >= 1.0x AND Mom >= 50 bps  | 304     | 2        | 99.3%    | 39.0                          |
+
+
+THE TRADE-OFF PROBLEM
+=====================
+
+To avoid failures, we must sacrifice good signals:
+
+1. Best ratio: Volume >= 0.5x
+   - Avoids 4 failures (36%)
+   - Loses 59 good signals
+   - Ratio: 14.8 good signals lost per failure avoided
+
+2. Most aggressive: Vol >= 1.0x AND Mom >= 50 bps
+   - Avoids 9 failures (82%)
+   - Loses 351 good signals (54%)
+   - Keeps only 304 of 664 signals
+
+3. No filter achieves ZERO failures
+
+
+CONCLUSION
+==========
+
+FINDING VALIDATED: Weak signals (low volume/momentum) fail more often.
+
+BUT the filter is NOT worth it:
+- RSI already has 98.3% success rate
+- Losing 15-40 good signals per failure avoided is a bad trade
+- The 11 failures represent 1.7% of signals - very rare
+
+RECOMMENDATION: Accept the 1.7% failure rate
+- The cost of filtering is too high
+- Focus on EXIT strategy to limit damage from rare failures
+- Use stop loss / time exit to cap losses at ~50-100 bps
+
+
+WHAT WE LEARNED
+===============
+
+1. RSI failures are caused by WEAK signals, not strong breakouts
+
+2. Trend direction (EXP-002) is NOT the cause - correlation, not causation
+
+3. Volume and momentum filters CAN reduce failures but at high cost
+
+4. RSI overbought is already 98.3% reliable - hard to improve meaningfully
+
+5. Better to accept rare failures + manage risk than over-filter
+
+
+NEXT STEPS
+==========
+
+Since we can't easily PREVENT failures, focus on LIMITING DAMAGE:
+
+Option A: Build complete RSI strategy with exit rules
+- Entry: RSI overbought cross
+- Exit: Target + Stop + Time limit
+- Accept 1-2% failure rate, cap losses
+
+Option B: Test RSI oversold failures (same analysis)
+- Do oversold failures have similar patterns?
+- Compare long vs short failure characteristics
+
+
+================================================================================
+EXPERIMENT COMPLETE
+Status: FINDING VALIDATED - Filter not recommended
+Date: 2026-02-04
+================================================================================

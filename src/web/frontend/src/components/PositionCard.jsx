@@ -21,12 +21,16 @@ function PositionCard({ position }) {
     })}`
   }
 
-  const pnlClass = position.current_pnl_bps >= 0 ? 'positive' : 'negative'
-  const pnlSign = position.current_pnl_bps >= 0 ? '+' : ''
+  const pnlBps = position.current_pnl_bps ?? 0
+  const mfeBps = position.mfe_bps ?? 0
+  const maeBps = position.mae_bps ?? 0
+  const peakBps = position.highest_profit_bps ?? 0
+  const pnlClass = pnlBps >= 0 ? 'positive' : 'negative'
+  const pnlSign = pnlBps >= 0 ? '+' : ''
 
   // Trailing stop progress: how close are we to being stopped out?
   const tsProgress = position.trailing_stop_bps > 0
-    ? Math.min(100, (position.highest_profit_bps / position.trailing_stop_bps) * 100)
+    ? Math.min(100, (peakBps / position.trailing_stop_bps) * 100)
     : 0
 
   // Time progress: bars_held / max_bars
@@ -48,10 +52,10 @@ function PositionCard({ position }) {
         </div>
         <div className="pnl-display">
           <div className={`amount ${pnlClass}`}>
-            {pnlSign}{position.current_pnl_bps?.toFixed(1)} bps
+            {pnlSign}{pnlBps.toFixed(1)} bps
           </div>
           <div className={`percent ${pnlClass}`}>
-            MFE: {position.mfe_bps?.toFixed(1)} | MAE: {position.mae_bps?.toFixed(1)}
+            MFE: {mfeBps.toFixed(1)} | MAE: {maeBps.toFixed(1)}
           </div>
         </div>
       </div>
@@ -81,7 +85,7 @@ function PositionCard({ position }) {
         </div>
         <div className="position-item">
           <div className="label">Peak Profit</div>
-          <div className="value positive">+{position.highest_profit_bps?.toFixed(1)} bps</div>
+          <div className="value positive">+{peakBps.toFixed(1)} bps</div>
         </div>
       </div>
     </div>

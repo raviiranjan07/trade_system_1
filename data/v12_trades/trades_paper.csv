@@ -1,0 +1,3 @@
+signal_time,entry_time,exit_time,direction,signal_type,entry_price,exit_price,gross_profit_bps,net_profit_bps,mfe_bps,mae_bps,exit_bar,exit_reason,is_reentry,config_hash
+2026-02-11 06:00:00+00:00,2026-02-11 06:00:00+00:00,2026-02-11 06:30:00+00:00,LONG,BEAR_LONG,66883.00,67011.43,19.2,11.2,39.2,-32.4,2,TRAILING_STOP,False,874ffca20d4a
+2026-02-13 11:00:00+00:00,2026-02-13 11:00:00+00:00,2026-02-13 11:30:00+00:00,SHORT,V12_SHORT,66850.00,66950.55,-15.0,-23.0,15.0,-21.6,2,TRAILING_STOP,False,874ffca20d4a

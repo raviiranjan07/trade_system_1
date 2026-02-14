@@ -89,6 +89,20 @@ class SignalData:
 
 
 @dataclass
+class RiskData:
+    """Risk management state for dashboard display."""
+    wallet_usd: float = 0.0
+    drawdown_pct: float = 0.0
+    health_multiplier: float = 1.0
+    consecutive_losses: int = 0
+    recent_winrate: float = 1.0
+    peak_usd: float = 0.0
+    last_qty: float = 0.0
+    last_pnl_usd: float = 0.0
+    total_skips: int = 0
+
+
+@dataclass
 class ConfigData:
     """V1.2 trading configuration."""
     pair: str = "BTCUSDT"
@@ -128,6 +142,7 @@ class DashboardState:
         self._position = PositionData()
         self._stats = StatsData()
         self._config = ConfigData()
+        self._risk = RiskData()
         self._trades: List[TradeData] = []
         self._signals: List[SignalData] = []
         self._start_time: Optional[datetime] = None
@@ -420,6 +435,37 @@ class DashboardState:
         with self._lock:
             return dict(self._proximity)
 
+    def update_risk(
+        self,
+        wallet_usd: float = 0.0,
+        drawdown_pct: float = 0.0,
+        health_multiplier: float = 1.0,
+        consecutive_losses: int = 0,
+        recent_winrate: float = 1.0,
+        peak_usd: float = 0.0,
+        last_qty: float = 0.0,
+        last_pnl_usd: float = 0.0,
+        total_skips: int = 0,
+    ) -> None:
+        """Update risk management state."""
+        with self._lock:
+            self._risk = RiskData(
+                wallet_usd=round(wallet_usd, 2),
+                drawdown_pct=round(drawdown_pct, 4),
+                health_multiplier=round(health_multiplier, 2),
+                consecutive_losses=consecutive_losses,
+                recent_winrate=round(recent_winrate, 2),
+                peak_usd=round(peak_usd, 2),
+                last_qty=last_qty,
+                last_pnl_usd=round(last_pnl_usd, 4),
+                total_skips=total_skips,
+            )
+        self._broadcast_update()
+
+    def get_risk(self) -> Dict[str, Any]:
+        with self._lock:
+            return asdict(self._risk)
+
     def get_all(self) -> Dict[str, Any]:
         """Get all dashboard data. Excludes candles (too large for WS broadcast)."""
         return {
@@ -431,6 +477,7 @@ class DashboardState:
             "signals": self.get_signals(),
             "config": self.get_config(),
             "proximity": self.get_proximity(),
+            "risk": self.get_risk(),
         }
 
     def register_ws_client(self, queue: asyncio.Queue) -> None:

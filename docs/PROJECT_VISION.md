@@ -11,7 +11,7 @@ Build the smartest and most intelligent trading system possible.
 Not just a bot that follows rules. An **intelligent agent** that reads markets, makes decisions, adapts to conditions, manages risk, and learns from experience — using every relevant concept from ML, RL, quantum computing, information theory, game theory, and beyond.
 
 **Starting point:** $10, BTCUSDT, Binance Futures
-**Foundation:** V1.3.1 strategy (proven edge, 211 trades, PF 3.34, +4,915 bps OOS)
+**Foundation:** V1.3.2 strategy (proven edge, 220 trades, PF 3.46, +5,267 bps OOS)
 **Ambition:** R&D everything. Test everything. Keep what works. Kill what doesn't.
 
 ---
@@ -33,17 +33,17 @@ Human trading weaknesses:
 
 ---
 
-## 3. CURRENT STATE (V1.3.1)
+## 3. CURRENT STATE (V1.3.2)
 
 ### What We Have
 
 | Component | Status | Details |
 |-----------|--------|---------|
 | Data | 15-min BTCUSDT candles 2020-2025 | TimescaleDB + Parquet |
-| V12_LONG | RSI < 20 + bull (price>SMA200) + ATR>=25 + EMA>=0.5% | Filtered LONG [EXP-006] |
-| V12_SHORT | RSI > 80 + bear (price<SMA200) | Unfiltered SHORT [EXP-007] |
-| BEAR_LONG | RSI < 10 + bear + EMA>=1.0% | Counter-trend LONG [EXP-013] |
-| BULL_SHORT | RSI > 90 + bull + ATR>=60 + EMA>=1.0% | Counter-trend SHORT [EXP-013] |
+| V12_LONG | RSI crosses below 20 + bull (price>SMA200) + ATR>=25 + EMA>=0.5% | Filtered LONG [EXP-006] |
+| V12_SHORT | RSI crosses above 80 + bear (price<SMA200) | Unfiltered SHORT [EXP-007] |
+| BEAR_LONG | RSI < 10 (level) + bear + EMA>=1.0% | Level-based counter-trend LONG [EXP-014] |
+| BULL_SHORT | RSI > 90 (level) + bull + ATR>=60 + EMA>=1.0% | Level-based counter-trend SHORT [EXP-014] |
 | Exit | LONG: 20 bps trailing stop, SHORT: 30 bps trailing stop | |
 | Time tightening | After bar 5: trailing stop tightens to 8 bps | V1.3.1 improvement |
 | Time exit | Bar 10 (2.5 hours) | Protects portfolio |
@@ -51,14 +51,14 @@ Human trading weaknesses:
 | Live bot | Paper trading 24/7 | WebSocket + Binance Futures |
 | Dashboard | Real-time web UI | Charts, alerts, analytics, drawings |
 
-### V1.3.1 Performance (OOS 2024-2025)
+### V1.3.2 Performance (OOS 2024-2025)
 
 | Metric | Value |
 |--------|-------|
-| Total trades | 211 |
-| Win rate | 59.2% |
-| Total net profit | +4,915 bps |
-| Profit factor | 3.34 |
+| Total trades | 220 |
+| Win rate | 60.0% |
+| Total net profit | +5,267 bps |
+| Profit factor | 3.46 |
 | Max drawdown | -192 bps |
 | Config hash | 874ffca20d4a |
 
@@ -70,8 +70,9 @@ Human trading weaknesses:
 | V1.2 | 202 | 2.47 | +3,250 | LONG filters (ATR + EMA) |
 | V1.3 | 262 | 3.00 | +4,438 | Counter-trend signals (BEAR_LONG, BULL_SHORT) |
 | V1.3.1 | 211 | 3.34 | +4,915 | Time-based tightening (8bps after bar 5) |
+| V1.3.2 | 220 | 3.46 | +5,267 | Level-based counter-trend entry (BEAR_LONG, BULL_SHORT) |
 
-### What V1.3.1 Is NOT
+### What V1.3.2 Is NOT
 
 - Not adaptive (same rules in all conditions)
 - Not intelligent (no learning, no memory)
@@ -104,7 +105,7 @@ Human trading weaknesses:
 │   Clustering │   Ensemble     │      Adaptive Leverage        │
 ├──────────────┴────────────────┴──────────────────────────────┤
 │                    STRATEGIES                                │
-│   V1.3.1 │ Volume Spike │ Microstructure │ Sentiment │ Future│
+│   V1.3.2 │ Volume Spike │ Microstructure │ Sentiment │ Future│
 ├──────────────────────────────────────────────────────────────┤
 │                    FEATURE ENGINE                            │
 │   Price │ Order Book │ On-chain │ Sentiment │ Macro          │
@@ -429,10 +430,12 @@ Classical Features → Quantum Circuit → Classical NN → Decision
 Build in layers. Each layer = R&D project. Test rigorously. Keep what works.
 
 ```
-LAYER 0: V1.3.1 Foundation           [DONE +++]
+LAYER 0: V1.3.2 Foundation           [DONE +++]
     └── 4 signal types: V12_LONG, V12_SHORT, BEAR_LONG, BULL_SHORT
-    └── Time-based tightening (8bps after bar 5)
-    └── 211 trades, PF 3.34, +4,915 bps OOS
+    └── V12 signals: cross-based (RSI crosses threshold)
+    └── Counter-trend signals: level-based (RSI in extreme zone) [V1.3.2]
+    └── Time-based tightening (8bps after bar 5) [V1.3.1]
+    └── 220 trades, PF 3.46, +5,267 bps OOS
     └── Live paper trading bot + web dashboard
     └── Alerts, analytics, PnL calendar, drawing tools
 
@@ -440,6 +443,10 @@ LAYER 1: Risk Management             [NEXT]
     └── Kelly criterion position sizing
     └── Drawdown circuit breaker
     └── Adaptive leverage
+    └── Handle known edge cases:
+        - Cascading losses: level-based entry can chain losing trades when price keeps falling
+        - RSI deceleration bounce: RSI bounces above/below threshold while price continues against us
+        - Circuit breaker should catch both (consecutive loss limit or max DD per window)
     └── This keeps $10 alive
 
 LAYER 2: Regime Detection             [...]
@@ -548,6 +555,8 @@ These findings are proven and should not be re-tested:
 | Re-entry disabled = cleaner risk (PF 2.09→3.00, DD -511→-270) | EXP-013 | LOCKED |
 | Time tightening (8bps after bar 5) improves all metrics | V1.3.1 | LOCKED |
 | EMA crossover too noisy on 15min (50/50, PF 1.13-1.47) | EXP-010 | LOCKED |
+| Level-based > cross-based for counter-trend at extreme RSI | EXP-014 | LOCKED |
+| RSI saturates at extremes (<10): price moves decouple from RSI | EXP-014 | LOCKED |
 
 ---
 
@@ -569,6 +578,8 @@ These findings are proven and should not be re-tested:
 | EXP-012 | Combined V1.2 + Volume Spike + Re-entry | Config A+RE chosen: 289t, +4,182 bps, PF 1.99 | Complete |
 | EXP-013 | Counter-trend signals (BEAR_LONG, BULL_SHORT) | ACCEPTED → V1.3. RE disabled = best risk profile | Complete |
 | V1.3.1 | Time-based tightening | 8bps stop after bar 5: PF 3.00→3.34, DD -270→-192 | Complete |
+| EXP-014 | Level-based counter-trend entry | Level > cross for BEAR_LONG/BULL_SHORT: +352 bps, 9 new trades (7/9 win) | Complete |
+| V1.3.2 | Level-based counter-trend (from EXP-014) | PF 3.34→3.46, +4,915→+5,267 bps, same DD -192 | Complete |
 
 ---
 
@@ -592,7 +603,7 @@ These findings are proven and should not be re-tested:
 | Strategy V1 setup | `experiments/rsi/TRADING_SETUP_V1.md` |
 | V1 backtest | `experiments/rsi/backtest_v1.py` |
 | V1.2 backtest | `experiments/rsi/EXP-006/backtest_v12.py` |
-| V1.3.1 bot code | `src/v12/` (config/, strategy.py, position_manager.py, backtest.py, bot.py) |
+| V1.3.2 bot code | `src/v12/` (config/, strategy.py, position_manager.py, backtest.py, bot.py) |
 | Web dashboard | `src/web/` (server.py, state.py, frontend/) |
 | WHAT analysis | `docs/WHAT_analysis.md` |
 | WHEN analysis | `docs/WHEN_analysis.md` |

@@ -1,173 +1,207 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 
-// Color scale for PnL: green for positive, red for negative, intensity by magnitude
+const MONTHS_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const DAY_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
 const getColor = (bps, maxAbs) => {
-  if (bps === 0 || maxAbs === 0) return 'var(--bg-elevated)'
+  if (bps === 0 || maxAbs === 0) return 'transparent'
   const intensity = Math.min(Math.abs(bps) / maxAbs, 1)
   if (bps > 0) {
-    // Green scale: dim to bright
     const alpha = 0.15 + intensity * 0.85
     return `rgba(0, 217, 126, ${alpha.toFixed(2)})`
   }
-  // Red scale: dim to bright
   const alpha = 0.15 + intensity * 0.85
   return `rgba(230, 55, 87, ${alpha.toFixed(2)})`
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-const DAYS = ['Mon', '', 'Wed', '', 'Fri', '', '']
-
 function PnLCalendar({ trades }) {
-  const { weeks, dailyMap, maxAbs, monthLabels } = useMemo(() => {
-    if (!trades || trades.length === 0) return { weeks: [], dailyMap: {}, maxAbs: 0, monthLabels: [] }
-
-    // Sort oldest first
-    const sorted = [...trades].reverse()
-
-    // Group by date (IST offset applied - trades have exit_time as ISO string)
+  // Build daily PnL map
+  const dailyMap = useMemo(() => {
+    if (!trades || trades.length === 0) return {}
     const daily = {}
-    for (const t of sorted) {
+    for (const t of trades) {
       if (!t.exit_time) continue
       const d = new Date(t.exit_time)
       if (isNaN(d.getTime())) continue
-      // Add IST offset for display
       const ist = new Date(d.getTime() + 5.5 * 60 * 60 * 1000)
-      const key = ist.toISOString().slice(0, 10) // YYYY-MM-DD
-      if (!daily[key]) daily[key] = 0
-      daily[key] += t.net_profit_bps || 0
+      const key = ist.toISOString().slice(0, 10)
+      if (!daily[key]) daily[key] = { bps: 0, count: 0 }
+      daily[key].bps += t.net_profit_bps || 0
+      daily[key].count++
     }
-
-    const dates = Object.keys(daily).sort()
-    if (dates.length === 0) return { weeks: [], dailyMap: {}, maxAbs: 0, monthLabels: [] }
-
-    // Find date range: from first trade's Monday to today
-    const firstDate = new Date(dates[0] + 'T00:00:00')
-    const today = new Date()
-    const todayStr = today.toISOString().slice(0, 10)
-
-    // Go back to Monday of first week
-    const startDay = firstDate.getDay() // 0=Sun
-    const mondayOffset = startDay === 0 ? 6 : startDay - 1
-    const startDate = new Date(firstDate)
-    startDate.setDate(startDate.getDate() - mondayOffset)
-
-    // Build weeks grid
-    const weeksList = []
-    const months = []
-    let current = new Date(startDate)
-    let weekIdx = 0
-    let lastMonth = -1
-
-    while (current <= today || weeksList.length % 1 !== 0) {
-      const week = []
-      for (let d = 0; d < 7; d++) {
-        const dateStr = current.toISOString().slice(0, 10)
-        const month = current.getMonth()
-        if (month !== lastMonth && d === 0) {
-          months.push({ weekIdx, month })
-          lastMonth = month
-        }
-        week.push({
-          date: dateStr,
-          bps: daily[dateStr] || 0,
-          hasData: dateStr in daily,
-          isFuture: dateStr > todayStr,
-        })
-        current.setDate(current.getDate() + 1)
-      }
-      weeksList.push(week)
-      weekIdx++
-      if (current > today && current.getDay() === 1) break // finish on a Monday boundary after today
-    }
-
-    // Max absolute for color scaling
-    const vals = Object.values(daily)
-    const maxAbsVal = Math.max(...vals.map(Math.abs), 1)
-
-    return { weeks: weeksList, dailyMap: daily, maxAbs: maxAbsVal, monthLabels: months }
+    return daily
   }, [trades])
 
-  if (weeks.length === 0) {
-    return (
-      <div className="card cal-section">
-        <div className="card-header">PnL Calendar</div>
-        <div className="perf-empty">No trades yet</div>
-      </div>
-    )
+  // Available months from trades
+  const availableMonths = useMemo(() => {
+    const months = new Set()
+    for (const key of Object.keys(dailyMap)) {
+      months.add(key.slice(0, 7)) // YYYY-MM
+    }
+    // Also add current month
+    const now = new Date(Date.now() + 5.5 * 60 * 60 * 1000)
+    months.add(now.toISOString().slice(0, 7))
+    return [...months].sort()
+  }, [dailyMap])
+
+  // Default to current month
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date(Date.now() + 5.5 * 60 * 60 * 1000)
+    return now.toISOString().slice(0, 7)
+  })
+
+  // Build calendar grid for selected month
+  const { weeks, monthStats, maxAbs } = useMemo(() => {
+    const [year, month] = selectedMonth.split('-').map(Number)
+    const firstDay = new Date(year, month - 1, 1)
+    const lastDay = new Date(year, month, 0) // last day of month
+    const daysInMonth = lastDay.getDate()
+
+    // Monday = 0, Sunday = 6 (ISO weekday)
+    const firstWeekday = (firstDay.getDay() + 6) % 7 // convert Sun=0 to Mon=0
+
+    // Collect all bps values for color scaling
+    const allBps = []
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = `${selectedMonth}-${String(d).padStart(2, '0')}`
+      if (dailyMap[key]) allBps.push(dailyMap[key].bps)
+    }
+    const maxAbsVal = allBps.length > 0 ? Math.max(...allBps.map(Math.abs), 1) : 1
+
+    // Build weeks
+    const weeksList = []
+    let currentWeek = new Array(firstWeekday).fill(null) // pad start
+    let weekBps = 0
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = `${selectedMonth}-${String(d).padStart(2, '0')}`
+      const data = dailyMap[key] || null
+      const todayStr = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
+      currentWeek.push({
+        day: d,
+        date: key,
+        bps: data ? data.bps : null,
+        count: data ? data.count : 0,
+        isToday: key === todayStr,
+        isFuture: key > todayStr,
+      })
+
+      if (data) weekBps += data.bps
+
+      // End of week (Sunday) or end of month
+      if (currentWeek.length === 7 || d === daysInMonth) {
+        // Pad end of last week
+        while (currentWeek.length < 7) currentWeek.push(null)
+        weeksList.push({ days: currentWeek, totalBps: weekBps })
+        currentWeek = []
+        weekBps = 0
+      }
+    }
+
+    // Month stats
+    let totalBps = 0, greenDays = 0, redDays = 0, tradeDays = 0
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = `${selectedMonth}-${String(d).padStart(2, '0')}`
+      if (dailyMap[key]) {
+        tradeDays++
+        totalBps += dailyMap[key].bps
+        if (dailyMap[key].bps > 0) greenDays++
+        else if (dailyMap[key].bps < 0) redDays++
+      }
+    }
+
+    return {
+      weeks: weeksList,
+      monthStats: { totalBps, greenDays, redDays, tradeDays },
+      maxAbs: maxAbsVal,
+    }
+  }, [selectedMonth, dailyMap])
+
+  const [year, month] = selectedMonth.split('-').map(Number)
+
+  const prevMonth = () => {
+    const d = new Date(year, month - 2, 1)
+    setSelectedMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
   }
 
-  // Summary stats
-  const totalDays = Object.keys(dailyMap).length
-  const greenDays = Object.values(dailyMap).filter(v => v > 0).length
-  const redDays = Object.values(dailyMap).filter(v => v < 0).length
-  const totalBps = Object.values(dailyMap).reduce((s, v) => s + v, 0)
+  const nextMonth = () => {
+    const d = new Date(year, month, 1)
+    setSelectedMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
+
+  const fmtBps = (v) => {
+    if (v == null) return ''
+    return `${v >= 0 ? '+' : ''}${v.toFixed(1)}`
+  }
 
   return (
     <div className="card cal-section">
-      <div className="card-header">
-        PnL Calendar
-        <span className="cal-summary">
-          <span className="positive">{greenDays}</span> green /
-          <span className="negative"> {redDays}</span> red /
-          {totalDays} days =
-          <span className={totalBps >= 0 ? 'positive' : 'negative'}>
-            {' '}{totalBps >= 0 ? '+' : ''}{totalBps.toFixed(1)} bps
+      {/* Header with month navigation */}
+      <div className="cal-header">
+        <button className="cal-nav-btn" onClick={prevMonth}>&lt;</button>
+        <div className="cal-title">
+          <span className="cal-month-name">{MONTHS_FULL[month - 1]} {year}</span>
+          <span className="cal-summary">
+            <span className="positive">{monthStats.greenDays}</span>
+            {' / '}
+            <span className="negative">{monthStats.redDays}</span>
+            {' / '}
+            {monthStats.tradeDays} days =
+            <span className={monthStats.totalBps >= 0 ? 'positive' : 'negative'}>
+              {' '}{fmtBps(monthStats.totalBps)} bps
+            </span>
           </span>
-        </span>
+        </div>
+        <button className="cal-nav-btn" onClick={nextMonth}>&gt;</button>
       </div>
 
-      <div className="cal-container">
-        {/* Day labels */}
-        <div className="cal-day-labels">
-          {DAYS.map((d, i) => (
-            <div key={i} className="cal-day-label">{d}</div>
-          ))}
-        </div>
-
-        <div className="cal-grid-wrapper">
-          {/* Month labels */}
-          <div className="cal-month-labels">
-            {monthLabels.map((m, i) => (
-              <div
-                key={i}
-                className="cal-month-label"
-                style={{ left: m.weekIdx * 15 }}
-              >
-                {MONTHS[m.month]}
-              </div>
-            ))}
-          </div>
-
-          {/* Grid */}
-          <div className="cal-grid">
-            {weeks.map((week, wi) => (
-              <div key={wi} className="cal-week">
-                {week.map((day, di) => (
-                  <div
-                    key={di}
-                    className={`cal-cell ${day.isFuture ? 'future' : ''} ${day.hasData ? 'has-data' : ''}`}
-                    style={{
-                      background: day.isFuture ? 'transparent' : day.hasData ? getColor(day.bps, maxAbs) : 'var(--bg-card)',
-                      borderColor: day.isFuture ? 'transparent' : 'var(--border-color)',
-                    }}
-                    title={day.isFuture ? '' : `${day.date}: ${day.hasData ? (day.bps >= 0 ? '+' : '') + day.bps.toFixed(1) + ' bps' : 'No trades'}`}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* Day headers */}
+      <div className="cal-day-headers">
+        {DAY_HEADERS.map(d => (
+          <div key={d} className="cal-day-hdr">{d}</div>
+        ))}
+        <div className="cal-day-hdr cal-week-hdr">Week</div>
       </div>
 
-      {/* Legend */}
-      <div className="cal-legend">
-        <span className="cal-legend-label">Less</span>
-        <div className="cal-legend-cell" style={{ background: 'rgba(230, 55, 87, 0.85)' }} />
-        <div className="cal-legend-cell" style={{ background: 'rgba(230, 55, 87, 0.4)' }} />
-        <div className="cal-legend-cell" style={{ background: 'var(--bg-card)' }} />
-        <div className="cal-legend-cell" style={{ background: 'rgba(0, 217, 126, 0.4)' }} />
-        <div className="cal-legend-cell" style={{ background: 'rgba(0, 217, 126, 0.85)' }} />
-        <span className="cal-legend-label">More</span>
+      {/* Calendar grid */}
+      <div className="cal-month-grid">
+        {weeks.map((week, wi) => (
+          <div key={wi} className="cal-row">
+            {week.days.map((cell, di) => {
+              if (!cell) {
+                return <div key={di} className="cal-day empty" />
+              }
+              const hasTrade = cell.bps !== null
+              const bg = hasTrade ? getColor(cell.bps, maxAbs) : 'transparent'
+
+              return (
+                <div
+                  key={di}
+                  className={`cal-day ${hasTrade ? 'has-trade' : ''} ${cell.isToday ? 'today' : ''} ${cell.isFuture ? 'future' : ''}`}
+                  style={{ background: bg }}
+                  title={hasTrade ? `${cell.date}: ${fmtBps(cell.bps)} bps (${cell.count} trades)` : cell.date}
+                >
+                  <span className="cal-day-num">{cell.day}</span>
+                  {hasTrade && (
+                    <span className={`cal-day-bps ${cell.bps >= 0 ? 'positive' : 'negative'}`}>
+                      {fmtBps(cell.bps)}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+            {/* Weekly total */}
+            <div className={`cal-day cal-week-total ${week.totalBps >= 0 ? 'week-positive' : 'week-negative'}`}>
+              {week.totalBps !== 0 ? fmtBps(week.totalBps) : ''}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Monthly total bar */}
+      <div className={`cal-month-total ${monthStats.totalBps >= 0 ? 'positive' : 'negative'}`}>
+        Month Total: {fmtBps(monthStats.totalBps)} bps
       </div>
     </div>
   )

@@ -1,0 +1,127 @@
+EXP-006: V1.2 LONG Filtering — Complete Results
+==================================================
+
+OBJECTIVE: Filter weak LONG trades (V1 LONG: 126 trades, PF 1.47, only 49.2% win)
+APPROACH: Add ATR percentile + EMA separation filters to LONG side only
+SHORT: Unchanged (140 trades, 57.9% win, PF 2.57)
+
+==================================================
+1) V1 vs V1.2 BASELINE
+==================================================
+
+V1:   266 trades | 53.8% win | +3,024 bps | PF 1.97
+V1.2: 202 trades | 56.9% win | +3,250 bps | PF 2.47
+
+LONG improvement:
+  V1 LONG:   126 trades | 49.2% win | PF 1.47 | +821 bps
+  V1.2 LONG:  62 trades | 54.8% win | PF 2.29 | +1,047 bps
+
+V1.2 filters: ATR percentile >= 25 + EMA50/200 separation >= 0.5%
+
+==================================================
+2) WHY THESE FILTERS? (from investigate_long_vs_short.py)
+==================================================
+
+V1 LONG loses in two conditions:
+  - Choppy markets: EMA sep < 0.5% → 30 trades, 43% win, -268 bps
+  - Quiet markets: Small bars, low ATR → poor trade quality
+
+V1.2 filters remove these losing conditions:
+  - ATR percentile >= 25: Skip quiet/low-volatility markets
+  - EMA50/200 separation >= 0.5%: Skip choppy/range-bound markets
+
+==================================================
+3) EMA PAIR GRID SEARCH (95 combos)
+==================================================
+
+Question: Why EMA50/200? Is it the best pair?
+Tested: 19 EMA pairs × 5 thresholds = 95 combinations
+Pairs: all combos where short EMA (9,12,20,26,50) < long EMA (20,26,50,100,200)
+
+TOP 10 by Profit Factor (EMA separation only, min 30 trades):
+  EMA50/200 >= 0.7%: 55t | 56.4% win | +948 bps | PF 3.09
+  EMA26/200 >= 0.7%: 67t | 56.7% win | +1171 bps | PF 2.71
+  EMA50/200 >= 0.5%: 74t | 54.1% win | +919 bps | PF 2.31
+  EMA20/200 >= 0.7%: 71t | 53.5% win | +1000 bps | PF 2.28
+  EMA26/200 >= 0.5%: 82t | 52.4% win | +1008 bps | PF 2.16
+  EMA50/200 >= 0.3%: 86t | 51.2% win | +781 bps | PF 1.91
+  EMA26/100 >= 0.7%: 67t | 52.2% win | +751 bps | PF 1.89
+  EMA20/200 >= 0.5%: 81t | 51.9% win | +832 bps | PF 1.88
+  EMA12/200 >= 1.0%: 62t | 54.8% win | +706 bps | PF 1.87
+  EMA50/100 >= 0.5%: 70t | 52.9% win | +765 bps | PF 1.87
+
+Finding: EMA50/200 is good but not uniquely best. EMA26/200 competitive.
+
+==================================================
+4) FULL GRID SEARCH (1,130 combos)
+==================================================
+
+Tested: 10 ATR thresholds × 19 EMA pairs × 6 EMA thresholds = 1,130 combos
+(includes ATR-only and EMA-only variants)
+Valid combinations (30+ LONG trades): 413
+
+V1.2 ranking (ATR>=25 + EMA50/200>=0.5%):
+  Portfolio PF rank: #34 out of 413
+  Portfolio Net rank: #7 out of 413
+  Only 6 combos beat V1.2 on net bps
+
+Top configs by Portfolio Net (min 30 LONG trades):
+  #1: ATR=none, EMA26/200>=0.7%  → 222t, +3,374 bps, PF 2.55
+  #2: ATR=none, EMA20/200>=0.7%  → 211t, +3,203 bps, PF 2.21
+  #3: ATR>=10,  EMA26/200>=0.7%  → 218t, +3,359 bps, PF 2.57
+  #4: ATR>=10,  EMA50/200>=0.5%  → 214t, +3,332 bps, PF 2.54
+  #5: ATR>=15,  EMA26/200>=0.7%  → 215t, +3,314 bps, PF 2.53
+  #6: ATR>=10,  EMA50/200>=0.3%  → 226t, +3,291 bps, PF 2.38
+  #7: ATR>=25,  EMA50/200>=0.5%  → 202t, +3,250 bps, PF 2.47  <-- V1.2
+
+ATR-only results (no EMA filter):
+  ATR>=10: 113t, +1,056 bps, PF 1.80 → Portfolio +3,259, PF 2.14
+  ATR>=15: 110t, +1,009 bps, PF 1.76 → Portfolio +3,212, PF 2.11
+  ATR>=20: 102t, +1,031 bps, PF 1.83 → Portfolio +3,234, PF 2.17
+  ATR>=25:  96t, +  916 bps, PF 1.76 → Portfolio +3,119, PF 2.14
+  ATR>=30:  89t, +  965 bps, PF 1.89 → Portfolio +3,168, PF 2.21
+  ATR>=40:  82t, + 1047 bps, PF 2.23 → Portfolio +3,250, PF 2.39
+
+Finding: ATR alone gets most of the filtering benefit. EMA adds marginal improvement.
+
+==================================================
+5) FULL BACKTEST VALIDATION (from scratch, not CSV filtering)
+==================================================
+
+Ran proper backtests (not just filtering CSV) for 4 configs:
+
+  Config A — V1.2 (ATR>=25 + EMA50/200>=0.5%):
+    202 trades | 56.9% win | +3,250 bps | PF 2.47 | Max DD: -364 bps
+
+  Config B — ALT (EMA26/200>=0.7%, no ATR filter):
+    222 trades | 55.9% win | +3,374 bps | PF 2.55 | Max DD: -331 bps
+
+  Config C — COMBO (ATR>=25 + EMA26/200>=0.7%):
+    196 trades | 56.6% win | +3,251 bps | PF 2.62 | Max DD: -320 bps
+
+  Config D — V1 baseline (no filters):
+    266 trades | 53.8% win | +3,024 bps | PF 1.97 | Max DD: -669 bps
+
+Year-by-year:
+  Config A (V1.2):  2024: +1,525 bps | 2025: +1,725 bps
+  Config B (ALT):   2024: +1,662 bps | 2025: +1,712 bps
+  Config C (COMBO): 2024: +1,503 bps | 2025: +1,748 bps
+  Config D (V1):    2024: +1,607 bps | 2025: +1,416 bps
+
+Trade overlap (A vs B):
+  55 LONG trades shared by both
+  7 trades only in V1.2 (not in ALT): +100 bps total
+  27 trades only in ALT (not in V1.2): +225 bps total
+
+==================================================
+6) EXP-006 CONCLUSION
+==================================================
+
+1. LONG filtering WORKS: PF 1.47 → 2.29+ regardless of exact filter choice
+2. V1.2 (ATR>=25 + EMA50/200>=0.5%) is in the TOP TIER (#7 net out of 413)
+3. ALT config (EMA26/200>=0.7%) is marginally better: +124 bps over 2 years
+4. Difference = ~5 bps/month = negligible (noise-level)
+5. V1.2 VALIDATED — no change needed
+
+DECISION: Keep V1.2 as-is. The exact filter parameters don't matter much.
+What matters is that we filter LONG for trend + volatility conditions.

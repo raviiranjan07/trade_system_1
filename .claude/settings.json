@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(c:)",
+      "Bash(.venvScriptspython.exe scripts/debug/analysis11_multi_timeframe.py)"
+    ]
+  }
+}

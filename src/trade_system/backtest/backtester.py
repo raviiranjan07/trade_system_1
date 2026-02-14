@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import time
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Union
 from tqdm import tqdm
 
 from .trade_simulator import Trade, TradeSimulator
@@ -81,6 +81,17 @@ class Backtester:
         trailing_stop_activation_pct: float = 0.0,
         max_leverage: float = 1.0,
         stop_floor: float = 1e-4,
+        # Adaptive horizon settings
+        adaptive_horizon: bool = False,  # Use multi-horizon adaptive selection
+        adaptive_horizons: List[int] = None,  # Horizons to compare [3, 5, 10, 15]
+        adaptive_min_mfe_per_bar: float = 0.0002,  # Min MFE per bar (H5=0.001, H10=0.002, H30=0.006)
+        adaptive_min_neighbors: int = 50,  # Min neighbors for valid stats
+        adaptive_selection_strategy: str = "max_mfe",  # V1: "max_mfe", "max_expectancy", "max_quality"
+        # V2 adaptive horizon parameters
+        adaptive_comparison_metric: str = "expectancy_per_bar",  # V2: fair comparison
+        adaptive_tp_percentile: float = 0.40,  # V2: 40th percentile (60% reach it)
+        adaptive_min_win_rate: float = 0.55,  # V2: consistency filter
+        adaptive_max_mfe_cv: float = 2.0,  # V2: consistency filter (CV < 2.0)
     ):
         self.train_ratio = train_ratio
         self.capital = capital
@@ -100,6 +111,20 @@ class Backtester:
         self.trailing_stop_activation_pct = trailing_stop_activation_pct
         self.max_leverage = max_leverage
         self.stop_floor = stop_floor
+
+        # Adaptive horizon settings
+        self.adaptive_horizon = adaptive_horizon
+        self.adaptive_horizons = adaptive_horizons if adaptive_horizons is not None else [3, 5, 10, 15]
+        self.adaptive_min_mfe_per_bar = adaptive_min_mfe_per_bar
+        self.adaptive_min_neighbors = adaptive_min_neighbors
+        self.adaptive_selection_strategy = adaptive_selection_strategy
+        # V2 adaptive parameters
+        self.adaptive_comparison_metric = adaptive_comparison_metric
+        self.adaptive_tp_percentile = adaptive_tp_percentile
+        self.adaptive_min_win_rate = adaptive_min_win_rate
+        self.adaptive_max_mfe_cv = adaptive_max_mfe_cv
+        # Store max_bars_in_trade for use in adaptive mode
+        self.max_bars_in_trade = max_bars_in_trade
 
         self.simulator = TradeSimulator(
             slippage_pct=slippage_pct,
@@ -133,8 +158,9 @@ class Backtester:
             BacktestResult with all trades and metrics
         """
         # Import here to avoid circular imports
-        from similarity.similarity_engine import SimilarityEngine
-        from decision.decision_engine import DecisionEngine
+        from ..similarity.similarity_engine import SimilarityEngine
+        from ..similarity.multi_horizon_engine import MultiHorizonEngine
+        from ..decision.decision_engine import DecisionEngine
 
         # Initialize pipeline timer
         timer = PipelineTimer()
@@ -163,6 +189,10 @@ class Backtester:
                 print(f"  Signal Check Interval: Every {self.sample_interval} bars")
                 print(f"  Signal Checks: ~{len(test_outcomes) // self.sample_interval:,}")
             print(f"  Similarity Backend: {self.similarity_backend}")
+            if self.adaptive_horizon:
+                print(f"  Adaptive Horizon: ENABLED (horizons: {self.adaptive_horizons})")
+            else:
+                print(f"  Fixed Horizon: {self.horizon} minutes")
             print("=" * 70)
             print()
 
@@ -173,7 +203,28 @@ class Backtester:
         if similarity_engine is not None:
             # Use pre-built engine (skip building)
             similarity = similarity_engine
+            use_adaptive = self.adaptive_horizon and hasattr(similarity, 'query_best_horizon')
+        elif self.adaptive_horizon:
+            # Build MultiHorizonEngine V2 for adaptive horizon selection
+            similarity = MultiHorizonEngine(
+                outcome_df=train_outcomes,
+                regime_df=regime_df,
+                horizons=self.adaptive_horizons,
+                k=self.k,
+                backend=self.similarity_backend,
+                faiss_nlist=self.faiss_nlist,
+                faiss_nprobe=self.faiss_nprobe,
+                # V2 parameters
+                comparison_metric=self.adaptive_comparison_metric,
+                tp_percentile=self.adaptive_tp_percentile,
+                min_win_rate=self.adaptive_min_win_rate,
+                max_mfe_cv=self.adaptive_max_mfe_cv,
+                min_neighbors=self.adaptive_min_neighbors,
+                min_expectancy=self.min_expectancy,
+            )
+            use_adaptive = True
         else:
+            # Standard single-horizon SimilarityEngine
             similarity = SimilarityEngine(
                 outcome_df=train_outcomes,
                 regime_df=regime_df,
@@ -182,6 +233,7 @@ class Backtester:
                 faiss_nlist=self.faiss_nlist,
                 faiss_nprobe=self.faiss_nprobe
             )
+            use_adaptive = False
         timer.stop()
 
         # 3. Initialize decision engine
@@ -254,15 +306,59 @@ class Backtester:
                 regime = regime_df.loc[timestamp, "regime"]
 
                 # Query similarity engine with time boundary
-                sim_result = similarity.query(
-                    current_state=state_row,
-                    regime=regime,
-                    horizon=self.horizon,
-                    max_timestamp=timestamp  # Only use past data!
-                )
+                if use_adaptive:
+                    # Adaptive horizon mode: query all horizons, select best
+                    adaptive_result = similarity.query_best_horizon(
+                        current_state=state_row,
+                        regime=regime,
+                        max_timestamp=timestamp  # Only use past data!
+                    )
 
-                # Get trading decision
-                decision = decision_engine.decide(sim_result, regime)
+                    # Apply additional filters (blocked_regimes, max_distance, min_expectancy)
+                    if adaptive_result["action"] == "NO_TRADE":
+                        decision = adaptive_result
+                    elif regime in self.blocked_regimes:
+                        decision = {"action": "NO_TRADE", "reason": f"BLOCKED_REGIME:{regime}"}
+                    elif adaptive_result.get("distance_mean", 0) > self.max_distance:
+                        decision = {"action": "NO_TRADE", "reason": "MAX_DISTANCE_EXCEEDED"}
+                    elif adaptive_result.get("expectancy", 0) < self.min_expectancy:
+                        decision = {"action": "NO_TRADE", "reason": "LOW_EXPECTANCY"}
+                    elif adaptive_result.get("mfe", 0) < self.min_mfe:
+                        # MFE too small to cover transaction costs (slippage + commission)
+                        decision = {"action": "NO_TRADE", "reason": "MFE_TOO_SMALL"}
+                    else:
+                        # Build trade decision from adaptive result
+                        selected_horizon = adaptive_result["horizon"]
+
+                        # Use backtester's max_bars_in_trade setting (0 = wait for TP)
+                        # Previous bug: forced timeout = horizon * 2, which cut trades short
+                        max_bars_for_trade = self.max_bars_in_trade
+
+                        decision = {
+                            "action": "TRADE",
+                            "direction": adaptive_result["direction"],
+                            "position_size": self.capital * self.risk_per_trade,
+                            "stop_loss_pct": 1.0,  # Disabled - wait for TP only (100% = never triggers)
+                            "take_profit_pct": adaptive_result["mfe"],  # V2: configurable percentile
+                            "max_bars": max_bars_for_trade,  # Use backtester setting (0 = no timeout)
+                            "mfe": adaptive_result["mfe"],
+                            "mae": adaptive_result["mae"],
+                            "expectancy": adaptive_result["expectancy"],
+                            "neighbors": adaptive_result["neighbors"],
+                            "horizon": selected_horizon,
+                            "reason": f"Adaptive H={selected_horizon}",
+                        }
+                else:
+                    # Standard single-horizon mode
+                    sim_result = similarity.query(
+                        current_state=state_row,
+                        regime=regime,
+                        horizon=self.horizon,
+                        max_timestamp=timestamp  # Only use past data!
+                    )
+
+                    # Get trading decision
+                    decision = decision_engine.decide(sim_result, regime)
 
                 if decision["action"] == "TRADE":
                     signals_generated += 1

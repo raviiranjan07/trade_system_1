@@ -4,7 +4,7 @@ import PositionCard from './components/PositionCard'
 import StatsSection from './components/StatsSection'
 import TradesList from './components/TradesList'
 import SignalLog from './components/SignalLog'
-import TabBar from './components/TabBar'
+// TabBar removed — replaced by page-level navigation
 import EquityCurve from './components/EquityCurve'
 import SignalStats from './components/SignalStats'
 import TradingViewChart from './components/TradingViewChart'
@@ -16,6 +16,7 @@ import ChartLegend from './components/ChartLegend'
 import ChartSettings from './components/ChartSettings'
 import IndicatorPanel from './components/IndicatorPanel'
 import SignalProximity from './components/SignalProximity'
+import RiskPanel from './components/RiskPanel'
 import AlertManager from './components/AlertManager'
 import PerformancePanel from './components/PerformancePanel'
 import PnLCalendar from './components/PnLCalendar'
@@ -29,8 +30,8 @@ const shiftCandlesIST = (arr) => arr ? arr.map(shiftIST) : arr
 function App() {
   const [data, setData] = useState(null)
   const [connected, setConnected] = useState(false)
-  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'trades')
-  const [chartView, setChartView] = useState(() => localStorage.getItem('chartView') || 'tradingview')
+  const [activePage, setActivePage] = useState(() => localStorage.getItem('activePage') || 'dashboard')
+  const [chartView, setChartView] = useState(() => localStorage.getItem('chartView') || 'bot')
   const wsRef = useRef(null)
   const reconnectTimeoutRef = useRef(null)
   const chartAreaRef = useRef(null)
@@ -86,7 +87,7 @@ function App() {
   useEffect(() => { indicatorsRef.current = indicators }, [indicators])
 
   // Persist UI preferences to localStorage
-  useEffect(() => { localStorage.setItem('activeTab', activeTab) }, [activeTab])
+  useEffect(() => { localStorage.setItem('activePage', activePage) }, [activePage])
   useEffect(() => { localStorage.setItem('chartView', chartView) }, [chartView])
 
   // Fetch drawings + indicators from server on mount (overrides localStorage)
@@ -398,6 +399,29 @@ function App() {
             <span className="config-hash">#{config.config_hash}</span>
           )}
         </h1>
+
+        {/* Page Navigation */}
+        <nav className="page-nav">
+          <button
+            className={`page-nav-btn ${activePage === 'dashboard' ? 'active' : ''}`}
+            onClick={() => setActivePage('dashboard')}
+          >
+            Dashboard
+          </button>
+          <button
+            className={`page-nav-btn ${activePage === 'trades' ? 'active' : ''}`}
+            onClick={() => setActivePage('trades')}
+          >
+            Trades
+          </button>
+          <button
+            className={`page-nav-btn ${activePage === 'analytics' ? 'active' : ''}`}
+            onClick={() => setActivePage('analytics')}
+          >
+            Analytics
+          </button>
+        </nav>
+
         <div className="header-right">
           <AlertManager trades={trades} signals={signals} position={position} />
           <span className="uptime">{formatUptime(status?.uptime_seconds)}</span>
@@ -412,8 +436,8 @@ function App() {
         </div>
       </header>
 
-      {/* Main Layout: Chart (left) + Sidebar (right) */}
-      <div className="main-layout">
+      {/* ========== DASHBOARD PAGE (chart always rendered, hidden when not active) ========== */}
+      <div className="main-layout" style={{ display: activePage === 'dashboard' ? 'flex' : 'none' }}>
         {/* === LEFT: Chart Area === */}
         <div className="chart-area" ref={chartAreaRef}>
           {/* Chart View Toggle */}
@@ -447,7 +471,7 @@ function App() {
                 indicators={indicators}
                 onTimeRangeChange={handleTimeRangeChange}
                 onLoadMore={handleLoadMore}
-                isVisible={chartView === 'bot'}
+                isVisible={chartView === 'bot' && activePage === 'dashboard'}
                 onChartReady={handleChartReady}
                 chartBg={chartBg}
               />
@@ -502,9 +526,8 @@ function App() {
           )}
         </div>
 
-        {/* === RIGHT: Sidebar === */}
+        {/* === RIGHT: Slim Sidebar (dashboard only) === */}
         <div className="sidebar">
-          {/* Indicator Cards (2x2) */}
           <div className="grid grid-2 sidebar-indicators">
             <StatusPanel label="Price" value={status?.price} format="price" panelType="price" />
             <StatusPanel label="RSI (14)" value={status?.rsi} format="rsi" panelType="rsi" />
@@ -512,47 +535,54 @@ function App() {
             <StatusPanel label="EMA Sep" value={status?.ema_separation} format="ema" panelType="ema" />
           </div>
 
-          {/* Position Card */}
           <PositionCard position={position} />
 
-          {/* Regime + Bars */}
           <div className="grid grid-2 sidebar-regime">
             <StatusPanel label="Regime" value={status?.regime || '---'} panelType="regime" />
             <StatusPanel label="Bars" value={status?.bar_count || 0} format="number" panelType="bars" />
           </div>
 
-          {/* Signal Proximity */}
+          <RiskPanel risk={data?.risk} />
+
           <SignalProximity proximity={data?.proximity} />
 
-          {/* Tab Bar */}
-          <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
-
-          {/* Tab Content */}
-          <div className="sidebar-tab-content">
-            {activeTab === 'trades' && (
-              <>
-                <StatsSection stats={stats} />
-                <EquityCurve trades={trades} />
-                <TradesList trades={trades} />
-              </>
-            )}
-
-            {activeTab === 'signals' && (
-              <>
-                <SignalStats signals={signals} />
-                <SignalLog signals={signals} fullHeight />
-              </>
-            )}
-
-            {activeTab === 'analytics' && (
-              <>
-                <PnLCalendar trades={trades} />
-                <PerformancePanel trades={trades} />
-              </>
-            )}
-          </div>
+          {/* Mini Signal Log (last 5) */}
+          <SignalLog signals={signals?.slice(0, 5)} />
         </div>
       </div>
+
+      {/* ========== TRADES PAGE (full-width) ========== */}
+      {activePage === 'trades' && (
+        <div className="page-content page-trades">
+          <StatsSection stats={stats} risk={data?.risk} />
+
+          <div className="card trades-full-container">
+            <div className="card-header">All Trades</div>
+            <TradesList trades={trades} />
+          </div>
+
+          <div className="card signals-full-container">
+            <div className="card-header">Signal Log</div>
+            <SignalStats signals={signals} />
+            <SignalLog signals={signals} fullHeight />
+          </div>
+        </div>
+      )}
+
+      {/* ========== ANALYTICS PAGE (full-width) ========== */}
+      {activePage === 'analytics' && (
+        <div className="page-content page-analytics">
+          <StatsSection stats={stats} risk={data?.risk} />
+
+          <div className="analytics-equity">
+            <EquityCurve trades={trades} />
+          </div>
+
+          <PnLCalendar trades={trades} />
+
+          <PerformancePanel trades={trades} />
+        </div>
+      )}
     </div>
   )
 }

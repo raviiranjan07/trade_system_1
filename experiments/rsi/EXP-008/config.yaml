@@ -1,0 +1,31 @@
+experiment:
+  id: EXP-008
+  name: "Range Support on 15min"
+  date: 2026-02-05
+  category: rsi
+  status: IN_PROGRESS
+
+description: |
+  Test Range Position as directional predictor on 15-minute BTCUSDT.
+
+  WHAT analysis found: price near range lows (bottom 10%) bounces UP
+  with 60.4% accuracy on 240min candles (LB50).
+
+  Question: Does this same pattern work on 15-minute bars?
+
+  Range Position = (close - lowest_low) / (highest_high - lowest_low)
+  - <10% = near support (expect UP)
+  - >90% = near resistance (expect DOWN)
+
+  Test matrix:
+  - Lookbacks: 20, 50, 100, 200 bars
+  - Support levels: <5%, <10%, <20%, <30%
+  - Resistance levels: >70%, >80%, >90%, >95%
+  - Horizons: 5, 10, 20 bars ahead
+  - Measure: directional accuracy (did price go UP/DOWN?)
+
+data:
+  symbol: BTCUSDT
+  timeframe: 15m
+  train: "2020-2023"
+  test: "2024-2025"

@@ -1,0 +1,18 @@
+experiment_id: EXP-001
+date: '2026-02-04'
+status: IN_PROGRESS
+category: ma
+strategy:
+  name: Moving Average Behavior Analysis
+  description: ''
+parameters:
+  timeframe: FILL_IN
+  symbol: BTCUSDT
+  entry: {}
+  exit: {}
+  fees:
+    bps: 8
+    type: round_trip
+data:
+  test_period_start: '2024-01-01'
+  test_period_end: '2025-12-30'

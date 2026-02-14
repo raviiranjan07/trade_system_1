@@ -40,6 +40,9 @@ class Trade:
     peak_price: Optional[float] = None  # Best price seen (highest for LONG, lowest for SHORT)
     trailing_stop_price: Optional[float] = None  # Current trailing stop level
 
+    # Per-trade timeout (for adaptive horizon)
+    max_bars: int = 0  # 0 = use simulator default
+
 
 class TradeSimulator:
     """Simulates trade execution with slippage, commissions, and trailing stop."""
@@ -93,6 +96,9 @@ class TradeSimulator:
             stop_loss_price = fill_price * (1 + stop_pct)
             take_profit_price = fill_price * (1 - tp_pct)
 
+        # Get per-trade max_bars (if provided), else use simulator default
+        max_bars = decision.get("max_bars", self.max_bars_in_trade)
+
         return Trade(
             signal_time=signal_time,
             entry_time=signal_time,  # Will be updated to actual entry bar
@@ -105,6 +111,7 @@ class TradeSimulator:
             take_profit_pct=tp_pct,
             regime=regime,
             expectancy=decision["expectancy"],
+            max_bars=max_bars,
         )
 
     def update_trade(
@@ -116,7 +123,7 @@ class TradeSimulator:
         """
         Update trade status based on current bar.
 
-        Exits on: Take Profit hit, Timeout, or Trailing Stop hit (if enabled).
+        Exits on: Take Profit hit, Stop Loss hit, Timeout, or Trailing Stop hit.
         """
         trade.bars_held += 1
 
@@ -134,8 +141,20 @@ class TradeSimulator:
             trade = self._close_trade(trade, trade.take_profit_price, current_time, "TP_HIT")
             return trade
 
-        # --- Check for timeout (if enabled) ---
-        if self.max_bars_in_trade > 0 and trade.bars_held >= self.max_bars_in_trade:
+        # --- Check for Stop Loss (if enabled, i.e., stop_loss_pct < 1.0) ---
+        if trade.stop_loss_pct < 1.0:
+            if trade.direction == "LONG":
+                sl_hit = low <= trade.stop_loss_price
+            else:
+                sl_hit = high >= trade.stop_loss_price
+
+            if sl_hit:
+                trade = self._close_trade(trade, trade.stop_loss_price, current_time, "SL_HIT")
+                return trade
+
+        # --- Check for timeout (use per-trade max_bars if set, else simulator default) ---
+        effective_max_bars = trade.max_bars if trade.max_bars > 0 else self.max_bars_in_trade
+        if effective_max_bars > 0 and trade.bars_held >= effective_max_bars:
             trade = self._close_trade(trade, close, current_time, "TIMEOUT")
             return trade
 

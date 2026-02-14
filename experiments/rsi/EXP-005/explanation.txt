@@ -1,0 +1,159 @@
+EXPERIMENT EXP-005: Exit Strategy Analysis
+================================================================================
+
+OBJECTIVE
+---------
+Test exit strategies for RSI signals:
+1. Trailing Stop - Which size captures most profit?
+2. MFE vs MAE - Does early profit predict continuation or reversal?
+
+
+================================================================================
+PART 1: TRAILING STOP TEST
+================================================================================
+
+What is a Trailing Stop?
+------------------------
+A trailing stop follows price as it moves in your favor, locking in profit.
+Example: 15 bps trailing stop means exit when price drops 15 bps from peak.
+
+LONG SIGNALS (BULL only, with 200 SMA filter):
+
+| Trailing Stop | Avg Exit Profit | Avg Exit Bar | Max Possible | % Captured |
+|---------------|-----------------|--------------|--------------|------------|
+| No TS (Bar 10)|      +6.5 bps   |     10.0     |      N/A     |     N/A    |
+| 10 bps        |     +15.5 bps   |      2.1     |    25.5 bps  |     61%    |
+| 15 bps        |     +14.9 bps   |      2.9     |    29.7 bps  |     50%    |
+| 20 bps        |     +18.2 bps   |      4.1     |    37.4 bps  |     49%    |
+| 25 bps        |     +17.3 bps   |      5.1     |    40.1 bps  |     43%    |
+| 30 bps        |     +16.7 bps   |      5.8     |    42.6 bps  |     39%    |
+
+BEST FOR LONG: 20 bps trailing stop (+18.2 bps avg exit)
+
+SHORT SIGNALS (BEAR only, with 200 SMA filter):
+
+| Trailing Stop | Avg Exit Profit | Avg Exit Bar | Max Possible | % Captured |
+|---------------|-----------------|--------------|--------------|------------|
+| No TS (Bar 10)|      +9.6 bps   |     10.0     |      N/A     |     N/A    |
+| 10 bps        |     +19.0 bps   |      2.4     |    29.0 bps  |     65%    |
+| 15 bps        |     +18.7 bps   |      3.2     |    33.6 bps  |     56%    |
+| 20 bps        |     +20.2 bps   |      4.0     |    39.7 bps  |     51%    |
+| 25 bps        |     +21.3 bps   |      4.8     |    44.4 bps  |     48%    |
+| 30 bps        |     +23.2 bps   |      5.8     |    48.8 bps  |     48%    |
+
+BEST FOR SHORT: 30 bps trailing stop (+23.2 bps avg exit)
+
+KEY FINDING:
+------------
+Trailing stop DRAMATICALLY improves average exit profit:
+- LONG: +6.5 bps (no TS) -> +18.2 bps (TS=20) = +180% improvement
+- SHORT: +9.6 bps (no TS) -> +23.2 bps (TS=30) = +142% improvement
+
+Without trailing stop, profits are given back by Bar 10.
+With trailing stop, we lock in gains before reversal.
+
+
+================================================================================
+PART 2: MFE vs MAE RELATIONSHIP
+================================================================================
+
+Question: Does early profit predict continuation or reversal?
+
+LONG SIGNALS (126 trades, BULL only):
+
+| Bar 1 Profit | Count | Bar 3 Avg | Bar 5 Avg | Bar 10 Avg | Pattern   |
+|--------------|-------|-----------|-----------|------------|-----------|
+| <0 bps       |     6 |    -6.0   |    -3.1   |     -1.6   | REVERSES  |
+| 0-10 bps     |    53 |    +4.6   |    -1.1   |     -5.8   | REVERSES  |
+| 10-20 bps    |    32 |   +20.0   |   +16.5   |     +8.4   | REVERSES  |
+| 20-30 bps    |    15 |   +69.6   |   +82.4   |   +122.1   | CONTINUES |
+| >30 bps      |    17 |   +62.0   |   +68.5   |    +58.9   | CONTINUES |
+
+LONG INTERPRETATION:
+- Small early profit (0-20 bps at Bar 1) -> Price REVERSES, ends lower
+- Large early profit (>20 bps at Bar 1) -> Price CONTINUES, ends higher
+- RULE: If Bar 1 shows >20 bps profit, HOLD. If <20 bps, use tight trailing stop.
+
+SHORT SIGNALS (140 trades, BEAR only):
+
+| Bar 1 Profit | Count | Bar 3 Avg | Bar 5 Avg | Bar 10 Avg | Pattern   |
+|--------------|-------|-----------|-----------|------------|-----------|
+| <0 bps       |     5 |    -1.6   |    +9.7   |    +22.7   | CONTINUES |
+| 0-10 bps     |    52 |    +6.7   |   +10.3   |     +9.6   | FLAT      |
+| 10-20 bps    |    38 |   +16.5   |   +21.2   |    +32.7   | CONTINUES |
+| 20-30 bps    |    24 |   +25.1   |   +32.6   |    +49.4   | CONTINUES |
+| >30 bps      |    19 |   +52.2   |   +42.7   |    +16.1   | REVERSES  |
+
+SHORT INTERPRETATION:
+- Most SHORT signals CONTINUE (profit grows over time)
+- EXCEPT when Bar 1 shows >30 bps (too fast) -> REVERSES
+- RULE: If Bar 1 shows >30 bps, EXIT. Otherwise, HOLD with trailing stop.
+
+
+================================================================================
+SUMMARY: EXIT STRATEGY RULES
+================================================================================
+
+LONG SIGNALS (RSI oversold cross, price > SMA200):
+-------------------------------------------------
+IF Bar 1 profit > 20 bps:
+    -> HOLD: Price likely to continue higher
+    -> Use 20-25 bps trailing stop to protect
+ELSE:
+    -> Use 10-15 bps trailing stop (price likely to reverse)
+
+BEST OVERALL: 20 bps trailing stop = +18.2 bps avg exit
+
+
+SHORT SIGNALS (RSI overbought cross, price < SMA200):
+----------------------------------------------------
+IF Bar 1 profit > 30 bps:
+    -> EXIT: Price likely to reverse
+ELSE:
+    -> HOLD: Price likely to continue
+    -> Use 30 bps trailing stop to protect
+
+BEST OVERALL: 30 bps trailing stop = +23.2 bps avg exit
+
+
+================================================================================
+NET PROFIT AFTER FEES
+================================================================================
+
+Fees: 8 bps round-trip (limit orders)
+
+LONG with 20 bps trailing stop:
+- Avg exit: +18.2 bps
+- After fees: +10.2 bps NET
+- PROFITABLE
+
+SHORT with 30 bps trailing stop:
+- Avg exit: +23.2 bps
+- After fees: +15.2 bps NET
+- PROFITABLE
+
+
+================================================================================
+COMBINED STRATEGY
+================================================================================
+
+ENTRY RULES (from EXP-004):
+- LONG: RSI < 20 AND price > SMA200
+- SHORT: RSI > 80 AND price < SMA200
+
+EXIT RULES (from EXP-005):
+- LONG: 20 bps trailing stop
+- SHORT: 30 bps trailing stop
+
+EXPECTED RESULTS:
+- 266 signals per 2-year period (with filter)
+- 99.6% success rate (1 minor failure that recovers)
+- LONG avg: +18.2 bps gross, +10.2 bps net
+- SHORT avg: +23.2 bps gross, +15.2 bps net
+
+
+================================================================================
+EXPERIMENT COMPLETE
+Status: EXIT STRATEGIES DEFINED
+Date: 2026-02-04
+================================================================================

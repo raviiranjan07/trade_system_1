@@ -65,7 +65,10 @@ features:
 # -----------------------------------------------------------------------------
 normalization:
   # Rolling window for z-score and percentile calculations
-  window: 2000
+  # 180 = 3 hours (optimal for scalping - fast adaptation)
+  # 300 = 5 hours (balanced)
+  # 2000 = 33 hours (slow - better for day trading)
+  window: 120
 
 # -----------------------------------------------------------------------------
 # Regime Detection
@@ -120,6 +123,61 @@ similarity:
   # FAISS-specific settings (only used when backend: "faiss")
   faiss_nlist: 100                 # Number of IVF clusters (higher = more accurate, slower build)
   faiss_nprobe: 10                 # Clusters to search at query time (higher = more accurate, slower)
+
+# -----------------------------------------------------------------------------
+# Adaptive Horizon (Multi-Horizon Mode)
+# -----------------------------------------------------------------------------
+# When enabled, queries the same state against multiple horizon datasets
+# and selects the horizon with the highest MFE for each trade.
+# Enable via ADAPTIVE_HORIZON_ENABLED=true in .env
+adaptive_horizon:
+  # Horizons to compare (must match outcomes.horizons)
+  # Can be overridden by ADAPTIVE_HORIZONS env var (comma-separated)
+  horizons:
+    - 3
+    - 5
+    - 10
+    - 15
+
+  # Minimum MFE required to consider a horizon (filters low-quality signals)
+  min_mfe: 0.001
+
+  # Minimum neighbors required for valid statistics
+  min_neighbors: 50
+
+  # Selection strategy: "max_mfe" or "max_expectancy"
+  selection_strategy: "max_mfe"
+
+# -----------------------------------------------------------------------------
+# Risk Model (Case Probability Model)
+# -----------------------------------------------------------------------------
+# Risk-based entry filtering instead of direction prediction.
+# Key insight: 84-95% of trades eventually recover if MAE < 50bp.
+risk_model:
+  # Entry filter thresholds
+  max_p_case1: 0.10          # Max 10% wrong direction probability
+  max_mae_median: 30         # Max 30bp expected median MAE
+  max_recovery_median: 50    # Max 50 bars expected recovery
+  min_p_recovery: 0.80       # Min 80% recovery probability
+
+  # Position management
+  mae_cut_threshold: 50      # Cut if live MAE > 50bp (likely wrong direction)
+  adaptive_horizon: true     # Extend horizon if MAE < threshold
+  max_bars_in_trade: 200     # Hard limit on trade duration
+
+  # Case labeling parameters
+  targets_bps:
+    - 8
+    - 15
+    - 25
+  horizons:
+    - 3
+    - 5
+    - 10
+    - 15
+    - 30
+    - 60
+  extended_horizon: 500      # For recovery analysis
 
 # -----------------------------------------------------------------------------
 # Decision Engine

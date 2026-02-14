@@ -1,0 +1,25 @@
+experiment:
+  id: EXP-009
+  name: "Remove TIME_EXIT"
+  date: 2026-02-05
+  category: rsi
+  status: IN_PROGRESS
+
+description: |
+  Test what happens if we REMOVE the bar 10 time exit from V1.2.
+
+  Hypothesis: TIME_EXIT creates the biggest losses (avg -52 to -91 bps).
+  EXP-004 showed 100% of RSI signals with SMA200 filter recover.
+  If we just hold and wait for trailing stop, those losses become wins.
+
+  Test: V1.2 with no time limit - hold until trailing stop triggers.
+  Also test intermediate values (bar 20, 40, 100) vs unlimited.
+
+  Risk: trades could sit for very long time before trailing stop triggers.
+  Need to measure: how long do trades actually take?
+
+data:
+  symbol: BTCUSDT
+  timeframe: 15m
+  train: "2020-2023"
+  test: "2024-2025"

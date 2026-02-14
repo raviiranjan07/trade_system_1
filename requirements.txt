@@ -8,6 +8,7 @@ pandas>=2.0
 # Configuration
 # -----------------------------
 pyyaml>=6.0
+pydantic>=2.0
 
 # -----------------------------
 # Database & environment

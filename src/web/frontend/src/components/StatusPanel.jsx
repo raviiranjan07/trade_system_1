@@ -15,7 +15,7 @@ function StatusPanel({ label, value, format, panelType }) {
       case 'percentile':
         return `${Number(value).toFixed(1)}%`
       case 'ema':
-        return `${(Number(value) * 100).toFixed(2)}%`
+        return `${Number(value).toFixed(2)}%`
       case 'number':
         return Number(value).toLocaleString('en-US')
       default:

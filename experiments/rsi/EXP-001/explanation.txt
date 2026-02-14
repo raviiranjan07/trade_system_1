@@ -1,0 +1,292 @@
+EXPERIMENT EXP-001: RSI Mean Reversion Behavior Analysis
+================================================================================
+
+WHAT ARE WE TESTING?
+--------------------
+We're testing if RSI (Relative Strength Index) can predict when price will
+bounce or drop. RSI is a number from 0 to 100 that measures how "stretched"
+the price is:
+
+- RSI below 20-30 = "Oversold" = Price dropped too fast, might bounce UP
+- RSI above 70-80 = "Overbought" = Price went up too fast, might drop DOWN
+
+Think of it like a rubber band - when stretched too far, it snaps back.
+
+We tested 7 different RSI settings:
+1. RSI(7) with 30/70 thresholds (fast, loose)
+2. RSI(7) with 20/80 thresholds (fast, tight)
+3. RSI(14) with 30/70 thresholds (standard, loose)
+4. RSI(14) with 20/80 thresholds (standard, tight)
+5. RSI(14) with 40/60 thresholds (standard, very loose)
+6. RSI(21) with 30/70 thresholds (slow, loose)
+7. RSI(21) with 20/80 thresholds (slow, tight)
+
+
+WHY ARE WE TESTING THIS?
+------------------------
+Mean reversion is one of the simplest trading ideas: prices don't go in one
+direction forever. When price moves too fast in one direction, it often
+reverses (at least temporarily).
+
+RSI captures this by measuring momentum. When RSI hits extreme levels:
+- Buyers/sellers are exhausted
+- The move is "overdone"
+- A reversal is likely
+
+This is ATOMIC testing - we're only testing RSI by itself, no other
+indicators or filters. We want to know: does RSI alone have predictive power?
+
+
+HOW DOES IT WORK?
+-----------------
+1. Signal Detection:
+   - When RSI crosses BELOW threshold (20 or 30) = Oversold signal
+   - When RSI crosses ABOVE threshold (70 or 80) = Overbought signal
+
+2. What We Measured:
+   - "Bounce Rate" = After oversold, did price go UP within next 10 bars?
+   - "Drop Rate" = After overbought, did price go DOWN within next 10 bars?
+   - "Average Move" = How much did price move in the expected direction?
+
+3. Time Horizons:
+   - H=3 (45 minutes), H=5 (1.25 hours), H=10 (2.5 hours),
+   - H=15 (3.75 hours), H=20 (5 hours)
+
+4. Data Periods:
+   - In-Sample (training): 2020-2023 (140,010 candles)
+   - Out-of-Sample (testing): 2024-2025 (69,869 candles)
+
+
+WHAT HAPPENED?
+--------------
+** IN-SAMPLE RESULTS (2020-2023) at H=10: **
+
+| RSI Config    | Signals | Bounce Rate | Avg Move |
+|---------------|---------|-------------|----------|
+| RSI(7) 30/70  | 9,028   | 99.3%       | 74 bps   |
+| RSI(7) 20/80  | 4,975   | 99.3%       | 80 bps   |
+| RSI(14) 30/70 | 3,836   | 99.5%       | 82 bps   |
+| RSI(14) 20/80 | 1,121   | 99.3%       | 99 bps   |
+| RSI(14) 40/60 | 7,742   | 99.1%       | 73 bps   |
+| RSI(21) 30/70 | 1,926   | 99.3%       | 93 bps   |
+| RSI(21) 20/80 | 385     | 99.5%       | 110 bps  |
+
+** OUT-OF-SAMPLE RESULTS (2024-2025) at H=10: **
+
+| RSI Config    | Signals | Bounce Rate | Avg Move |
+|---------------|---------|-------------|----------|
+| RSI(7) 30/70  | 4,394   | 98.9%       | 57 bps   |
+| RSI(7) 20/80  | 2,471   | 98.8%       | 57 bps   |
+| RSI(14) 30/70 | 1,902   | 98.7%       | 60 bps   |
+| RSI(14) 20/80 | 596     | 99.7%       | 73 bps   |
+| RSI(14) 40/60 | 3,769   | 98.8%       | 54 bps   |
+| RSI(21) 30/70 | 1,043   | 98.7%       | 62 bps   |
+| RSI(21) 20/80 | 176     | 98.9%       | 77 bps   |
+
+
+WHAT DID WE LEARN?
+------------------
+1. RSI MEAN REVERSION WORKS CONSISTENTLY
+   - Bounce/drop rates are 98-99% across ALL combinations
+   - This held true in BOTH in-sample AND out-of-sample periods
+   - Not luck - it's a real pattern in BTC 15-minute data
+
+2. TIGHTER THRESHOLDS = BIGGER MOVES (but fewer signals)
+   - RSI(21) 20/80: Only 385 signals, but 110 bps average move
+   - RSI(14) 40/60: 7,742 signals, but only 73 bps average move
+   - Trade-off: Quality vs Quantity
+
+3. ALL MOVES ARE ABOVE MINIMUM PROFITABLE (12 bps)
+   - Smallest average move: 54 bps (RSI(14) 40/60 out-of-sample)
+   - Largest average move: 110 bps (RSI(21) 20/80 in-sample)
+   - After 8 bps fees, still profitable on paper
+
+4. OUT-OF-SAMPLE MOVES ARE SMALLER BUT STILL SIGNIFICANT
+   - In-sample average: 73-110 bps
+   - Out-of-sample average: 54-77 bps
+   - ~30% reduction, but still well above 12 bps minimum
+
+5. BEST BALANCE: RSI(14) 20/80
+   - Decent signal count: ~600-1,100 signals
+   - High bounce rate: 99.3-99.7%
+   - Good move size: 73-99 bps
+   - Standard RSI period (widely used)
+
+
+IMPORTANT CAVEATS
+-----------------
+This is BEHAVIOR ANALYSIS, not a trading strategy yet!
+
+We measured: "Does price move in expected direction after RSI signal?"
+We did NOT measure: "Can we actually capture that profit?"
+
+
+================================================================================
+EDGE CASE ANALYSIS (Deep Dive)
+================================================================================
+
+We analyzed RSI(14) 20/80 in detail to understand the risks.
+
+EDGE CASE 1: FAILURE CASES (When RSI Signal Doesn't Work)
+---------------------------------------------------------
+Failures are RARE but EXPENSIVE when they happen:
+
+| Signal     | Period         | Failures | Avg Loss | Max Loss | Pattern           |
+|------------|----------------|----------|----------|----------|-------------------|
+| Oversold   | In-Sample      | 8 (0.7%) | 208 bps  | 476 bps  | 87% in DOWNTREND  |
+| Oversold   | Out-of-Sample  | 2 (0.3%) | 134 bps  | 160 bps  | 100% in DOWNTREND |
+| Overbought | In-Sample      | 16 (1.2%)| 256 bps  | 697 bps  | 100% in UPTREND   |
+| Overbought | Out-of-Sample  | 11 (1.7%)| 142 bps  | 468 bps  | 100% in UPTREND   |
+
+KEY INSIGHT: ALL failures happen when trading AGAINST strong trend!
+- Oversold failures = trying to go LONG in a strong DOWNTREND
+- Overbought failures = trying to go SHORT in a strong UPTREND
+
+
+EDGE CASE 2: DRAWDOWN BEFORE BOUNCE (MAE) - CRITICAL!
+-----------------------------------------------------
+Even for WINNING trades that eventually bounced, price often drops first.
+MAE = Maximum Adverse Excursion = worst drawdown during the trade
+
+| Metric              | In-Sample | Out-of-Sample |
+|---------------------|-----------|---------------|
+| Mean drawdown       | 121 bps   | 74 bps        |
+| Median drawdown     | 65 bps    | 46 bps        |
+| 90th percentile     | 270 bps   | 169 bps       |
+| 95th percentile     | 382 bps   | 232 bps       |
+
+STOP LOSS IMPACT (% of WINNING trades that would be stopped out):
+| Stop Loss Level | In-Sample | Out-of-Sample |
+|-----------------|-----------|---------------|
+| -10 bps         | 91%       | 85%           |
+| -15 bps         | 86%       | 80%           |
+| -20 bps         | 81%       | 75%           |
+| -25 bps         | 78%       | 70%           |
+| -50 bps         | 59%       | 47%           |
+
+KEY INSIGHT: A tight stop loss will KILL most trades!
+- At -15bp stop: 80-86% of winning trades stopped out
+- At -50bp stop: still 47-59% stopped out
+- Need WIDE stop (or no stop) to let bounce develop
+
+
+EDGE CASE 3: TIME TO REVERSAL
+-----------------------------
+How long does it take for the bounce to happen?
+
+| Metric                | In-Sample   | Out-of-Sample |
+|-----------------------|-------------|---------------|
+| Mean time to best     | 5.2 bars    | 5.5 bars      |
+| (in minutes)          | (77 min)    | (83 min)      |
+| Within 3 bars         | 40%         | 36%           |
+| Within 5 bars         | 54%         | 50%           |
+| Within 7 bars         | 69%         | 64%           |
+
+KEY INSIGHT: You need to WAIT. Half of bounces take 5+ bars (1+ hour).
+
+
+EDGE CASE 4: OUTCOME DISTRIBUTION (What targets are realistic?)
+---------------------------------------------------------------
+What % of signals reach different profit targets?
+
+| Target    | In-Sample | Out-of-Sample |
+|-----------|-----------|---------------|
+| +12 bps   | 91%       | 88%           |
+| +15 bps   | 89%       | 86%           |
+| +25 bps   | 80%       | 74%           |
+| +50 bps   | 59%       | 50%           |
+| +100 bps  | 31%       | 23%           |
+
+KEY INSIGHT: Target 25 bps is realistic (74-80% reach it).
+Target 50 bps is possible but only 50-59% reach it.
+
+
+EDGE CASE 5: TREND IMPACT
+-------------------------
+Most oversold signals happen in DOWNTRENDs (counter-trend trading).
+
+| Trading Direction     | Signals | Bounce Rate | Avg MFE | Avg MAE |
+|-----------------------|---------|-------------|---------|---------|
+| Long in UPTREND       | 22      | 96%         | 76 bps  | 52 bps  |
+| Long in DOWNTREND     | 1,099   | 99%         | 100 bps | 123 bps |
+
+KEY INSIGHT: Counter-trend (long in downtrend) actually has HIGHER MFE
+but also HIGHER drawdown. The bounce is bigger but you suffer more first.
+
+
+IMPLICATIONS FOR EXIT RULES
+---------------------------
+Based on edge case analysis:
+
+1. TIGHT STOP LOSS WON'T WORK
+   - Stops out 70-86% of winners
+   - Need wide stop (50+ bps) or no stop at all
+
+2. TIME-BASED EXIT MIGHT BE BETTER
+   - Wait 5-10 bars for bounce to develop
+   - Don't exit too early
+
+3. REALISTIC TARGETS
+   - 25 bps target: 74-80% success
+   - 50 bps target: 50-59% success
+
+4. TREND FILTER COULD HELP
+   - Skip signals against strong trend to avoid rare but big losses
+   - But this also removes some of the biggest bounces
+
+
+VISUALIZATIONS CREATED
+----------------------
+Statistical Charts:
+- 1_bounce_rate_comparison.png: In-sample vs out-of-sample bounce rates
+- 2_avg_move_comparison.png: Average move sizes with 12bp profit line
+- 3_signal_frequency.png: How many signals each config generates
+- 4_horizon_analysis.png: How metrics change over time (H=3 to H=20)
+- 5_tradeoff_analysis.png: Signal frequency vs move size scatter
+- 6_summary_heatmap.png: All metrics in one view
+
+Price Action Charts:
+- 7_price_action_2023_march.png: March 2023 with RSI signals
+- 8_price_action_2022_june.png: June 2022 crash (high volatility)
+- 9_price_action_2024_march.png: March 2024 (out-of-sample)
+- 10_price_action_2024_november.png: November 2024 (out-of-sample)
+- 11_price_action_zoomed.png: 2-day zoomed view
+
+Edge Case Analysis Charts:
+- 12_mae_mfe_distribution.png: Drawdown vs Profit distribution histograms
+- 13_time_to_best.png: When does the best price occur (bar distribution)
+- 14_trend_impact.png: Performance WITH vs AGAINST trend
+- 15_stop_loss_analysis.png: What % of winners stopped out at each level
+
+
+WHAT SHOULD WE DO NEXT?
+-----------------------
+The RSI behavior analysis shows STRONG evidence of mean reversion.
+Edge case analysis revealed KEY constraint: tight stop losses don't work.
+
+Next step options:
+
+OPTION A: Build RSI Trading Strategy with Wide Stop / Time Exit
+- Entry: RSI(14) crosses below 20 (oversold) → GO LONG
+- Exit Option 1: Target +25 bps, Stop -50 bps, Max 10 bars
+- Exit Option 2: Time-based only (exit after 10 bars regardless)
+- Run actual backtest with 8 bps fees
+- See real P&L results
+
+OPTION B: Test Another Indicator First
+- Test Bollinger Bands, MACD, or other mean reversion signals
+- Validate multiple signals before combining
+- Stay atomic: one indicator at a time
+
+OPTION C: Add Trend Filter to RSI
+- Skip signals that go AGAINST strong trend
+- Could avoid the rare but expensive failures
+- Need to test if this improves or hurts overall performance
+
+
+================================================================================
+Date: 2026-02-04
+Status: COMPLETED
+Category: RSI / Mean Reversion / Behavior Analysis
+Data: BTC/USDT 15-minute candles
+================================================================================

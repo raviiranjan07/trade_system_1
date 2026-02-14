@@ -1,0 +1,25 @@
+experiment:
+  id: EXP-007
+  name: "V1.3 - SHORT Side WHEN Filters Test"
+  date: 2026-02-05
+  category: rsi
+  status: IN_PROGRESS
+
+description: |
+  Test adding WHEN filters to SHORT side.
+  Building on V1.2 (which already filters LONG).
+
+  Question: Does filtering SHORT improve an already strong side (PF 2.57)?
+  Risk: Over-filtering may remove profitable trades.
+
+  Note: SHORT is profitable in ALL conditions (unlike LONG).
+  This test checks if filtering still adds value.
+
+base: V1.2 (LONG already filtered with ATR>=25pctl + EMA sep>=0.5%)
+
+short_filters_to_test:
+  - ATR >= 25th percentile
+  - EMA separation >= 0.5%
+  - Skip weekend
+  - Skip Asia night (00-04 UTC)
+  - Various combinations
