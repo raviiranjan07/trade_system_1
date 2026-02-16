@@ -161,10 +161,15 @@ The strategy doesn't need it — its built-in filters already work.
 
 | File | Purpose |
 |------|---------|
-| option_c_performance.py | Winner/loser feature analysis |
-| option_a_clustering.py | K-Means regime detection |
-| option_b_hmm.py | HMM regime detection |
-| option_d_hybrid.py | Head-to-head comparison |
-| trade_features_train.csv | Trade features (TRAIN) |
-| trade_features_oos.csv | Trade features (OOS) |
+| background_research/option_a_clustering.py | K-Means regime detection |
+| background_research/option_b_hmm.py | HMM regime detection |
+| background_research/option_c_performance.py | Winner/loser feature analysis |
+| background_research/option_d_hybrid.py | Head-to-head comparison |
+| background_research/trade_features_train.csv | Trade features (TRAIN) |
+| background_research/trade_features_oos.csv | Trade features (OOS) |
+| L2-001/L2_001_feature_revalidation.py | Feature validation + computation |
+| L2-001/L2-001b/ | Feature strength ranking |
+| L2-002/framework.py | Signal expansion framework (77 combos) |
+| L2-002/analyze_losses.py | Loss analysis on top config |
+| L2-002/notes.md | Full results + investigation gaps |
 | RESULTS.md | This file |

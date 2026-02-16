@@ -24,140 +24,170 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 import numpy as np
 import pandas as pd
+import yaml
 
 from v12.config.loader import load_config
 from v12.config.constants import FEES_BPS
 
 DATA_PATH = Path("data/ohlcv/BTCUSDT_15m_ohlcv.parquet")
+CONFIG_PATH = Path(__file__).parent.parent / "config.yaml"
 
-TRAIN_START, TRAIN_END = "2020-01-01", "2023-12-31"
-OOS_START, OOS_END = "2024-01-01", "2025-12-31"
 
-# Horizons for directional/Case1 testing (in 15-min bars)
-HORIZONS = [10, 15, 20]
-# Target in bps for Case1 definition (minimum profitable move)
-TARGET_BPS = 25
+def load_feature_config(config_path=None):
+    """Load centralized Layer 2 config. Returns dict with all parameters."""
+    path = config_path or CONFIG_PATH
+    with open(path) as f:
+        return yaml.safe_load(f)
+
+
+# Load defaults from config
+_cfg = load_feature_config()
+TRAIN_START, TRAIN_END = _cfg["data"]["train_start"], _cfg["data"]["train_end"]
+OOS_START, OOS_END = _cfg["data"]["oos_start"], _cfg["data"]["oos_end"]
+HORIZONS = _cfg["test"]["horizons"]
+TARGET_BPS = _cfg["test"]["target_bps"]
 
 
 # =============================================================================
 # Feature computation — ALL 38 WHEN features + SMA200 + extras
 # =============================================================================
 
-def compute_all_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Compute ALL features: 38 from WHEN + SMA200 + extras = ~51 features."""
+def compute_all_features(df: pd.DataFrame, cfg: dict = None) -> pd.DataFrame:
+    """Compute ALL features: 38 from WHEN + SMA200 + extras = ~51 features.
+
+    Args:
+        df: OHLCV DataFrame
+        cfg: Optional config dict (from load_feature_config). Uses default config.yaml if None.
+    """
+    if cfg is None:
+        cfg = load_feature_config()
+
     out = df.copy()
     close = out["close"]
     high = out["high"]
     low = out["low"]
     opn = out["open"]
 
-    # ===== VOLATILITY (from WHEN) =====
+    # ===== VOLATILITY =====
     tr1 = high - low
     tr2 = abs(high - close.shift(1))
     tr3 = abs(low - close.shift(1))
     tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
 
-    atr14 = tr.ewm(span=14, adjust=False).mean()
-    out["atr_pct"] = atr14 / close * 100
-    out["atr_percentile"] = (atr14 / close * 100).rolling(window=500, min_periods=100).apply(
-        lambda x: pd.Series(x).rank(pct=True).iloc[-1] * 100, raw=False
-    )
-    for period in [7, 21]:
+    atr_main = tr.ewm(span=cfg["atr_period"], adjust=False).mean()
+    out["atr_pct"] = atr_main / close * 100
+    out["atr_percentile"] = (atr_main / close * 100).rolling(
+        window=cfg["atr_percentile_window"], min_periods=cfg["atr_percentile_min_periods"]
+    ).apply(lambda x: pd.Series(x).rank(pct=True).iloc[-1] * 100, raw=False)
+    for period in cfg["atr_extra_periods"]:
         atr_p = tr.ewm(span=period, adjust=False).mean()
         out[f"atr{period}_pct"] = atr_p / close * 100
 
-    out["std20"] = close.rolling(20).std() / close * 100
+    out[f"std{cfg['std_period']}"] = close.rolling(cfg["std_period"]).std() / close * 100
 
-    # BB position (from WHEN — different from bb_width)
-    ema20 = close.ewm(span=20, adjust=False).mean()
-    bb_std = close.rolling(20).std()
-    bb_upper = ema20 + 2 * bb_std
-    bb_lower = ema20 - 2 * bb_std
+    # BB position
+    bb_p = cfg["bb_period"]
+    bb_m = cfg["bb_multiplier"]
+    ema_bb = close.ewm(span=bb_p, adjust=False).mean()
+    bb_std = close.rolling(bb_p).std()
+    bb_upper = ema_bb + bb_m * bb_std
+    bb_lower = ema_bb - bb_m * bb_std
     out["bb_position"] = (close - bb_lower) / (bb_upper - bb_lower + 0.0001)
 
-    # ===== EXTRAS: bandwidth features (from L2-001 v1) =====
-    out["keltner_width"] = (atr14 * 2) / ema20 * 100
-    donchian_high = high.rolling(50).max()
-    donchian_low = low.rolling(50).min()
+    # ===== EXTRAS: bandwidth features =====
+    out["keltner_width"] = (atr_main * cfg["keltner_multiplier"]) / ema_bb * 100
+    donchian_high = high.rolling(cfg["donchian_period"]).max()
+    donchian_low = low.rolling(cfg["donchian_period"]).min()
     out["donchian_width"] = (donchian_high - donchian_low) / close * 100
-    sma20 = close.rolling(20).mean()
-    out["bb_width"] = (bb_std * 4) / sma20 * 100
+    sma_bb = close.rolling(bb_p).mean()
+    out["bb_width"] = (bb_std * bb_m * 2) / sma_bb * 100
 
-    # ===== MOVING AVERAGES (from WHEN — ALL were INVALID) =====
-    for period in [9, 20, 50, 100, 200]:
+    # ===== MOVING AVERAGES =====
+    for period in cfg["ema_periods"]:
         ema = close.ewm(span=period, adjust=False).mean()
         out[f"ema{period}"] = ema
         out[f"ema{period}_dist_pct"] = (close - ema) / ema * 100
 
-    for period in [20, 50, 200]:
-        out[f"ema{period}_slope"] = (out[f"ema{period}"] - out[f"ema{period}"].shift(5)) / out[f"ema{period}"].shift(5) * 100
+    slope_lb = cfg["ema_slope_lookback"]
+    for period in cfg["ema_slope_periods"]:
+        out[f"ema{period}_slope"] = (out[f"ema{period}"] - out[f"ema{period}"].shift(slope_lb)) / out[f"ema{period}"].shift(slope_lb) * 100
 
     # ===== TREND =====
-    out["ema_separation"] = abs(out["ema50"] - out["ema200"]) / close * 100
+    ema_s = cfg["ema_separation_short"]
+    ema_l = cfg["ema_separation_long"]
+    out["ema_separation"] = abs(out[f"ema{ema_s}"] - out[f"ema{ema_l}"]) / close * 100
 
-    # SMA200 features (NEW — core of V1.3.2)
-    sma200 = close.rolling(200).mean()
+    # SMA200 features (core of V1.3.2)
+    sma_p = cfg["sma200_period"]
+    sma200 = close.rolling(sma_p).mean()
     out["sma200_dist_pct"] = (close - sma200) / sma200 * 100
-    out["sma200_slope"] = (sma200 - sma200.shift(5)) / sma200.shift(5) * 100
+    out["sma200_slope"] = (sma200 - sma200.shift(slope_lb)) / sma200.shift(slope_lb) * 100
     out["price_above_sma200"] = (close > sma200).astype(int)
 
     out["bull_market"] = (close > sma200).astype(int)
     out["bear_market"] = (close < sma200).astype(int)
 
-    # ===== MOMENTUM (from WHEN — ALL were INVALID) =====
+    # ===== MOMENTUM =====
     delta = close.diff()
-    gain = delta.where(delta > 0, 0).ewm(span=14, adjust=False).mean()
-    loss_val = (-delta.where(delta < 0, 0)).ewm(span=14, adjust=False).mean()
+    gain = delta.where(delta > 0, 0).ewm(span=cfg["rsi_period"], adjust=False).mean()
+    loss_val = (-delta.where(delta < 0, 0)).ewm(span=cfg["rsi_period"], adjust=False).mean()
     rs = gain / (loss_val + 0.0001)
     out["rsi"] = 100 - (100 / (1 + rs))
 
-    for period in [7, 21]:
+    for period in cfg["rsi_extra_periods"]:
         gain_p = delta.where(delta > 0, 0).ewm(span=period, adjust=False).mean()
         loss_p = (-delta.where(delta < 0, 0)).ewm(span=period, adjust=False).mean()
         rs_p = gain_p / (loss_p + 0.0001)
         out[f"rsi{period}"] = 100 - (100 / (1 + rs_p))
 
-    for period in [5, 10, 20]:
+    for period in cfg["roc_periods"]:
         out[f"roc{period}"] = (close - close.shift(period)) / close.shift(period) * 100
 
-    out["momentum5"] = close - close.shift(5)
-    out["momentum10"] = close - close.shift(10)
+    for period in cfg["momentum_periods"]:
+        out[f"momentum{period}"] = close - close.shift(period)
 
-    # ===== PRICE STRUCTURE (from WHEN) =====
+    # ===== PRICE STRUCTURE =====
     out["range_bps"] = (high - low) / close * 10000
     out["body_bps"] = abs(close - opn) / close * 10000
     out["range_position"] = (close - low) / (high - low + 0.0001)
 
-    high20 = high.rolling(20).max()
-    low20 = low.rolling(20).min()
-    out["dist_from_high20_pct"] = (high20 - close) / close * 100
-    out["dist_from_low20_pct"] = (close - low20) / close * 100
+    hl_lb = cfg["high_low_lookback"]
+    high_n = high.rolling(hl_lb).max()
+    low_n = low.rolling(hl_lb).min()
+    out[f"dist_from_high{hl_lb}_pct"] = (high_n - close) / close * 100
+    out[f"dist_from_low{hl_lb}_pct"] = (close - low_n) / close * 100
 
     # Structure
     higher_high = (high > high.shift(1)).astype(int)
     lower_low = (low < low.shift(1)).astype(int)
-    out["hh_count5"] = higher_high.rolling(5).sum()
-    out["ll_count5"] = lower_low.rolling(5).sum()
-    out["up_bars5"] = (close > opn).astype(int).rolling(5).sum()
-    out["down_bars5"] = (close < opn).astype(int).rolling(5).sum()
+    hh_lb = cfg["hh_ll_lookback"]
+    out[f"hh_count{hh_lb}"] = higher_high.rolling(hh_lb).sum()
+    out[f"ll_count{hh_lb}"] = lower_low.rolling(hh_lb).sum()
+    ud_lb = cfg["up_down_lookback"]
+    out[f"up_bars{ud_lb}"] = (close > opn).astype(int).rolling(ud_lb).sum()
+    out[f"down_bars{ud_lb}"] = (close < opn).astype(int).rolling(ud_lb).sum()
 
-    # ===== EXTRAS (from L2-001 v1) =====
-    out["bar_range_avg_10"] = out["range_bps"].rolling(10).mean()
-    out["recent_volatility"] = close.pct_change().rolling(10).std() * 10000
+    # ===== EXTRAS =====
+    bra_p = cfg["bar_range_avg_period"]
+    out[f"bar_range_avg_{bra_p}"] = out["range_bps"].rolling(bra_p).mean()
+    rv_p = cfg["recent_vol_period"]
+    out["recent_volatility"] = close.pct_change().rolling(rv_p).std() * 10000
 
     # Range position (WHAT-specific)
-    high50 = high.rolling(50).max()
-    low50 = low.rolling(50).min()
-    range50 = high50 - low50
-    out["range_position_50"] = (close - low50) / range50.replace(0, np.nan) * 100
+    rp_p = cfg["range_position_period"]
+    high_rp = high.rolling(rp_p).max()
+    low_rp = low.rolling(rp_p).min()
+    range_rp = high_rp - low_rp
+    out[f"range_position_{rp_p}"] = (close - low_rp) / range_rp.replace(0, np.nan) * 100
 
-    # RSI zones (from L2-001 v1)
-    out["rsi_oversold_zone"] = (out["rsi"] < 30).astype(int)
-    out["rsi_extreme_oversold"] = (out["rsi"] < 20).astype(int)
+    # RSI zones
+    out["rsi_oversold_zone"] = (out["rsi"] < cfg["rsi_oversold"]).astype(int)
+    out["rsi_extreme_oversold"] = (out["rsi"] < cfg["rsi_extreme_oversold"]).astype(int)
 
-    # ===== VOLUME (from WHEN — were INVALID) =====
-    out["volume_ratio"] = out["volume"] / out["volume"].rolling(20).mean()
-    out["volume_trend"] = out["volume"].rolling(5).mean() / out["volume"].rolling(20).mean()
+    # ===== VOLUME =====
+    vol_ma = cfg["volume_ma_period"]
+    out["volume_ratio"] = out["volume"] / out["volume"].rolling(vol_ma).mean()
+    out["volume_trend"] = out["volume"].rolling(cfg["volume_trend_short"]).mean() / out["volume"].rolling(cfg["volume_trend_long"]).mean()
 
     # ===== TIME =====
     out["hour_utc"] = out.index.hour

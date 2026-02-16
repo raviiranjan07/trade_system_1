@@ -132,27 +132,166 @@ Plus EXTRA: range_position_50
 - Validated state vector (features that actually work on 15-min)
 - Which opportunities V1.3.2 can capture vs needs new exits
 
-### L2-002: Relaxed RSI + State Vector Gating [TODO]
-- Widen RSI thresholds (25/30/35) gated by validated regime features
-- Depends on L2-001 results
+---
 
-### L2-003: Volume Spike + State Vector Gating [TODO]
-- Filter raw Volume Spike (1,642 trades, PF 1.43) using validated features
-- Depends on L2-001 results
+## V2.0 Framework Architecture
 
-### L2-004: V2.0 Assembly [TODO]
-- Combine V1.3.2 + new signals from L2-002/003
-- Deduplicate, backtest combined, validate OOS
+V1.3.2 was ad-hoc (14 separate experiments, each with its own script). V2.0 is built on a framework where each feature has ONE clear role.
+
+### Architecture Layers
+
+```
+┌─────────────────────────────────────────────┐
+│  Layer 5: RISK MANAGEMENT                   │
+│  Position sizing, drawdown protection,      │
+│  account health (already built in V1.4)     │
+├─────────────────────────────────────────────┤
+│  Layer 4: EXIT MECHANICS                    │
+│  Trailing stop, tightening, time exit       │
+│  (configurable per signal type)             │
+├─────────────────────────────────────────────┤
+│  Layer 3: ENTRY = Gate + Signal             │
+│  Magnitude gate passes → Direction signal   │
+│  fires → ENTER trade                        │
+├─────────────────────────────────────────────┤
+│  Layer 2: DIRECTION SIGNALS (which way?)    │
+│  RSI, momentum, MA distance/slope,          │
+│  BB position, range position, SMA200 dist   │
+│  Each predicts LONG or SHORT                │
+├─────────────────────────────────────────────┤
+│  Layer 1: MAGNITUDE GATE (enough movement?) │
+│  ATR, ATR percentile, EMA separation,       │
+│  range/body bps, dist from high20,          │
+│  hour UTC, volume ratio                     │
+│  Defines REGIMES (active/quiet/trend/flat)  │
+└─────────────────────────────────────────────┘
+```
+
+### How It Works
+
+1. **Every bar**: compute magnitude features → determine regime
+2. **If regime is tradeable** (gate passes): compute direction features → check for signal
+3. **If signal fires**: enter trade with configured exit mechanics
+4. **Risk management**: size position based on wallet, drawdown, health
+
+### Feature Roles (LOCKED — from L2-001)
+
+**MAGNITUDE (define regimes, gate entries):**
+| Feature | What it measures |
+|---------|-----------------|
+| atr_pct | Volatility — is market moving enough? |
+| atr_percentile | Relative vol — high or low vs recent? |
+| ema_separation | Trend strength — trending or flat? |
+| range_bps / body_bps | Bar size — is THIS bar meaningful? |
+| dist_from_high20_pct | Price position — where in recent range? |
+| hour_utc | Time — active session or dead zone? |
+| volume_ratio | Activity — above or below average? |
+
+**DIRECTION (generate signals within regimes):**
+| Category | Features |
+|----------|----------|
+| RSI | rsi, rsi7, rsi21 |
+| Momentum | roc5, roc10, roc20, momentum5, momentum10 |
+| MA distance | ema9/20/50/100/200_dist_pct, sma200_dist_pct |
+| MA slope | ema20/50/200_slope |
+| Other | bb_position, range_position |
+
+### Adding New Signals
+
+To test any new idea:
+1. Classify: magnitude or direction?
+2. If magnitude: does it separate big-move vs small-move bars?
+3. If direction: does it predict LONG/SHORT?
+4. Plug into framework: regime gate + signal → simulate → report metrics
+5. Compare: same output format, comparable results
+
+No ad-hoc scripts. Same framework, every time.
 
 ---
 
-## Key Concerns to Track
+## Next Steps
 
-1. WHAT was on 1-min horizons — thresholds don't transfer to 15-min
-2. WHEN was on random entry — may not apply to selective entry
-3. Cohen's d was on 220 trades — small sample
-4. Previous state vector (10D) had 8/10 useless features
-5. Number of regimes should come from data, not assumed
+### L2-001b: Feature Strength Ranking [DONE]
+Ranked all validated features by STRENGTH on 15-min (not just pass/fail).
+See results: `experiments/layer2_regime/L2-001b/notes.md`
+
+### L2-002: Build Framework + Test Signal Combinations [TODO]
+Build the reusable framework code, then systematically test:
+- RSI at various thresholds (20/25/30/35) + magnitude gates
+- Volume spike + magnitude gates
+- MA crossover/distance + magnitude gates
+- Momentum + magnitude gates
+- Any new signal idea
+- **Start with strongest features from L2-001b rankings**
+
+**For each combination, report:**
+- Trade count, win rate, total bps, PF
+- LONG vs SHORT split
+- Per-year breakdown (2020-2023 TRAIN, 2024-2025 OOS)
+
+### L2-003: Validate Winners on OOS [TODO]
+- Take best combinations from L2-002
+- Run on 2024-2025 OOS
+- Compare vs V1.3.2 baseline (+5,267 bps, PF 3.46)
+
+### L2-004: V2.0 Assembly [TODO]
+- Combine V1.3.2 + winning new signals
+- Deduplicate overlapping entries
+- Apply risk management layer
+- **Target:** 350-500 trades, PF > 2.0, total bps > +5,267
+
+---
+
+## WHAT Phase Patterns — Framework Enhancements to Investigate
+
+WHAT was on 1-min candles. These patterns need 15-min recalibration but are architecturally relevant.
+
+### Enhancement 1: Initial Move Confirmation (POST-ENTRY signal)
+**Source:** WHAT W-EXP2 — Move Continuation Analysis
+- Strong UP first bar after entry = only 3.6% Case 1
+- FLAT first bar = 20.5% Case 1 (6x worse!)
+- DOWN first bar = 16.3% Case 1
+- **This is NOT a pre-entry feature — it fires AFTER entry**
+- **Framework impact:** Layer 4 (Exit Mechanics) enhancement
+- If first bar doesn't move in trade direction → tighten stop or exit early
+- Needs 15-min recalibration (1-min thresholds: 3bp/10bp won't apply)
+
+### Enhancement 2: Adaptive Exit Rules from Case 3 Analysis
+**Source:** WHAT ANALYSIS-10 — Case 3 Time Patterns
+- Current V1.3.2 exits: trailing stop + tighten at bar 5 + time exit at bar 10
+- WHAT found smarter rules:
+  - If MAE < 30bp at H bars → WAIT (timing issue, 80%+ recover)
+  - If MAE > 50bp AND time > 3*H → EXIT (likely wrong direction)
+  - 75-80% of Case 3 recover by 5*H bars
+- **Framework impact:** Layer 4 — make exits adapt based on HOW the trade behaves
+- Not just "tighten at bar 5" but "if trade is near entry and not losing, give more room"
+- Needs 15-min threshold recalibration
+
+### Enhancement 3: Asymmetric LONG vs SHORT Signal Design
+**Source:** WHAT ANALYSIS-12, ANALYSIS-13
+- Support/oversold zones → work for LONG (60.4% accuracy)
+- Resistance/overbought → does NOT work for SHORT reversal
+- V1's SHORT works because it's trend CONTINUATION (not overbought reversal)
+- **Framework impact:** Layer 2 (Direction Signals)
+- LONG signals: can use oversold, support, mean reversion features
+- SHORT signals: should use trend continuation, NOT overbought reversal features
+- Different direction feature sets for LONG vs SHORT
+
+### Enhancement 4: 15-min Threshold Recalibration
+**Source:** All WHAT findings are 1-min scale
+- WHAT thresholds: 4bp entry range, 10bp strong move, 50bp drawdown, 30bp patience
+- On 15-min bars, price moves are ~15x larger per bar
+- Need to recalibrate all absolute thresholds (bps values) for 15-min
+- Percentile-based thresholds (ATR percentile, quartiles) transfer naturally
+- Absolute bps thresholds need re-derivation from 15-min data
+
+### Enhancement 5: Drawdown Tolerance (95% Dirty Wins)
+**Source:** WHAT ANALYSIS-4
+- Only 2-4% of winners are "clean" (no drawdown)
+- 95% of winners experience drawdown before hitting target
+- **Framework impact:** Layer 4 — don't tighten too early
+- Current bar-5 tightening might be too aggressive for some trades
+- Consider: tighten only if trade is LOSING at bar 5, not if it's near entry
 
 ---
 
@@ -164,7 +303,8 @@ Plus EXTRA: range_position_50
 | L2-001 v1 (26 features, 4 tests) | 2026-02-14 | 14 at 4/4, 6 at 3/4 — incomplete feature set | SUPERSEDED |
 | L2-001 v2 (52 features, 4 tests) | 2026-02-14 | 17 at 4/4, 30 at 3/4 — missing raw MFE test | SUPERSEDED |
 | L2-001 v3 (52 features, 5 tests) | 2026-02-14 | 17 at 5/5 → 7 distinct features. V1.3.2 captures 20-25% of raw MFE | FINAL |
+| L2-001b (feature ranking) | 2026-02-14 | Magnitude: 8 ranked (ATR 4.01x top). Direction: 19→8 distinct, all BEARISH consistent | FINAL |
 
 ---
 
-## Status: L2-001 COMPLETE — Ready for L2-002/L2-003
+## Status: L2-001 + L2-001b COMPLETE — Ready to build L2-002 framework
