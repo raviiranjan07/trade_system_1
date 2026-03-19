@@ -1,6 +1,6 @@
 import React from 'react'
 
-function RiskPanel({ risk }) {
+function RiskPanel({ risk, ml }) {
   if (!risk) return null
 
   const wallet = risk.wallet_usd ?? 0
@@ -11,6 +11,10 @@ function RiskPanel({ risk }) {
   const winrate = risk.recent_winrate ?? 1
   const skips = risk.total_skips ?? 0
   const lastPnl = risk.last_pnl_usd ?? 0
+  const lastQty = risk.last_qty ?? 0
+
+  const mlWallet = ml?.ml_wallet_usd ?? 0
+  const mlLoaded = ml?.ml_model_loaded ?? false
 
   const ddClass = dd > 0.15 ? 'negative' : dd > 0.05 ? 'warning' : ''
   const healthClass = health < 0.5 ? 'negative' : health < 0.8 ? 'warning' : 'positive'
@@ -20,15 +24,23 @@ function RiskPanel({ risk }) {
     <div className="card risk-panel">
       <div className="card-header">Risk Manager</div>
 
-      {/* Wallet — big number */}
-      <div className="risk-wallet">
-        <span className="risk-wallet-label">Wallet</span>
-        <span className="risk-wallet-value">${wallet.toFixed(2)}</span>
-        {lastPnl !== 0 && (
-          <span className={`risk-last-pnl ${pnlClass}`}>
-            {lastPnl >= 0 ? '+' : ''}{lastPnl.toFixed(4)}
+      {/* Wallets — V1.4 and ML side by side */}
+      <div className="risk-wallets-row">
+        <div className="risk-wallet">
+          <span className="risk-wallet-label">V1.4 Wallet</span>
+          <span className="risk-wallet-value">${wallet.toFixed(2)}</span>
+          {lastPnl !== 0 && (
+            <span className={`risk-last-pnl ${pnlClass}`}>
+              {lastPnl >= 0 ? '+' : ''}{lastPnl.toFixed(4)}
+            </span>
+          )}
+        </div>
+        <div className="risk-wallet">
+          <span className="risk-wallet-label">ML Wallet {mlLoaded ? '' : '(off)'}</span>
+          <span className={`risk-wallet-value ${mlWallet >= 5 ? '' : 'negative'}`}>
+            ${mlWallet.toFixed(2)}
           </span>
-        )}
+        </div>
       </div>
 
       {/* Drawdown bar */}
@@ -42,6 +54,14 @@ function RiskPanel({ risk }) {
         </div>
         <span className={`risk-dd-value ${ddClass}`}>{(dd * 100).toFixed(1)}%</span>
       </div>
+
+      {/* Position size */}
+      {lastQty > 0 && (
+        <div className="risk-row" style={{ justifyContent: 'space-between' }}>
+          <span className="label">Position Size</span>
+          <span className="value" style={{ fontSize: '0.82rem' }}>{lastQty.toFixed(4)} BTC</span>
+        </div>
+      )}
 
       {/* Grid: health, streak, winrate, skips */}
       <div className="risk-grid">

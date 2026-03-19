@@ -20,6 +20,8 @@ import RiskPanel from './components/RiskPanel'
 import AlertManager from './components/AlertManager'
 import PerformancePanel from './components/PerformancePanel'
 import PnLCalendar from './components/PnLCalendar'
+import PortfolioPage from './components/PortfolioPage'
+import MLPanel from './components/MLPanel'
 
 // IST = UTC + 5:30 = 19800 seconds
 const IST_OFFSET = 19800
@@ -353,7 +355,7 @@ function App() {
     return `${secs}s`
   }
 
-  if (!data) {
+  if (!data && activePage !== 'portfolio') {
     return (
       <div className="dashboard">
         <div className="loading">
@@ -364,9 +366,9 @@ function App() {
     )
   }
 
-  const { status, position, stats, trades, signals, config } = data
+  const { status, position, stats, trades, signals, config } = data || {}
 
-  if (status?.status === 'STARTING' || !status?.price) {
+  if ((status?.status === 'STARTING' || !status?.price) && activePage !== 'portfolio') {
     return (
       <div className="dashboard">
         <header className="header">
@@ -419,6 +421,12 @@ function App() {
             onClick={() => setActivePage('analytics')}
           >
             Analytics
+          </button>
+          <button
+            className={`page-nav-btn ${activePage === 'portfolio' ? 'active' : ''}`}
+            onClick={() => setActivePage('portfolio')}
+          >
+            Portfolio
           </button>
         </nav>
 
@@ -542,7 +550,9 @@ function App() {
             <StatusPanel label="Bars" value={status?.bar_count || 0} format="number" panelType="bars" />
           </div>
 
-          <RiskPanel risk={data?.risk} />
+          <RiskPanel risk={data?.risk} ml={data?.ml} />
+
+          <MLPanel ml={data?.ml} mlTrades={data?.ml_trades} />
 
           <SignalProximity proximity={data?.proximity} />
 
@@ -556,10 +566,7 @@ function App() {
         <div className="page-content page-trades">
           <StatsSection stats={stats} risk={data?.risk} />
 
-          <div className="card trades-full-container">
-            <div className="card-header">All Trades</div>
-            <TradesList trades={trades} />
-          </div>
+          <TradesList trades={trades} />
 
           <div className="card signals-full-container">
             <div className="card-header">Signal Log</div>
@@ -582,6 +589,11 @@ function App() {
 
           <PerformancePanel trades={trades} />
         </div>
+      )}
+
+      {/* ========== PORTFOLIO PAGE (full-width, independent of bot) ========== */}
+      {activePage === 'portfolio' && (
+        <PortfolioPage />
       )}
     </div>
   )

@@ -1,9 +1,7 @@
-"""V1.3 Backtest — Uses the SAME strategy + position_manager modules as the live bot.
+"""V1.5 Backtest — Uses V1.4 strategy + ML signal generator + position_manager.
 
-Verification target (EXP-013 Combined):
-  349 trades, +5,423 bps, PF 2.09
-
-If this backtest doesn't match, the live bot logic is wrong.
+V1.4 signals: V12_LONG, V12_SHORT, BEAR_LONG, BULL_SHORT (rule-based)
+ML signals: ML_LONG (prob>0.60), ML_SHORT (prob<0.35) (model-based)
 
 Run: python -m v12.backtest
 """
@@ -18,6 +16,7 @@ import pandas as pd
 from .config.constants import SYMBOL, TIMEFRAME
 from .config.loader import load_config
 from .config.schema import AppConfig
+from .ml_signal import MLSignalGenerator
 from .position_manager import V12PositionManager, TradeRecord
 from .strategy import V12Strategy, Direction, SignalType
 
@@ -60,12 +59,33 @@ def run_backtest(
     bull = test["bull_market"].values
     bear = test["bear_market"].values
 
-    # Generate signals
+    # Generate V1.4 signals
     signals = strategy.generate_signals(test)
-    logger.info("Signals generated: %d", len(signals))
+    logger.info("V1.4 signals: %d", len(signals))
 
-    # Build signal lookup: bar_index -> Signal
-    signal_map = {s.bar_index: s for s in signals}
+    # Generate ML signals
+    ml_model_path = Path("src/v12/ml_model/direction_model.pt")
+    ml_scaler_path = Path("src/v12/ml_model/scaler.npz")
+    ml_gen = MLSignalGenerator(model_path=ml_model_path, scaler_path=ml_scaler_path)
+
+    if ml_gen.loaded:
+        test_with_ml = ml_gen.compute_features_from_df(test.copy())
+        ml_signals = ml_gen.generate_signals(test_with_ml)
+        logger.info("ML signals: %d", len(ml_signals))
+        signals.extend(ml_signals)
+    else:
+        logger.warning("ML model not found — running V1.4 only")
+
+    # Build signal lookup: bar_index -> Signal (V1.4 takes priority over ML)
+    signal_map = {}
+    for s in signals:
+        if s.bar_index not in signal_map:
+            signal_map[s.bar_index] = s
+        else:
+            # V1.4 signals take priority over ML signals
+            existing = signal_map[s.bar_index]
+            if existing.signal_type.value.startswith("ML") and not s.signal_type.value.startswith("ML"):
+                signal_map[s.bar_index] = s  # replace ML with V1.4
 
     # Walk through bars, managing positions
     pm = V12PositionManager(config)
@@ -130,7 +150,10 @@ def _regime_valid(signal_type: SignalType, bull, bear, idx: int) -> bool:
     V1.3: regime depends on SIGNAL TYPE, not just direction:
       V12_LONG / BULL_SHORT -> needs bull (price > SMA200)
       V12_SHORT / BEAR_LONG -> needs bear (price < SMA200)
+      ML_LONG / ML_SHORT -> no regime requirement (always valid)
     """
+    if signal_type in (SignalType.ML_LONG, SignalType.ML_SHORT):
+        return True  # ML signals don't require regime validation
     if signal_type in (SignalType.V12_LONG, SignalType.BULL_SHORT):
         return bool(bull[idx])
     else:  # V12_SHORT, BEAR_LONG

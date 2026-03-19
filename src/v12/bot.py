@@ -23,6 +23,7 @@ from .config.constants import SYMBOL, TIMEFRAME
 from .config.loader import load_config
 from .config.schema import AppConfig
 from .position_manager import V12PositionManager, TradeRecord
+from .ml_signal import MLSignalGenerator
 from .strategy import V12Strategy, Direction, Signal, SignalType
 from .risk.risk_calculator import RiskCalculator, RiskConfig, RiskDecision
 from .risk.account_health import AccountHealthMonitor, HealthConfig
@@ -66,6 +67,28 @@ class V12Bot:
         self._total_skips = 0
         self._risk_state_path = Path("data/v12_trades/risk_state.json")
         self._load_risk_state()
+
+        # ML signal generator — separate position manager, wallet, and CSV
+        self._ml_gen = MLSignalGenerator(
+            model_path=Path("src/v12/ml_model/direction_model.pt"),
+            scaler_path=Path("src/v12/ml_model/scaler.npz"),
+        )
+        self._ml_pm = V12PositionManager(config)
+        self._ml_wallet = DEFAULT_CAPITAL
+        self._ml_health = AccountHealthMonitor()
+        self._ml_risk_calc = RiskCalculator(worst_loss_bps=865, health=self._ml_health)
+        self._ml_decision_logger = DecisionLogger(
+            log_dir="data/risk_logs/ml"
+        )
+        self._ml_qty = 0.0
+        self._ml_trades_csv = self._trades_dir / f"trades_ml_{config.execution.mode}.csv"
+        self._init_ml_csv()
+        self._ml_risk_state_path = Path("data/v12_trades/risk_state_ml.json")
+        self._load_ml_risk_state()
+        if self._ml_gen.loaded:
+            logger.info("ML model loaded — ML_LONG/ML_SHORT signals enabled")
+        else:
+            logger.warning("ML model not found — ML signals disabled")
 
         # Session state
         self._running = False
@@ -162,6 +185,12 @@ class V12Bot:
         )
         # Push initial risk state
         self._push_risk_to_dashboard()
+        # Push initial ML state
+        self._dashboard.update_ml(
+            ml_wallet_usd=round(self._ml_wallet, 2),
+            ml_model_loaded=self._ml_gen.loaded,
+            ml_total_trades=0,
+        )
         # Reload previous trades so dashboard survives restarts
         self._load_trades_from_csv()
 
@@ -201,7 +230,10 @@ class V12Bot:
         if not self._dashboard:
             return
 
-        for i, trade in enumerate(self.pm.trades):
+        for i, (_, row) in enumerate(df.iterrows()):
+            trade = self.pm.trades[i]
+            qty = float(row["qty"]) if "qty" in row and pd.notna(row.get("qty")) else 0.0
+            pnl_usd = qty * trade.entry_price * (trade.net_profit_bps / 10000) if qty > 0 else 0
             self._dashboard.add_trade({
                 "trade_id": f"R{i+1}",
                 "direction": trade.direction,
@@ -215,6 +247,8 @@ class V12Bot:
                 "is_reentry": trade.is_reentry,
                 "exit_time": str(trade.exit_time),
                 "entry_time": str(trade.entry_time),
+                "qty": qty,
+                "pnl_usd": round(pnl_usd, 4),
             })
 
         trades = self.pm.trades
@@ -246,11 +280,129 @@ class V12Bot:
                 "signal_time", "entry_time", "exit_time", "direction", "signal_type",
                 "entry_price", "exit_price", "gross_profit_bps", "net_profit_bps",
                 "mfe_bps", "mae_bps", "exit_bar", "exit_reason", "is_reentry",
-                "config_hash",
+                "config_hash", "qty",
             ]
             with open(self._trades_csv, "w", newline="") as f:
                 csv.writer(f).writerow(headers)
             logger.info("Created trades CSV: %s", self._trades_csv)
+
+    def _init_ml_csv(self) -> None:
+        """Initialize CSV for ML trade logging."""
+        if not self._ml_trades_csv.exists():
+            headers = [
+                "signal_time", "entry_time", "exit_time", "direction", "signal_type",
+                "entry_price", "exit_price", "gross_profit_bps", "net_profit_bps",
+                "mfe_bps", "mae_bps", "exit_bar", "exit_reason", "is_reentry",
+                "config_hash", "qty",
+            ]
+            with open(self._ml_trades_csv, "w", newline="") as f:
+                csv.writer(f).writerow(headers)
+            logger.info("Created ML trades CSV: %s", self._ml_trades_csv)
+
+    def _load_ml_risk_state(self) -> None:
+        """Load ML wallet + health state from disk."""
+        if not self._ml_risk_state_path.exists():
+            self._ml_health.update(self._ml_wallet)
+            logger.info("No ML risk state — starting fresh: wallet=$%.2f", self._ml_wallet)
+            return
+        import json
+        try:
+            with open(self._ml_risk_state_path) as f:
+                state = json.load(f)
+            self._ml_wallet = state.get('wallet', DEFAULT_CAPITAL)
+            health_data = state.get('health', {})
+            if health_data:
+                self._ml_health = AccountHealthMonitor.from_dict(health_data)
+                self._ml_risk_calc = RiskCalculator(worst_loss_bps=865, health=self._ml_health)
+            self._ml_health.update(self._ml_wallet)
+            logger.info("Loaded ML risk state: wallet=$%.2f", self._ml_wallet)
+        except Exception as e:
+            logger.warning("Failed to load ML risk state: %s — starting fresh", e)
+            self._ml_health.update(self._ml_wallet)
+
+    def _save_ml_risk_state(self) -> None:
+        """Save ML wallet + health state to disk."""
+        import json
+        state = {
+            'wallet': self._ml_wallet,
+            'health': self._ml_health.to_dict(),
+        }
+        with open(self._ml_risk_state_path, 'w') as f:
+            json.dump(state, f, indent=2)
+
+    def _log_ml_trade(self, trade: TradeRecord) -> None:
+        """Append ML trade to separate CSV."""
+        row = [
+            trade.signal_time, trade.entry_time, trade.exit_time,
+            trade.direction, trade.signal_type,
+            f"{trade.entry_price:.2f}", f"{trade.exit_price:.2f}",
+            f"{trade.gross_profit_bps:.1f}", f"{trade.net_profit_bps:.1f}",
+            f"{trade.mfe_bps:.1f}", f"{trade.mae_bps:.1f}",
+            trade.exit_bar, trade.exit_reason, trade.is_reentry,
+            "ml_v1", f"{self._ml_qty:.4f}",
+        ]
+        with open(self._ml_trades_csv, "a", newline="") as f:
+            csv.writer(f).writerow(row)
+
+    def _update_ml_risk_after_trade(self, trade: TradeRecord) -> None:
+        """Update ML wallet and health after trade close."""
+        if self._ml_qty > 0:
+            pnl_usd = self._ml_qty * trade.entry_price * (trade.net_profit_bps / 10000)
+            self._ml_wallet += pnl_usd
+            self._ml_wallet = max(self._ml_wallet, 0.01)
+            self._ml_health.update(self._ml_wallet, trade.net_profit_bps)
+            self._ml_decision_logger.log_outcome(trade.net_profit_bps, pnl_usd)
+            self._save_ml_risk_state()
+            logger.info(
+                "ML Risk: wallet=$%.2f | pnl=%+.2f | qty=%.3f",
+                self._ml_wallet, pnl_usd, self._ml_qty,
+            )
+        self._ml_qty = 0.0
+
+    def _push_ml_to_dashboard(self) -> None:
+        """Push ML state to dashboard."""
+        if not self._dashboard:
+            return
+        self._dashboard.update_ml(
+            ml_wallet_usd=round(self._ml_wallet, 2),
+            ml_total_trades=len([t for t in self._ml_pm.trades]),
+            ml_has_position=self._ml_pm.is_in_position,
+            ml_model_loaded=self._ml_gen.loaded,
+        )
+
+    def _push_ml_trade_to_dashboard(self, trade: TradeRecord) -> None:
+        """Push completed ML trade to dashboard."""
+        if not self._dashboard:
+            return
+        self._dashboard.add_ml_trade({
+            "direction": trade.direction,
+            "entry_price": trade.entry_price,
+            "exit_price": trade.exit_price,
+            "net_profit_bps": trade.net_profit_bps,
+            "mfe_bps": trade.mfe_bps,
+            "mae_bps": trade.mae_bps,
+            "exit_bar": trade.exit_bar,
+            "exit_reason": trade.exit_reason,
+            "is_reentry": trade.is_reentry,
+            "exit_time": str(trade.exit_time),
+        })
+        # Update ML stats
+        ml_trades = self._ml_pm.trades
+        if ml_trades:
+            wins = sum(1 for t in ml_trades if t.net_profit_bps > 0)
+            total = len(ml_trades)
+            total_bps = sum(t.net_profit_bps for t in ml_trades)
+            self._dashboard.update_ml(
+                ml_wallet_usd=round(self._ml_wallet, 2),
+                ml_total_trades=total,
+                ml_wins=wins,
+                ml_losses=total - wins,
+                ml_win_rate=round(wins / total, 3) if total > 0 else 0,
+                ml_total_bps=round(total_bps, 1),
+                ml_avg_bps=round(total_bps / total, 1) if total > 0 else 0,
+                ml_has_position=False,
+                ml_model_loaded=True,
+            )
 
     def _log_trade(self, trade: TradeRecord) -> None:
         """Append trade to CSV."""
@@ -261,7 +413,7 @@ class V12Bot:
             f"{trade.gross_profit_bps:.1f}", f"{trade.net_profit_bps:.1f}",
             f"{trade.mfe_bps:.1f}", f"{trade.mae_bps:.1f}",
             trade.exit_bar, trade.exit_reason, trade.is_reentry,
-            self.cfg.config_hash(),
+            self.cfg.config_hash(), f"{self._current_qty:.4f}",
         ]
         with open(self._trades_csv, "a", newline="") as f:
             csv.writer(f).writerow(row)
@@ -271,6 +423,7 @@ class V12Bot:
         if not self._dashboard:
             return
 
+        pnl_usd = self._current_qty * trade.entry_price * (trade.net_profit_bps / 10000) if self._current_qty > 0 else 0
         self._dashboard.add_trade({
             "trade_id": f"{trade.direction[0]}{self._bar_count}",
             "direction": trade.direction,
@@ -283,6 +436,8 @@ class V12Bot:
             "exit_reason": trade.exit_reason,
             "is_reentry": trade.is_reentry,
             "exit_time": str(trade.exit_time),
+            "qty": self._current_qty,
+            "pnl_usd": round(pnl_usd, 4),
         })
 
         # Clear position
@@ -653,7 +808,60 @@ class V12Bot:
             })
             self._dashboard.update_proximity(self._compute_proximity(latest))
 
-        # === If in position: update with new bar ===
+        # === ML: If in ML position, update with new bar ===
+        if self._ml_gen.loaded and self._ml_pm.is_in_position:
+            ml_trade = self._ml_pm.on_bar(
+                high=candle["high"],
+                low=candle["low"],
+                close=candle["close"],
+                bar_time=bar_time,
+                bar_index=self._bar_count,
+            )
+            if ml_trade:
+                self._log_ml_trade(ml_trade)
+                self._push_ml_trade_to_dashboard(ml_trade)
+                self._update_ml_risk_after_trade(ml_trade)
+                logger.info(
+                    "[ML] CLOSED %s (%s) | %s | %+.1f bps | bar %d | %s",
+                    ml_trade.direction,
+                    ml_trade.signal_type,
+                    ml_trade.exit_reason,
+                    ml_trade.net_profit_bps,
+                    ml_trade.exit_bar,
+                    bar_time,
+                )
+
+        # === ML: If not in ML position, check for ML signal ===
+        if self._ml_gen.loaded and not self._ml_pm.is_in_position:
+            df_ml = self._ml_gen.compute_features_from_df(df.copy())
+            ml_signal = self._ml_gen.predict_bar(df_ml, latest_idx)
+            if ml_signal is not None:
+                ml_decision = self._ml_risk_calc.calculate(self._ml_wallet, current_price)
+                self._ml_decision_logger.log_decision(
+                    ml_decision, self._ml_wallet, current_price,
+                    ml_signal.signal_type.value,
+                )
+                if ml_decision.action != "SKIP":
+                    self._ml_qty = ml_decision.qty
+                    self._ml_pm.reset_reentry()
+                    self._ml_pm.open_position(
+                        direction=ml_signal.direction,
+                        signal_type=ml_signal.signal_type,
+                        entry_price=current_price,
+                        entry_time=bar_time,
+                        signal_time=ml_signal.timestamp,
+                    )
+                    self._push_ml_to_dashboard()
+                    logger.info(
+                        "[ML] ENTRY %s (%s) @ %.2f | prob=%.3f | %s",
+                        ml_signal.direction.value,
+                        ml_signal.signal_type.value,
+                        current_price,
+                        ml_signal.rsi,  # prob stored in rsi field
+                        bar_time,
+                    )
+
+        # === V1.4: If in position, update with new bar ===
         if self.pm.is_in_position:
             trade = self.pm.on_bar(
                 high=candle["high"],

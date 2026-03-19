@@ -103,6 +103,23 @@ class RiskData:
 
 
 @dataclass
+class MLData:
+    """ML model state for dashboard display."""
+    ml_wallet_usd: float = 0.0
+    ml_total_trades: int = 0
+    ml_wins: int = 0
+    ml_losses: int = 0
+    ml_win_rate: float = 0.0
+    ml_total_bps: float = 0.0
+    ml_avg_bps: float = 0.0
+    ml_has_position: bool = False
+    ml_position_side: Optional[str] = None
+    ml_position_pnl_bps: float = 0.0
+    ml_last_prob: float = 0.5
+    ml_model_loaded: bool = False
+
+
+@dataclass
 class ConfigData:
     """V1.2 trading configuration."""
     pair: str = "BTCUSDT"
@@ -143,6 +160,8 @@ class DashboardState:
         self._stats = StatsData()
         self._config = ConfigData()
         self._risk = RiskData()
+        self._ml = MLData()
+        self._ml_trades: List[TradeData] = []
         self._trades: List[TradeData] = []
         self._signals: List[SignalData] = []
         self._start_time: Optional[datetime] = None
@@ -466,6 +485,43 @@ class DashboardState:
         with self._lock:
             return asdict(self._risk)
 
+    def update_ml(self, **kwargs) -> None:
+        """Update ML model state."""
+        with self._lock:
+            for k, v in kwargs.items():
+                if hasattr(self._ml, k):
+                    setattr(self._ml, k, v)
+        self._broadcast_update()
+
+    def get_ml(self) -> Dict[str, Any]:
+        with self._lock:
+            return asdict(self._ml)
+
+    def add_ml_trade(self, trade_dict: Dict[str, Any]) -> None:
+        """Add a completed ML trade."""
+        with self._lock:
+            td = TradeData(
+                trade_id=str(len(self._ml_trades) + 1),
+                direction=trade_dict.get("direction", ""),
+                entry_price=trade_dict.get("entry_price", 0),
+                exit_price=trade_dict.get("exit_price", 0),
+                net_profit_bps=trade_dict.get("net_profit_bps", 0),
+                mfe_bps=trade_dict.get("mfe_bps", 0),
+                mae_bps=trade_dict.get("mae_bps", 0),
+                exit_bar=trade_dict.get("exit_bar", 0),
+                exit_reason=trade_dict.get("exit_reason", ""),
+                is_reentry=trade_dict.get("is_reentry", False),
+                exit_time=trade_dict.get("exit_time", ""),
+            )
+            self._ml_trades.insert(0, td)
+            if len(self._ml_trades) > 100:
+                self._ml_trades = self._ml_trades[:100]
+        self._broadcast_update()
+
+    def get_ml_trades(self, limit: int = 10) -> List[Dict[str, Any]]:
+        with self._lock:
+            return [asdict(t) for t in self._ml_trades[:limit]]
+
     def get_all(self) -> Dict[str, Any]:
         """Get all dashboard data. Excludes candles (too large for WS broadcast)."""
         return {
@@ -478,6 +534,8 @@ class DashboardState:
             "config": self.get_config(),
             "proximity": self.get_proximity(),
             "risk": self.get_risk(),
+            "ml": self.get_ml(),
+            "ml_trades": self.get_ml_trades(limit=20),
         }
 
     def register_ws_client(self, queue: asyncio.Queue) -> None:
