@@ -70,7 +70,7 @@ class V12Bot:
 
         # ML signal generator — separate position manager, wallet, and CSV
         self._ml_gen = MLSignalGenerator(
-            model_path=Path("src/v12/ml_model/direction_model.pt"),
+            model_path=Path("src/v12/ml_model/direction_model.onnx"),
             scaler_path=Path("src/v12/ml_model/scaler.npz"),
         )
         self._ml_pm = V12PositionManager(config)
@@ -185,11 +185,10 @@ class V12Bot:
         )
         # Push initial risk state
         self._push_risk_to_dashboard()
-        # Push initial ML state
+        # Push initial ML state (trades loaded later by _load_ml_trades_from_csv)
         self._dashboard.update_ml(
             ml_wallet_usd=round(self._ml_wallet, 2),
             ml_model_loaded=self._ml_gen.loaded,
-            ml_total_trades=0,
         )
         # Reload previous trades so dashboard survives restarts
         self._load_trades_from_csv()
@@ -271,6 +270,56 @@ class V12Bot:
             "Restored dashboard: %d trades, %+.0f bps, PF %.2f",
             len(trades), total_bps,
             round(gross_win / gross_loss, 2) if gross_loss > 0 else 0,
+        )
+
+        # Load ML trades from CSV
+        self._load_ml_trades_from_csv()
+
+    def _load_ml_trades_from_csv(self) -> None:
+        """Load previous ML trades from CSV into dashboard."""
+        if not self._ml_trades_csv.exists():
+            return
+        try:
+            df = pd.read_csv(self._ml_trades_csv)
+        except Exception:
+            return
+        if df.empty:
+            return
+
+        logger.info("Reloading %d ML trades from %s", len(df), self._ml_trades_csv.name)
+
+        for _, row in df.iterrows():
+            qty = float(row["qty"]) if "qty" in row and pd.notna(row.get("qty")) else 0.0
+            self._dashboard.add_ml_trade({
+                "direction": str(row["direction"]),
+                "entry_price": float(row["entry_price"]),
+                "exit_price": float(row["exit_price"]),
+                "net_profit_bps": float(row["net_profit_bps"]),
+                "mfe_bps": float(row["mfe_bps"]),
+                "mae_bps": float(row["mae_bps"]),
+                "exit_bar": int(row["exit_bar"]),
+                "exit_reason": str(row["exit_reason"]),
+                "exit_time": str(row["exit_time"]),
+            })
+
+        ml_trades = df
+        ml_wins = len(ml_trades[ml_trades["net_profit_bps"] > 0])
+        ml_losses = len(ml_trades[ml_trades["net_profit_bps"] <= 0])
+        ml_total_bps = ml_trades["net_profit_bps"].sum()
+
+        self._dashboard.update_ml(
+            ml_wallet_usd=round(self._ml_wallet, 2),
+            ml_model_loaded=self._ml_gen.loaded,
+            ml_total_trades=len(ml_trades),
+            ml_wins=ml_wins,
+            ml_losses=ml_losses,
+            ml_total_bps=round(ml_total_bps, 1),
+            ml_avg_bps=round(ml_total_bps / len(ml_trades), 1) if len(ml_trades) > 0 else 0,
+            ml_win_rate=round(ml_wins / len(ml_trades) * 100, 1) if len(ml_trades) > 0 else 0,
+        )
+        logger.info(
+            "Restored ML dashboard: %d trades, %+.1f bps, wallet=$%.2f",
+            len(ml_trades), ml_total_bps, self._ml_wallet,
         )
 
     def _init_csv(self) -> None:
@@ -819,8 +868,8 @@ class V12Bot:
             )
             if ml_trade:
                 self._log_ml_trade(ml_trade)
-                self._push_ml_trade_to_dashboard(ml_trade)
                 self._update_ml_risk_after_trade(ml_trade)
+                self._push_ml_trade_to_dashboard(ml_trade)
                 logger.info(
                     "[ML] CLOSED %s (%s) | %s | %+.1f bps | bar %d | %s",
                     ml_trade.direction,
@@ -834,6 +883,21 @@ class V12Bot:
         # === ML: If not in ML position, check for ML signal ===
         if self._ml_gen.loaded and not self._ml_pm.is_in_position:
             df_ml = self._ml_gen.compute_features_from_df(df.copy())
+            ml_features = self._ml_gen.get_features_for_bar(df_ml, latest_idx)
+            if ml_features is not None:
+                ml_prob = self._ml_gen.predict(ml_features)
+                long_pct = ml_prob * 100
+                short_pct = (1 - ml_prob) * 100
+                if ml_prob > 0.60:
+                    status = ">>> ML_LONG SIGNAL <<<"
+                elif ml_prob < 0.35:
+                    status = ">>> ML_SHORT SIGNAL <<<"
+                else:
+                    status = "NO TRADE (not confident)"
+                logger.info(
+                    "[ML] LONG=%.1f%% SHORT=%.1f%% | %s",
+                    long_pct, short_pct, status,
+                )
             ml_signal = self._ml_gen.predict_bar(df_ml, latest_idx)
             if ml_signal is not None:
                 ml_decision = self._ml_risk_calc.calculate(self._ml_wallet, current_price)

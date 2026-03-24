@@ -1,7 +1,9 @@
-"""Train ML direction model and save for production use.
+"""Train ML direction model and export to ONNX for production use.
 
 Trains on ALL data (2020-2025) with random 10% validation split.
-Saves model + scaler to src/v12/ml_model/
+Saves ONNX model + scaler to src/v12/ml_model/
+
+Requires torch (local training only — production uses onnxruntime).
 
 Run: PYTHONPATH=src python -m v12.ml_train
 """
@@ -14,13 +16,26 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 
-from .ml_signal import MLPBinaryDir
-
 MODEL_DIR = Path("src/v12/ml_model")
 MODEL_DIR.mkdir(exist_ok=True)
 
 CACHE_PATH = Path("experiments/layer2/L2-003/feature_cache.parquet")
 LABELS_PATH = Path("experiments/layer2/L2-003/labels.parquet")
+
+
+# Model definition (training only — production uses ONNX)
+class MLPBinaryDir(nn.Module):
+    def __init__(self, input_size=10, hidden=128, dropout=0.0):
+        super().__init__()
+        self.fc1 = nn.Linear(input_size, hidden)
+        self.fc2 = nn.Linear(hidden, hidden)
+        self.out = nn.Linear(hidden, 1)
+
+    def forward(self, x):
+        h = torch.relu(self.fc1(x))
+        h = torch.relu(self.fc2(h))
+        return self.out(h).squeeze(-1)
+
 
 def train_and_save():
     print("Loading data...")
@@ -155,17 +170,30 @@ def train_and_save():
         conf_acc = 0; n_conf = 0
     print(f"\n  Val accuracy: {acc:.1f}% | Confident: {n_conf} bars ({n_conf/len(probs)*100:.1f}%), acc={conf_acc:.1f}%")
 
-    # Save model
-    model_path = MODEL_DIR / "direction_model.pt"
-    torch.save({"model": model.state_dict(), "val_loss": best_val_loss}, model_path)
-    print(f"\n  Model saved -> {model_path}")
+    # Save .pt (for local use / future retraining)
+    pt_path = MODEL_DIR / "direction_model.pt"
+    torch.save({"model": model.state_dict(), "val_loss": best_val_loss}, pt_path)
+    print(f"\n  PyTorch saved -> {pt_path}")
+
+    # Export to ONNX (for production — no torch dependency needed)
+    onnx_path = MODEL_DIR / "direction_model.onnx"
+    dummy = torch.randn(1, 10)
+    torch.onnx.export(
+        model, dummy, str(onnx_path),
+        input_names=["features"],
+        output_names=["logit"],
+        dynamic_axes={"features": {0: "batch"}, "logit": {0: "batch"}},
+        opset_version=18,
+    )
+    print(f"  ONNX exported -> {onnx_path}")
 
     # Save scaler
     scaler_path = MODEL_DIR / "scaler.npz"
     np.savez(scaler_path, mean=scaler_mean, std=scaler_std)
     print(f"  Scaler saved -> {scaler_path}")
 
-    print(f"\nDone. Model trained on 2020-2025 ({len(train_indices)} bars), ready for production.")
+    print(f"\nDone. Model trained on 2020-2025 ({len(train_indices)} bars).")
+    print("Production uses direction_model.onnx + scaler.npz (no torch needed).")
 
 
 if __name__ == "__main__":

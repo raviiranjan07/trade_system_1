@@ -64,7 +64,7 @@ def run_backtest(
     logger.info("V1.4 signals: %d", len(signals))
 
     # Generate ML signals
-    ml_model_path = Path("src/v12/ml_model/direction_model.pt")
+    ml_model_path = Path("src/v12/ml_model/direction_model.onnx")
     ml_scaler_path = Path("src/v12/ml_model/scaler.npz")
     ml_gen = MLSignalGenerator(model_path=ml_model_path, scaler_path=ml_scaler_path)
 

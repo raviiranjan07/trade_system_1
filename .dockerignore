@@ -1,0 +1,46 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.venv
+venv
+
+# IDE
+.vscode
+.idea
+.claude
+
+# Training data & experiments (not needed in production)
+experiments/
+scripts/
+tests/
+docs/
+
+# Old model format (using ONNX now)
+src/v12/ml_model/direction_model.pt
+
+# Frontend source (pre-built dist is copied)
+src/web/frontend/node_modules
+src/web/frontend/src
+src/web/frontend/package*.json
+src/web/frontend/vite.config.js
+src/web/frontend/index.html
+
+# Backtest data (not needed in production)
+data/backtest/
+data/grid_search/
+
+# Visualizations
+src/visualizations/
+
+# Misc
+*.md
+*.png
+*.csv
+!data/v12_trades/*.csv
+!data/risk_logs/*.csv
+!data/risk_logs/ml/*.csv
