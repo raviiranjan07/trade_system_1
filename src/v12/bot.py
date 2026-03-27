@@ -289,6 +289,24 @@ class V12Bot:
         logger.info("Reloading %d ML trades from %s", len(df), self._ml_trades_csv.name)
 
         for _, row in df.iterrows():
+            trade = TradeRecord(
+                signal_time=row["signal_time"],
+                entry_time=row["entry_time"],
+                exit_time=row["exit_time"],
+                direction=str(row["direction"]),
+                signal_type=str(row.get("signal_type", "ML_LONG")),
+                entry_price=float(row["entry_price"]),
+                exit_price=float(row["exit_price"]),
+                gross_profit_bps=float(row["gross_profit_bps"]),
+                net_profit_bps=float(row["net_profit_bps"]),
+                mfe_bps=float(row["mfe_bps"]),
+                mae_bps=float(row["mae_bps"]),
+                exit_bar=int(row["exit_bar"]),
+                exit_reason=str(row["exit_reason"]),
+                is_reentry=str(row["is_reentry"]).strip().lower() == "true",
+            )
+            self._ml_pm.trades.append(trade)
+
             qty = float(row["qty"]) if "qty" in row and pd.notna(row.get("qty")) else 0.0
             self._dashboard.add_ml_trade({
                 "direction": str(row["direction"]),
