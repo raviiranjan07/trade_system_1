@@ -333,7 +333,7 @@ class V12Bot:
             ml_losses=ml_losses,
             ml_total_bps=round(ml_total_bps, 1),
             ml_avg_bps=round(ml_total_bps / len(ml_trades), 1) if len(ml_trades) > 0 else 0,
-            ml_win_rate=round(ml_wins / len(ml_trades) * 100, 1) if len(ml_trades) > 0 else 0,
+            ml_win_rate=round(ml_wins / len(ml_trades), 3) if len(ml_trades) > 0 else 0,
         )
         logger.info(
             "Restored ML dashboard: %d trades, %+.1f bps, wallet=$%.2f",
