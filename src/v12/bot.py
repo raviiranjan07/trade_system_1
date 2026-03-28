@@ -286,36 +286,40 @@ class V12Bot:
         logger.info("Reloading %d ML trades from %s", len(df), self._ml_trades_csv.name)
 
         for _, row in df.iterrows():
-            trade = TradeRecord(
-                signal_time=row["signal_time"],
-                entry_time=row["entry_time"],
-                exit_time=row["exit_time"],
-                direction=str(row["direction"]),
-                signal_type=str(row.get("signal_type", "ML_LONG")),
-                entry_price=float(row["entry_price"]),
-                exit_price=float(row["exit_price"]),
-                gross_profit_bps=float(row["gross_profit_bps"]),
-                net_profit_bps=float(row["net_profit_bps"]),
-                mfe_bps=float(row["mfe_bps"]),
-                mae_bps=float(row["mae_bps"]),
-                exit_bar=int(row["exit_bar"]),
-                exit_reason=str(row["exit_reason"]),
-                is_reentry=str(row["is_reentry"]).strip().lower() == "true",
-            )
-            self._ml_pm.trades.append(trade)
+            try:
+                trade = TradeRecord(
+                    signal_time=row.get("signal_time", ""),
+                    entry_time=row.get("entry_time", ""),
+                    exit_time=row.get("exit_time", ""),
+                    direction=str(row.get("direction", "LONG")),
+                    signal_type=str(row.get("signal_type", "ML_LONG")),
+                    entry_price=float(row.get("entry_price", 0)),
+                    exit_price=float(row.get("exit_price", 0)),
+                    gross_profit_bps=float(row.get("gross_profit_bps", 0)),
+                    net_profit_bps=float(row.get("net_profit_bps", 0)),
+                    mfe_bps=float(row.get("mfe_bps", 0)),
+                    mae_bps=float(row.get("mae_bps", 0)),
+                    exit_bar=int(row.get("exit_bar", 0)),
+                    exit_reason=str(row.get("exit_reason", "")),
+                    is_reentry=str(row.get("is_reentry", "False")).strip().lower() == "true",
+                )
+                self._ml_pm.trades.append(trade)
 
-            qty = float(row["qty"]) if "qty" in row and pd.notna(row.get("qty")) else 0.0
-            self._dashboard.add_ml_trade({
-                "direction": str(row["direction"]),
-                "entry_price": float(row["entry_price"]),
-                "exit_price": float(row["exit_price"]),
-                "net_profit_bps": float(row["net_profit_bps"]),
-                "mfe_bps": float(row["mfe_bps"]),
-                "mae_bps": float(row["mae_bps"]),
-                "exit_bar": int(row["exit_bar"]),
-                "exit_reason": str(row["exit_reason"]),
-                "exit_time": str(row["exit_time"]),
-            })
+                qty = float(row.get("qty", 0)) if "qty" in row and pd.notna(row.get("qty")) else 0.0
+                self._dashboard.add_ml_trade({
+                    "direction": str(row.get("direction", "LONG")),
+                    "entry_price": float(row.get("entry_price", 0)),
+                    "exit_price": float(row.get("exit_price", 0)),
+                    "net_profit_bps": float(row.get("net_profit_bps", 0)),
+                    "mfe_bps": float(row.get("mfe_bps", 0)),
+                    "mae_bps": float(row.get("mae_bps", 0)),
+                    "exit_bar": int(row.get("exit_bar", 0)),
+                    "exit_reason": str(row.get("exit_reason", "")),
+                    "exit_time": str(row.get("exit_time", "")),
+                })
+            except Exception as e:
+                logger.warning("Failed to load ML trade row: %s", e)
+                continue
 
         ml_trades = df
         ml_wins = len(ml_trades[ml_trades["net_profit_bps"] > 0])

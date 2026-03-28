@@ -23,6 +23,7 @@ from sqlalchemy import create_engine, text
 import uvicorn
 
 from .state import DashboardState, dashboard_state
+from .portfolio import PortfolioClient
 
 load_dotenv()
 
@@ -63,6 +64,9 @@ def create_app(state: Optional[DashboardState] = None) -> FastAPI:
     PERSIST_DIR = Path("data/v12_trades")
     DRAWINGS_FILE = PERSIST_DIR / "drawings.json"
     INDICATORS_FILE = PERSIST_DIR / "indicators.json"
+
+    # Portfolio client (lazy init on first request)
+    portfolio_client = PortfolioClient()
 
     # =========================================================================
     # REST API Endpoints
@@ -231,6 +235,68 @@ def create_app(state: Optional[DashboardState] = None) -> FastAPI:
     async def get_all():
         """Get all dashboard data."""
         return JSONResponse(content=state.get_all())
+
+    @app.get("/api/decisions")
+    async def get_decisions(limit: int = Query(50, ge=1, le=500)):
+        """Get recent risk decisions from CSV logs (V1.4 + ML combined)."""
+        KEEP_COLS = [
+            "timestamp", "wallet_usd", "btc_price", "signal_type",
+            "action", "qty", "risk_pct", "health_multiplier",
+            "pnl_bps", "pnl_usd",
+        ]
+        frames = []
+        for csv_path in [
+            Path("data/risk_logs/decisions.csv"),
+            Path("data/risk_logs/ml/decisions.csv"),
+        ]:
+            if csv_path.exists():
+                try:
+                    df = pd.read_csv(csv_path)
+                    frames.append(df)
+                except Exception:
+                    pass
+
+        if not frames:
+            return JSONResponse(content=[])
+
+        combined = pd.concat(frames, ignore_index=True)
+        # Keep only columns that exist in the data
+        keep = [c for c in KEEP_COLS if c in combined.columns]
+        combined = combined[keep]
+        combined = combined.sort_values("timestamp", ascending=False).head(limit)
+        # Replace NaN with None for clean JSON
+        combined = combined.where(combined.notna(), None)
+        return JSONResponse(content=combined.to_dict(orient="records"))
+
+    # =========================================================================
+    # Portfolio Endpoints (Binance authenticated)
+    # =========================================================================
+
+    @app.get("/api/portfolio/status")
+    async def get_portfolio_status():
+        """Check if Binance API keys are configured."""
+        return JSONResponse(content={"configured": portfolio_client.is_configured})
+
+    @app.get("/api/portfolio")
+    async def get_portfolio():
+        """Get live Binance Futures portfolio data."""
+        if not portfolio_client.is_configured:
+            return JSONResponse(content={
+                "error": "not_configured",
+                "message": "Set BINANCE_API_KEY and BINANCE_API_SECRET in .env",
+            })
+        data = await portfolio_client.get_portfolio_snapshot()
+        return JSONResponse(content=data)
+
+    @app.get("/api/portfolio/pnl")
+    async def get_portfolio_pnl(period: str = Query("week")):
+        """Get PNL breakdown for a time period (week/month/year/all)."""
+        if not portfolio_client.is_configured:
+            return JSONResponse(content={"error": "not_configured"})
+        if period not in ("week", "month", "year", "all"):
+            return JSONResponse(content={"error": "invalid period"}, status_code=400)
+        data = await portfolio_client.get_pnl_summary(period)
+        return JSONResponse(content=data)
 
     # =========================================================================
     # WebSocket Endpoint

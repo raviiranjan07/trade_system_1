@@ -2967,3 +2967,359 @@ body {
 .ml-trades-list tr.loser {
   background: rgba(255, 82, 82, 0.05);
 }
+
+/* ========== OVERVIEW PAGE ========== */
+.page-overview {
+  padding: 20px 24px;
+}
+.ov-hero {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.ov-hero-card {
+  flex: 1;
+  background: var(--card-bg, #141b22);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 16px 20px;
+  text-align: center;
+}
+.ov-hero-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #c9d1d9;
+}
+.ov-hero-label {
+  font-size: 11px;
+  color: #8892a0;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.ov-hero-sub {
+  font-size: 12px;
+  color: #8892a0;
+  margin-top: 2px;
+}
+.ov-bots {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.ov-bot-card {
+  flex: 1;
+  background: var(--card-bg, #141b22);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 16px 20px;
+}
+.ov-bot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.ov-bot-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #c9d1d9;
+}
+.ov-bot-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #8892a0;
+}
+.ov-bot-status .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00d97e;
+}
+.ov-bot-status .dot.inactive {
+  background: #e63757;
+}
+.ov-bot-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.ov-bot-row:last-child {
+  border-bottom: none;
+}
+.ov-bot-row .label {
+  color: #8892a0;
+}
+.ov-bot-row .value {
+  color: #c9d1d9;
+  font-weight: 600;
+}
+.ov-bot-wallet {
+  font-size: 20px;
+  font-weight: 700;
+  color: #c9d1d9;
+  margin-bottom: 4px;
+}
+.ov-bot-growth {
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+.ov-recent {
+  background: var(--card-bg, #141b22);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 16px 20px;
+}
+.ov-recent h3 {
+  font-size: 13px;
+  color: #8892a0;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.ov-recent table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.ov-recent th {
+  text-align: left;
+  color: #8892a0;
+  font-weight: 600;
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+.ov-recent td {
+  padding: 6px 8px;
+  color: #c9d1d9;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.ov-signal-tag {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ========== RISK PAGE ========== */
+.page-risk {
+  padding: 20px 24px;
+}
+.rp-hero {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.rp-hero-card {
+  flex: 1;
+  background: var(--card-bg, #141b22);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 16px 20px;
+  text-align: center;
+}
+.rp-hero-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #c9d1d9;
+}
+.rp-hero-label {
+  font-size: 11px;
+  color: #8892a0;
+  margin-top: 4px;
+  text-transform: uppercase;
+}
+.rp-columns {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.rp-card {
+  flex: 1;
+  background: var(--card-bg, #141b22);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 16px 20px;
+}
+.rp-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #c9d1d9;
+  margin-bottom: 12px;
+}
+.rp-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.rp-row:last-child {
+  border-bottom: none;
+}
+.rp-row .label {
+  color: #8892a0;
+}
+.rp-row .value {
+  color: #c9d1d9;
+  font-weight: 600;
+}
+.rp-dd-track {
+  height: 8px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+.rp-dd-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+.rp-decisions {
+  background: var(--card-bg, #141b22);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 16px 20px;
+}
+.rp-decisions h3 {
+  font-size: 13px;
+  color: #8892a0;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.rp-decisions table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.rp-decisions th {
+  text-align: left;
+  color: #8892a0;
+  font-weight: 600;
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+.rp-decisions td {
+  padding: 6px 8px;
+  color: #c9d1d9;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.rp-decisions .action-trade {
+  color: #00d97e;
+  font-weight: 600;
+}
+.rp-decisions .action-skip {
+  color: #e63757;
+  font-weight: 600;
+}
+.rp-decisions-scroll {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* ========== TRADES FILTER BAR ========== */
+.trades-filter-bar, .stats-filter-bar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.trades-filter-btn, .stats-filter-btn {
+  padding: 6px 14px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  background: transparent;
+  color: #8892a0;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.trades-filter-btn:hover, .stats-filter-btn:hover {
+  border-color: rgba(255,255,255,0.2);
+  color: #c9d1d9;
+}
+.trades-filter-btn.active, .stats-filter-btn.active {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+.sortable-header {
+  cursor: pointer;
+  user-select: none;
+}
+.sortable-header:hover {
+  color: #c9d1d9;
+}
+.sort-arrow {
+  font-size: 10px;
+  margin-left: 3px;
+}
+
+/* ========== EQUITY CURVE LEGEND ========== */
+.equity-legend {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: #8892a0;
+  background: rgba(10, 14, 20, 0.8);
+  padding: 4px 10px;
+  border-radius: 4px;
+  z-index: 2;
+}
+.equity-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.equity-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* ========== CHART SIDEBAR (compact) ========== */
+.chart-sidebar {
+  max-width: 300px;
+}
+.chart-market-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.chart-market-bar .status-card {
+  padding: 6px 10px;
+}
+
+/* ========== RISK TWO-COL (updated) ========== */
+.risk-two-col {
+  display: flex;
+  gap: 12px;
+}
+.risk-column {
+  flex: 1;
+  padding: 8px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.02);
+}
+.risk-column.dimmed {
+  opacity: 0.5;
+}
+.risk-col-header {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+}

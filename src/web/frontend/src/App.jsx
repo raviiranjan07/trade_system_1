@@ -22,6 +22,8 @@ import PerformancePanel from './components/PerformancePanel'
 import PnLCalendar from './components/PnLCalendar'
 import PortfolioPage from './components/PortfolioPage'
 import MLPanel from './components/MLPanel'
+import OverviewPage from './components/OverviewPage'
+import RiskPage from './components/RiskPage'
 
 // IST = UTC + 5:30 = 19800 seconds
 const IST_OFFSET = 19800
@@ -32,7 +34,8 @@ const shiftCandlesIST = (arr) => arr ? arr.map(shiftIST) : arr
 function App() {
   const [data, setData] = useState(null)
   const [connected, setConnected] = useState(false)
-  const [activePage, setActivePage] = useState(() => localStorage.getItem('activePage') || 'dashboard')
+  const [activePage, setActivePage] = useState(() => localStorage.getItem('activePage') || 'overview')
+  const [decisions, setDecisions] = useState([])
   const [chartView, setChartView] = useState(() => localStorage.getItem('chartView') || 'bot')
   const wsRef = useRef(null)
   const reconnectTimeoutRef = useRef(null)
@@ -87,6 +90,13 @@ function App() {
   const indicatorsRef = useRef(indicators)
   useEffect(() => { drawingsRef.current = drawings }, [drawings])
   useEffect(() => { indicatorsRef.current = indicators }, [indicators])
+
+  // Fetch decisions when risk page is opened
+  useEffect(() => {
+    if (activePage === 'risk') {
+      fetch('/api/decisions').then(r => r.json()).then(setDecisions).catch(() => {})
+    }
+  }, [activePage])
 
   // Persist UI preferences to localStorage
   useEffect(() => { localStorage.setItem('activePage', activePage) }, [activePage])
@@ -404,30 +414,15 @@ function App() {
 
         {/* Page Navigation */}
         <nav className="page-nav">
-          <button
-            className={`page-nav-btn ${activePage === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setActivePage('dashboard')}
-          >
-            Dashboard
-          </button>
-          <button
-            className={`page-nav-btn ${activePage === 'trades' ? 'active' : ''}`}
-            onClick={() => setActivePage('trades')}
-          >
-            Trades
-          </button>
-          <button
-            className={`page-nav-btn ${activePage === 'analytics' ? 'active' : ''}`}
-            onClick={() => setActivePage('analytics')}
-          >
-            Analytics
-          </button>
-          <button
-            className={`page-nav-btn ${activePage === 'portfolio' ? 'active' : ''}`}
-            onClick={() => setActivePage('portfolio')}
-          >
-            Portfolio
-          </button>
+          {['overview', 'chart', 'trades', 'risk', 'analytics', 'portfolio'].map(page => (
+            <button
+              key={page}
+              className={`page-nav-btn ${activePage === page ? 'active' : ''}`}
+              onClick={() => setActivePage(page)}
+            >
+              {page.charAt(0).toUpperCase() + page.slice(1)}
+            </button>
+          ))}
         </nav>
 
         <div className="header-right">
@@ -444,8 +439,23 @@ function App() {
         </div>
       </header>
 
-      {/* ========== DASHBOARD PAGE (chart always rendered, hidden when not active) ========== */}
-      <div className="main-layout" style={{ display: activePage === 'dashboard' ? 'flex' : 'none' }}>
+      {/* ========== OVERVIEW PAGE (new default) ========== */}
+      {activePage === 'overview' && (
+        <div className="page-content page-overview">
+          <OverviewPage
+            stats={stats}
+            risk={data?.risk}
+            ml={data?.ml}
+            trades={trades}
+            mlTrades={data?.ml_trades}
+            status={status}
+            position={position}
+          />
+        </div>
+      )}
+
+      {/* ========== CHART PAGE (always rendered, hidden when not active) ========== */}
+      <div className="main-layout" style={{ display: activePage === 'chart' ? 'flex' : 'none' }}>
         {/* === LEFT: Chart Area === */}
         <div className="chart-area" ref={chartAreaRef}>
           {/* Chart View Toggle */}
@@ -479,7 +489,7 @@ function App() {
                 indicators={indicators}
                 onTimeRangeChange={handleTimeRangeChange}
                 onLoadMore={handleLoadMore}
-                isVisible={chartView === 'bot' && activePage === 'dashboard'}
+                isVisible={chartView === 'bot' && activePage === 'chart'}
                 onChartReady={handleChartReady}
                 chartBg={chartBg}
               />
@@ -534,39 +544,28 @@ function App() {
           )}
         </div>
 
-        {/* === RIGHT: Slim Sidebar (dashboard only) === */}
-        <div className="sidebar">
-          <div className="grid grid-2 sidebar-indicators">
+        {/* === RIGHT: Compact sidebar for chart page === */}
+        <div className="sidebar chart-sidebar">
+          <div className="chart-market-bar">
             <StatusPanel label="Price" value={status?.price} format="price" panelType="price" />
-            <StatusPanel label="RSI (14)" value={status?.rsi} format="rsi" panelType="rsi" />
-            <StatusPanel label="ATR %" value={status?.atr_percentile} format="percentile" panelType="atr" />
-            <StatusPanel label="EMA Sep" value={status?.ema_separation} format="ema" panelType="ema" />
+            <StatusPanel label="RSI" value={status?.rsi} format="rsi" panelType="rsi" />
+            <StatusPanel label="ATR" value={status?.atr_percentile} format="percentile" panelType="atr" />
+            <StatusPanel label="EMA" value={status?.ema_separation} format="ema" panelType="ema" />
+            <StatusPanel label="Regime" value={status?.regime || '---'} panelType="regime" />
           </div>
 
           <PositionCard position={position} />
 
-          <div className="grid grid-2 sidebar-regime">
-            <StatusPanel label="Regime" value={status?.regime || '---'} panelType="regime" />
-            <StatusPanel label="Bars" value={status?.bar_count || 0} format="number" panelType="bars" />
-          </div>
-
-          <RiskPanel risk={data?.risk} ml={data?.ml} />
-
-          <MLPanel ml={data?.ml} mlTrades={data?.ml_trades} />
-
           <SignalProximity proximity={data?.proximity} />
-
-          {/* Mini Signal Log (last 5) */}
-          <SignalLog signals={signals?.slice(0, 5)} />
         </div>
       </div>
 
       {/* ========== TRADES PAGE (full-width) ========== */}
       {activePage === 'trades' && (
         <div className="page-content page-trades">
-          <StatsSection stats={stats} risk={data?.risk} />
+          <StatsSection stats={stats} risk={data?.risk} ml={data?.ml} trades={trades} mlTrades={data?.ml_trades} />
 
-          <TradesList trades={trades} />
+          <TradesList trades={trades} mlTrades={data?.ml_trades} />
 
           <div className="card signals-full-container">
             <div className="card-header">Signal Log</div>
@@ -576,13 +575,20 @@ function App() {
         </div>
       )}
 
+      {/* ========== RISK PAGE (full-width) ========== */}
+      {activePage === 'risk' && (
+        <div className="page-content page-risk">
+          <RiskPage risk={data?.risk} ml={data?.ml} decisions={decisions} />
+        </div>
+      )}
+
       {/* ========== ANALYTICS PAGE (full-width) ========== */}
       {activePage === 'analytics' && (
         <div className="page-content page-analytics">
-          <StatsSection stats={stats} risk={data?.risk} />
+          <StatsSection stats={stats} risk={data?.risk} ml={data?.ml} trades={trades} mlTrades={data?.ml_trades} />
 
           <div className="analytics-equity">
-            <EquityCurve trades={trades} />
+            <EquityCurve trades={trades} mlTrades={data?.ml_trades} />
           </div>
 
           <PnLCalendar trades={trades} />

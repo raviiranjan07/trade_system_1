@@ -1,10 +1,42 @@
 import React, { useEffect, useRef } from 'react'
-import { createChart, ColorType, LineSeries, BaselineSeries } from 'lightweight-charts'
+import { createChart, ColorType, LineSeries } from 'lightweight-charts'
 
-function EquityCurve({ trades }) {
+function buildCurveData(tradesArr) {
+  if (!tradesArr || tradesArr.length === 0) return []
+  // Trades are newest-first, reverse for chronological order
+  const sorted = [...tradesArr].reverse()
+
+  let cumBps = 0
+  const data = []
+  for (const t of sorted) {
+    cumBps += t.net_profit_bps || 0
+    let ts = 0
+    if (t.exit_time) {
+      const d = new Date(t.exit_time)
+      if (!isNaN(d.getTime())) {
+        ts = Math.floor(d.getTime() / 1000)
+      }
+    }
+    if (ts > 0) {
+      data.push({ time: ts, value: Math.round(cumBps * 10) / 10 })
+    }
+  }
+
+  // Deduplicate timestamps (keep last value for each timestamp)
+  const deduped = []
+  for (let i = 0; i < data.length; i++) {
+    if (i === data.length - 1 || data[i].time !== data[i + 1].time) {
+      deduped.push(data[i])
+    }
+  }
+  return deduped
+}
+
+function EquityCurve({ trades, mlTrades }) {
   const containerRef = useRef(null)
   const chartRef = useRef(null)
-  const seriesRef = useRef(null)
+  const v14SeriesRef = useRef(null)
+  const mlSeriesRef = useRef(null)
   const zeroLineRef = useRef(null)
 
   // Chart initialization
@@ -38,18 +70,22 @@ function EquityCurve({ trades }) {
     })
     chart.applyOptions({ branding: { visible: false } })
 
-    // Baseline series: green above 0, red below 0
-    const series = chart.addSeries(BaselineSeries, {
-      baseValue: { type: 'price', price: 0 },
-      topLineColor: '#00d97e',
-      topFillColor1: 'rgba(0, 217, 126, 0.12)',
-      topFillColor2: 'rgba(0, 217, 126, 0.01)',
-      bottomLineColor: '#e63757',
-      bottomFillColor1: 'rgba(230, 55, 87, 0.01)',
-      bottomFillColor2: 'rgba(230, 55, 87, 0.12)',
+    // V1.4 line (blue)
+    const v14Series = chart.addSeries(LineSeries, {
+      color: '#3b82f6',
       lineWidth: 2,
       lastValueVisible: true,
       priceLineVisible: false,
+      crosshairMarkerVisible: true,
+    })
+
+    // ML line (purple)
+    const mlSeries = chart.addSeries(LineSeries, {
+      color: '#8b5cf6',
+      lineWidth: 2,
+      lastValueVisible: true,
+      priceLineVisible: false,
+      crosshairMarkerVisible: true,
     })
 
     // Zero reference line
@@ -63,7 +99,8 @@ function EquityCurve({ trades }) {
     })
 
     chartRef.current = chart
-    seriesRef.current = series
+    v14SeriesRef.current = v14Series
+    mlSeriesRef.current = mlSeries
     zeroLineRef.current = zeroLine
 
     const handleResize = () => {
@@ -81,51 +118,37 @@ function EquityCurve({ trades }) {
 
   // Update data when trades change
   useEffect(() => {
-    if (!seriesRef.current || !trades || trades.length === 0) return
+    if (!v14SeriesRef.current) return
 
-    // Trades are newest-first, reverse for chronological order
-    const sorted = [...trades].reverse()
+    const v14Data = buildCurveData(trades)
+    const mlData = buildCurveData(mlTrades)
 
-    // Build equity curve: cumulative bps
-    let cumBps = 0
-    const data = []
-    for (const t of sorted) {
-      cumBps += t.net_profit_bps || 0
-      // Use exit_time as timestamp
-      let ts = 0
-      if (t.exit_time) {
-        const d = new Date(t.exit_time)
-        if (!isNaN(d.getTime())) {
-          ts = Math.floor(d.getTime() / 1000)
-        }
-      }
-      if (ts > 0) {
-        data.push({ time: ts, value: Math.round(cumBps * 10) / 10 })
-      }
+    if (v14Data.length > 0) {
+      v14SeriesRef.current.setData(v14Data)
+    }
+    if (mlData.length > 0) {
+      mlSeriesRef.current.setData(mlData)
     }
 
-    if (data.length === 0) return
-
-    // Deduplicate timestamps (keep last value for each timestamp)
-    const deduped = []
-    for (let i = 0; i < data.length; i++) {
-      if (i === data.length - 1 || data[i].time !== data[i + 1].time) {
-        deduped.push(data[i])
-      }
+    // Zero line spanning full range of both series
+    const allTimes = [...v14Data.map(d => d.time), ...mlData.map(d => d.time)]
+    if (allTimes.length > 0) {
+      const minTime = Math.min(...allTimes)
+      const maxTime = Math.max(...allTimes)
+      zeroLineRef.current.setData([
+        { time: minTime, value: 0 },
+        { time: maxTime, value: 0 },
+      ])
     }
 
-    seriesRef.current.setData(deduped)
+    if (chartRef.current) {
+      chartRef.current.timeScale().fitContent()
+    }
+  }, [trades, mlTrades])
 
-    // Zero line spanning full range
-    zeroLineRef.current.setData([
-      { time: deduped[0].time, value: 0 },
-      { time: deduped[deduped.length - 1].time, value: 0 },
-    ])
+  const hasTrades = (trades && trades.length > 0) || (mlTrades && mlTrades.length > 0)
 
-    chartRef.current.timeScale().fitContent()
-  }, [trades])
-
-  if (!trades || trades.length === 0) {
+  if (!hasTrades) {
     return (
       <div className="card equity-section">
         <div className="card-header">Equity Curve</div>
@@ -137,7 +160,30 @@ function EquityCurve({ trades }) {
   return (
     <div className="card equity-section">
       <div className="card-header">Equity Curve (cumulative bps)</div>
-      <div ref={containerRef} style={{ width: '100%' }} />
+      <div style={{ position: 'relative' }}>
+        <div ref={containerRef} style={{ width: '100%' }} />
+        <div style={{
+          position: 'absolute',
+          top: 8,
+          right: 12,
+          display: 'flex',
+          gap: '12px',
+          fontSize: '11px',
+          color: '#8892a0',
+          background: 'rgba(10, 14, 20, 0.75)',
+          padding: '4px 8px',
+          borderRadius: '4px',
+        }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#3b82f6', display: 'inline-block' }} />
+            V1.4
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#8b5cf6', display: 'inline-block' }} />
+            ML
+          </span>
+        </div>
+      </div>
     </div>
   )
 }
