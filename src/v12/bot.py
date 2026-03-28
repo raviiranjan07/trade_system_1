@@ -204,48 +204,58 @@ class V12Bot:
         logger.info("Reloading %d previous trades from %s", len(df), self._trades_csv.name)
 
         for _, row in df.iterrows():
-            trade = TradeRecord(
-                signal_time=row["signal_time"],
-                entry_time=row["entry_time"],
-                exit_time=row["exit_time"],
-                direction=str(row["direction"]),
-                signal_type=str(row.get("signal_type", "V12_LONG" if row["direction"] == "LONG" else "V12_SHORT")),
-                entry_price=float(row["entry_price"]),
-                exit_price=float(row["exit_price"]),
-                gross_profit_bps=float(row["gross_profit_bps"]),
-                net_profit_bps=float(row["net_profit_bps"]),
-                mfe_bps=float(row["mfe_bps"]),
-                mae_bps=float(row["mae_bps"]),
-                exit_bar=int(row["exit_bar"]),
-                exit_reason=str(row["exit_reason"]),
-                is_reentry=str(row["is_reentry"]).strip().lower() == "true",
-            )
-            self.pm.trades.append(trade)
+            try:
+                direction = str(row.get("direction", "LONG"))
+                trade = TradeRecord(
+                    signal_time=row.get("signal_time", ""),
+                    entry_time=row.get("entry_time", ""),
+                    exit_time=row.get("exit_time", ""),
+                    direction=direction,
+                    signal_type=str(row.get("signal_type", "V12_LONG" if direction == "LONG" else "V12_SHORT")),
+                    entry_price=float(row.get("entry_price", 0)),
+                    exit_price=float(row.get("exit_price", 0)),
+                    gross_profit_bps=float(row.get("gross_profit_bps", 0)),
+                    net_profit_bps=float(row.get("net_profit_bps", 0)),
+                    mfe_bps=float(row.get("mfe_bps", 0)),
+                    mae_bps=float(row.get("mae_bps", 0)),
+                    exit_bar=int(row.get("exit_bar", 0)),
+                    exit_reason=str(row.get("exit_reason", "")),
+                    is_reentry=str(row.get("is_reentry", "False")).strip().lower() == "true",
+                )
+                self.pm.trades.append(trade)
+            except Exception as e:
+                logger.warning("Failed to load V1.4 trade row: %s", e)
+                continue
 
         # Push trades + stats to dashboard
         if not self._dashboard:
             return
 
-        for i, (_, row) in enumerate(df.iterrows()):
-            trade = self.pm.trades[i]
-            qty = float(row["qty"]) if "qty" in row and pd.notna(row.get("qty")) else 0.0
-            pnl_usd = qty * trade.entry_price * (trade.net_profit_bps / 10000) if qty > 0 else 0
-            self._dashboard.add_trade({
-                "trade_id": f"R{i+1}",
-                "direction": trade.direction,
-                "entry_price": trade.entry_price,
-                "exit_price": trade.exit_price,
-                "net_profit_bps": trade.net_profit_bps,
-                "mfe_bps": trade.mfe_bps,
-                "mae_bps": trade.mae_bps,
-                "exit_bar": trade.exit_bar,
-                "exit_reason": trade.exit_reason,
-                "is_reentry": trade.is_reentry,
-                "exit_time": str(trade.exit_time),
-                "entry_time": str(trade.entry_time),
-                "qty": qty,
-                "pnl_usd": round(pnl_usd, 4),
-            })
+        for i, trade in enumerate(self.pm.trades):
+            try:
+                row = df.iloc[i] if i < len(df) else None
+                qty = float(row.get("qty", 0)) if row is not None and "qty" in row and pd.notna(row.get("qty")) else 0.0
+                pnl_usd = qty * trade.entry_price * (trade.net_profit_bps / 10000) if qty > 0 else 0
+                self._dashboard.add_trade({
+                    "trade_id": f"R{i+1}",
+                    "direction": trade.direction,
+                    "signal_type": trade.signal_type,
+                    "entry_price": trade.entry_price,
+                    "exit_price": trade.exit_price,
+                    "net_profit_bps": trade.net_profit_bps,
+                    "mfe_bps": trade.mfe_bps,
+                    "mae_bps": trade.mae_bps,
+                    "exit_bar": trade.exit_bar,
+                    "exit_reason": trade.exit_reason,
+                    "is_reentry": trade.is_reentry,
+                    "exit_time": str(trade.exit_time),
+                    "entry_time": str(trade.entry_time),
+                    "qty": qty,
+                    "pnl_usd": round(pnl_usd, 4),
+                })
+            except Exception as e:
+                logger.warning("Failed to push V1.4 trade to dashboard: %s", e)
+                continue
 
         trades = self.pm.trades
         wins = [t for t in trades if t.net_profit_bps > 0]
@@ -308,6 +318,7 @@ class V12Bot:
                 qty = float(row.get("qty", 0)) if "qty" in row and pd.notna(row.get("qty")) else 0.0
                 self._dashboard.add_ml_trade({
                     "direction": str(row.get("direction", "LONG")),
+                    "signal_type": str(row.get("signal_type", "ML_LONG")),
                     "entry_price": float(row.get("entry_price", 0)),
                     "exit_price": float(row.get("exit_price", 0)),
                     "net_profit_bps": float(row.get("net_profit_bps", 0)),
@@ -453,6 +464,7 @@ class V12Bot:
             return
         self._dashboard.add_ml_trade({
             "direction": trade.direction,
+            "signal_type": trade.signal_type,
             "entry_price": trade.entry_price,
             "exit_price": trade.exit_price,
             "net_profit_bps": trade.net_profit_bps,
@@ -504,6 +516,7 @@ class V12Bot:
         self._dashboard.add_trade({
             "trade_id": f"{trade.direction[0]}{self._bar_count}",
             "direction": trade.direction,
+            "signal_type": trade.signal_type,
             "entry_price": trade.entry_price,
             "exit_price": trade.exit_price,
             "net_profit_bps": trade.net_profit_bps,

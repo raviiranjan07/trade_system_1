@@ -16,12 +16,10 @@ import ChartLegend from './components/ChartLegend'
 import ChartSettings from './components/ChartSettings'
 import IndicatorPanel from './components/IndicatorPanel'
 import SignalProximity from './components/SignalProximity'
-import RiskPanel from './components/RiskPanel'
 import AlertManager from './components/AlertManager'
 import PerformancePanel from './components/PerformancePanel'
 import PnLCalendar from './components/PnLCalendar'
 import PortfolioPage from './components/PortfolioPage'
-import MLPanel from './components/MLPanel'
 import OverviewPage from './components/OverviewPage'
 import RiskPage from './components/RiskPage'
 
@@ -34,7 +32,11 @@ const shiftCandlesIST = (arr) => arr ? arr.map(shiftIST) : arr
 function App() {
   const [data, setData] = useState(null)
   const [connected, setConnected] = useState(false)
-  const [activePage, setActivePage] = useState(() => localStorage.getItem('activePage') || 'overview')
+  const [activePage, setActivePage] = useState(() => {
+    const saved = localStorage.getItem('activePage')
+    const validPages = ['dashboard', 'chart', 'trades', 'risk', 'analytics', 'portfolio']
+    return validPages.includes(saved) ? saved : 'dashboard'
+  })
   const [decisions, setDecisions] = useState([])
   const [chartView, setChartView] = useState(() => localStorage.getItem('chartView') || 'bot')
   const wsRef = useRef(null)
@@ -414,7 +416,7 @@ function App() {
 
         {/* Page Navigation */}
         <nav className="page-nav">
-          {['overview', 'chart', 'trades', 'risk', 'analytics', 'portfolio'].map(page => (
+          {['dashboard', 'chart', 'trades', 'risk', 'analytics', 'portfolio'].map(page => (
             <button
               key={page}
               className={`page-nav-btn ${activePage === page ? 'active' : ''}`}
@@ -440,8 +442,8 @@ function App() {
       </header>
 
       {/* ========== OVERVIEW PAGE (new default) ========== */}
-      {activePage === 'overview' && (
-        <div className="page-content page-overview">
+      {activePage === 'dashboard' && (
+        <div className="page-content page-dashboard">
           <OverviewPage
             stats={stats}
             risk={data?.risk}
@@ -578,7 +580,7 @@ function App() {
       {/* ========== RISK PAGE (full-width) ========== */}
       {activePage === 'risk' && (
         <div className="page-content page-risk">
-          <RiskPage risk={data?.risk} ml={data?.ml} decisions={decisions} />
+          <RiskPage risk={data?.risk} ml={data?.ml} decisions={decisions} trades={trades} mlTrades={data?.ml_trades} />
         </div>
       )}
 

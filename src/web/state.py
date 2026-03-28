@@ -64,6 +64,7 @@ class TradeData:
     """Single trade record (V1.2 format)."""
     trade_id: str = ""
     direction: str = ""
+    signal_type: str = ""
     entry_price: float = 0
     exit_price: float = 0
     net_profit_bps: float = 0
@@ -345,6 +346,7 @@ class DashboardState:
             trade_data = TradeData(
                 trade_id=trade.get("trade_id", ""),
                 direction=trade.get("direction", ""),
+                signal_type=trade.get("signal_type", ""),
                 entry_price=trade.get("entry_price", 0),
                 exit_price=trade.get("exit_price", 0),
                 net_profit_bps=trade.get("net_profit_bps", 0),
@@ -511,6 +513,7 @@ class DashboardState:
             td = TradeData(
                 trade_id=str(len(self._ml_trades) + 1),
                 direction=trade_dict.get("direction", ""),
+                signal_type=trade_dict.get("signal_type", ""),
                 entry_price=trade_dict.get("entry_price", 0),
                 exit_price=trade_dict.get("exit_price", 0),
                 net_profit_bps=trade_dict.get("net_profit_bps", 0),

@@ -117,11 +117,11 @@ function PerformancePanel({ trades }) {
             <span className={`perf-metric-value ${(analytics.worst.net_profit_bps || 0) >= 0 ? 'positive' : 'negative'}`}>{fmtBps(analytics.worst.net_profit_bps)}</span>
           </div>
           <div className="perf-metric">
-            <span className="perf-metric-label">Avg Win</span>
+            <span className="perf-metric-label">Max Win</span>
             <span className="perf-metric-value positive">{analytics.avgWin > 0 ? fmtBps(analytics.avgWin) : '---'}</span>
           </div>
           <div className="perf-metric">
-            <span className="perf-metric-label">Avg Loss</span>
+            <span className="perf-metric-label">Max Loss</span>
             <span className="perf-metric-value negative">{analytics.avgLoss < 0 ? fmtBps(analytics.avgLoss) : '---'}</span>
           </div>
           <div className="perf-metric">
@@ -137,7 +137,7 @@ function PerformancePanel({ trades }) {
             <span className="perf-metric-value negative">-{analytics.maxDD.toFixed(1)}</span>
           </div>
           <div className="perf-metric">
-            <span className="perf-metric-label">Payoff Ratio</span>
+            <span className="perf-metric-label">Sharpe Ratio</span>
             <span className="perf-metric-value">
               {analytics.avgLoss < 0 ? (analytics.avgWin / Math.abs(analytics.avgLoss)).toFixed(2) : '---'}
             </span>
