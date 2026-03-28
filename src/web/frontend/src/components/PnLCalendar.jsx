@@ -14,12 +14,13 @@ const getColor = (bps, maxAbs) => {
   return `rgba(230, 55, 87, ${alpha.toFixed(2)})`
 }
 
-function PnLCalendar({ trades }) {
+function PnLCalendar({ trades, mlTrades }) {
   // Build daily PnL map
   const dailyMap = useMemo(() => {
-    if (!trades || trades.length === 0) return {}
+    const allTrades = [...(trades || []), ...(mlTrades || [])]
+    if (allTrades.length === 0) return {}
     const daily = {}
-    for (const t of trades) {
+    for (const t of allTrades) {
       if (!t.exit_time) continue
       const d = new Date(t.exit_time)
       if (isNaN(d.getTime())) continue
@@ -30,7 +31,7 @@ function PnLCalendar({ trades }) {
       daily[key].count++
     }
     return daily
-  }, [trades])
+  }, [trades, mlTrades])
 
   // Available months from trades
   const availableMonths = useMemo(() => {

@@ -74,6 +74,9 @@ class TradeData:
     exit_reason: str = ""
     is_reentry: bool = False
     exit_time: Optional[str] = None
+    entry_time: Optional[str] = None
+    qty: float = 0.0
+    pnl_usd: float = 0.0
 
 
 @dataclass
@@ -356,6 +359,9 @@ class DashboardState:
                 exit_reason=trade.get("exit_reason", ""),
                 is_reentry=trade.get("is_reentry", False),
                 exit_time=trade.get("exit_time", ""),
+                entry_time=trade.get("entry_time", ""),
+                qty=trade.get("qty", 0.0),
+                pnl_usd=trade.get("pnl_usd", 0.0),
             )
             self._trades.insert(0, trade_data)
             self._trades = self._trades[:50]
@@ -523,6 +529,7 @@ class DashboardState:
                 exit_reason=trade_dict.get("exit_reason", ""),
                 is_reentry=trade_dict.get("is_reentry", False),
                 exit_time=trade_dict.get("exit_time", ""),
+                entry_time=trade_dict.get("entry_time", ""),
             )
             self._ml_trades.insert(0, td)
             if len(self._ml_trades) > 100:

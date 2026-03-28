@@ -5,13 +5,16 @@ const SIGNAL_COLORS = {
   V12_SHORT: '#e63757',
   BEAR_LONG: '#3b82f6',
   BULL_SHORT: '#f59e0b',
+  ML_LONG: '#8b5cf6',
+  ML_SHORT: '#ec4899',
 }
 
-function PerformancePanel({ trades }) {
+function PerformancePanel({ trades, mlTrades }) {
   const analytics = useMemo(() => {
-    if (!trades || trades.length === 0) return null
+    const allTrades = [...(trades || []), ...(mlTrades || [])]
+    if (allTrades.length === 0) return null
 
-    const sorted = [...trades].reverse() // oldest first
+    const sorted = [...allTrades].reverse() // oldest first
 
     // --- By direction ---
     const byDir = {}
@@ -83,7 +86,7 @@ function PerformancePanel({ trades }) {
     }
 
     return { byDir, bySignal, best, worst, avgWin, avgLoss, maxWinStreak, maxLossStreak, maxDD, totalTrades: sorted.length, byExit }
-  }, [trades])
+  }, [trades, mlTrades])
 
   if (!analytics) {
     return (
@@ -117,11 +120,11 @@ function PerformancePanel({ trades }) {
             <span className={`perf-metric-value ${(analytics.worst.net_profit_bps || 0) >= 0 ? 'positive' : 'negative'}`}>{fmtBps(analytics.worst.net_profit_bps)}</span>
           </div>
           <div className="perf-metric">
-            <span className="perf-metric-label">Max Win</span>
+            <span className="perf-metric-label">Avg Win</span>
             <span className="perf-metric-value positive">{analytics.avgWin > 0 ? fmtBps(analytics.avgWin) : '---'}</span>
           </div>
           <div className="perf-metric">
-            <span className="perf-metric-label">Max Loss</span>
+            <span className="perf-metric-label">Avg Loss</span>
             <span className="perf-metric-value negative">{analytics.avgLoss < 0 ? fmtBps(analytics.avgLoss) : '---'}</span>
           </div>
           <div className="perf-metric">
@@ -137,7 +140,7 @@ function PerformancePanel({ trades }) {
             <span className="perf-metric-value negative">-{analytics.maxDD.toFixed(1)}</span>
           </div>
           <div className="perf-metric">
-            <span className="perf-metric-label">Sharpe Ratio</span>
+            <span className="perf-metric-label">Payoff Ratio</span>
             <span className="perf-metric-value">
               {analytics.avgLoss < 0 ? (analytics.avgWin / Math.abs(analytics.avgLoss)).toFixed(2) : '---'}
             </span>

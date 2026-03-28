@@ -296,7 +296,7 @@ function RiskPage({ risk, ml, decisions, trades, mlTrades }) {
             </div>
             <div className="rp-row">
               <span className="rp-label">Drawdown</span>
-              <DrawdownBar pct={v14DD} />
+              <DrawdownBar pct={v14DD * 100} />
             </div>
             <div className="rp-row">
               <span className="rp-label">Health</span>
@@ -337,7 +337,7 @@ function RiskPage({ risk, ml, decisions, trades, mlTrades }) {
             </div>
             <div className="rp-row">
               <span className="rp-label">Drawdown</span>
-              <DrawdownBar pct={mlDD} />
+              <DrawdownBar pct={mlDD * 100} />
             </div>
             <div className="rp-row">
               <span className="rp-label">Health</span>

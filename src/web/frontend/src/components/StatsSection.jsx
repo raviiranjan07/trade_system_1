@@ -29,29 +29,21 @@ function StatsSection({ stats, risk, ml, trades, mlTrades }) {
     // combined — use default stats which are V1.4 only from backend
     // Merge with ML if available
     if (mlTrades && mlTrades.length > 0 && stats) {
-      const mlWins = mlTrades.filter(t => (t.net_profit_bps || 0) > 0).length
-      const mlTotal = mlTrades.length
-      const mlBps = mlTrades.reduce((s, t) => s + (t.net_profit_bps || 0), 0)
-      const mlGrossWin = mlTrades.filter(t => (t.net_profit_bps || 0) > 0).reduce((s, t) => s + t.net_profit_bps, 0)
-      const mlGrossLoss = Math.abs(mlTrades.filter(t => (t.net_profit_bps || 0) <= 0).reduce((s, t) => s + t.net_profit_bps, 0))
-
-      const totalTrades = (stats.total_trades || 0) + mlTotal
-      const totalWins = (stats.wins || 0) + mlWins
-      const totalLosses = (stats.losses || 0) + (mlTotal - mlWins)
-      const totalBps = (stats.total_bps || 0) + mlBps
-
-      const v14GrossWin = stats.wins > 0 ? (stats.total_bps > 0 ? stats.total_bps : 0) : 0
-      const combinedGrossWin = v14GrossWin + mlGrossWin
-      const combinedGrossLoss = mlGrossLoss // approximate
+      const allTrades = [...(trades || []), ...(mlTrades || [])]
+      const totalWins = allTrades.filter(t => (t.net_profit_bps || 0) > 0).length
+      const totalLosses = allTrades.length - totalWins
+      const totalBps = allTrades.reduce((s, t) => s + (t.net_profit_bps || 0), 0)
+      const grossWin = allTrades.filter(t => (t.net_profit_bps || 0) > 0).reduce((s, t) => s + (t.net_profit_bps || 0), 0)
+      const grossLoss = Math.abs(allTrades.filter(t => (t.net_profit_bps || 0) <= 0).reduce((s, t) => s + (t.net_profit_bps || 0), 0))
 
       displayStats = {
-        total_trades: totalTrades,
+        total_trades: allTrades.length,
         wins: totalWins,
         losses: totalLosses,
-        win_rate: totalTrades > 0 ? totalWins / totalTrades : 0,
+        win_rate: allTrades.length > 0 ? totalWins / allTrades.length : 0,
         total_bps: totalBps,
-        avg_bps: totalTrades > 0 ? totalBps / totalTrades : 0,
-        profit_factor: stats.profit_factor, // keep V1.4 PF for combined
+        avg_bps: allTrades.length > 0 ? totalBps / allTrades.length : 0,
+        profit_factor: grossLoss > 0 ? Math.round((grossWin / grossLoss) * 100) / 100 : 0,
       }
       walletUsd = (risk?.wallet_usd ?? 0) + (ml?.ml_wallet_usd ?? 0)
     }

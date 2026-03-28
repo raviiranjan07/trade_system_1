@@ -199,7 +199,13 @@ class V12Bot:
         try:
             self._load_trades_from_csv()
         except Exception as e:
-            logger.error("Failed to load trades from CSV: %s", e)
+            logger.error("Failed to load V1.4 trades from CSV: %s", e)
+
+        # Load ML trades independently (not nested in V1.4 loading)
+        try:
+            self._load_ml_trades_from_csv()
+        except Exception as e:
+            logger.error("Failed to load ML trades from CSV: %s", e)
 
     def _load_trades_from_csv(self) -> None:
         """Load previous trades from CSV into position manager + dashboard."""
@@ -292,9 +298,6 @@ class V12Bot:
             round(gross_win / gross_loss, 2) if gross_loss > 0 else 0,
         )
 
-        # Load ML trades from CSV
-        self._load_ml_trades_from_csv()
-
     def _load_ml_trades_from_csv(self) -> None:
         """Load previous ML trades from CSV into dashboard."""
         if not self._ml_trades_csv.exists():
@@ -342,6 +345,7 @@ class V12Bot:
                     "exit_bar": int(row.get("exit_bar", 0)),
                     "exit_reason": str(row.get("exit_reason", "")),
                     "exit_time": str(row.get("exit_time", "")),
+                    "entry_time": str(row.get("entry_time", "")),
                 })
             except Exception as e:
                 logger.warning("Failed to load ML trade row: %s", e)
@@ -489,6 +493,7 @@ class V12Bot:
             "exit_reason": trade.exit_reason,
             "is_reentry": trade.is_reentry,
             "exit_time": str(trade.exit_time),
+            "entry_time": str(trade.entry_time),
         })
         # Update ML stats
         ml_trades = self._ml_pm.trades

@@ -593,9 +593,9 @@ function App() {
             <EquityCurve trades={trades} mlTrades={data?.ml_trades} />
           </div>
 
-          <PnLCalendar trades={trades} />
+          <PnLCalendar trades={trades} mlTrades={data?.ml_trades} />
 
-          <PerformancePanel trades={trades} />
+          <PerformancePanel trades={trades} mlTrades={data?.ml_trades} />
         </div>
       )}
 
