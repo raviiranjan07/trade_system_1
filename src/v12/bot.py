@@ -184,19 +184,32 @@ class V12Bot:
             config_hash=self.cfg.config_hash(),
         )
         # Push initial risk state
-        self._push_risk_to_dashboard()
+        try:
+            self._push_risk_to_dashboard()
+        except Exception as e:
+            logger.warning("Failed to push initial risk state: %s", e)
+
         # Push initial ML state (trades loaded later by _load_ml_trades_from_csv)
-        self._push_ml_to_dashboard()
+        try:
+            self._push_ml_to_dashboard()
+        except Exception as e:
+            logger.warning("Failed to push initial ML state: %s", e)
+
         # Reload previous trades so dashboard survives restarts
-        self._load_trades_from_csv()
+        try:
+            self._load_trades_from_csv()
+        except Exception as e:
+            logger.error("Failed to load trades from CSV: %s", e)
 
     def _load_trades_from_csv(self) -> None:
         """Load previous trades from CSV into position manager + dashboard."""
         if not self._trades_csv.exists():
+            logger.warning("Trades CSV not found: %s", self._trades_csv)
             return
         try:
             df = pd.read_csv(self._trades_csv)
-        except Exception:
+        except Exception as e:
+            logger.error("Failed to read trades CSV: %s", e)
             return
         if df.empty:
             return
@@ -285,10 +298,12 @@ class V12Bot:
     def _load_ml_trades_from_csv(self) -> None:
         """Load previous ML trades from CSV into dashboard."""
         if not self._ml_trades_csv.exists():
+            logger.warning("ML trades CSV not found: %s", self._ml_trades_csv)
             return
         try:
             df = pd.read_csv(self._ml_trades_csv)
-        except Exception:
+        except Exception as e:
+            logger.error("Failed to read ML trades CSV: %s", e)
             return
         if df.empty:
             return
