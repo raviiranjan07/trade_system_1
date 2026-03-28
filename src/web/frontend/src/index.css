@@ -2862,6 +2862,29 @@ body {
   flex: 1;
 }
 
+/* Risk two-column layout */
+.risk-two-col {
+  display: flex;
+  gap: 12px;
+}
+.risk-column {
+  flex: 1;
+  padding: 8px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.02);
+}
+.risk-column.dimmed {
+  opacity: 0.5;
+}
+.risk-col-header {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+}
+
 /* ========== ML Panel ========== */
 .ml-panel {
   background: var(--card-bg);

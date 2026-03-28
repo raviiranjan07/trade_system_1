@@ -186,10 +186,7 @@ class V12Bot:
         # Push initial risk state
         self._push_risk_to_dashboard()
         # Push initial ML state (trades loaded later by _load_ml_trades_from_csv)
-        self._dashboard.update_ml(
-            ml_wallet_usd=round(self._ml_wallet, 2),
-            ml_model_loaded=self._ml_gen.loaded,
-        )
+        self._push_ml_to_dashboard()
         # Reload previous trades so dashboard survives restarts
         self._load_trades_from_csv()
 
@@ -424,9 +421,10 @@ class V12Bot:
                 "ML Risk: wallet=$%.2f | pnl=%+.2f | qty=%.3f",
                 self._ml_wallet, pnl_usd, self._ml_qty,
             )
+            self._push_ml_to_dashboard(last_pnl_usd=pnl_usd)
         self._ml_qty = 0.0
 
-    def _push_ml_to_dashboard(self) -> None:
+    def _push_ml_to_dashboard(self, last_pnl_usd: float = 0.0) -> None:
         """Push ML state to dashboard."""
         if not self._dashboard:
             return
@@ -435,6 +433,14 @@ class V12Bot:
             ml_total_trades=len([t for t in self._ml_pm.trades]),
             ml_has_position=self._ml_pm.is_in_position,
             ml_model_loaded=self._ml_gen.loaded,
+            ml_drawdown_pct=self._ml_health.get_drawdown_pct(self._ml_wallet),
+            ml_health_multiplier=self._ml_health.get_risk_multiplier(self._ml_wallet),
+            ml_consecutive_losses=self._ml_health.consecutive_losses,
+            ml_recent_winrate=self._ml_health.get_recent_winrate(),
+            ml_peak_usd=self._ml_health.peak,
+            ml_last_pnl_usd=last_pnl_usd,
+            ml_last_qty=self._ml_qty,
+            ml_total_skips=0,
         )
 
     def _push_ml_trade_to_dashboard(self, trade: TradeRecord) -> None:

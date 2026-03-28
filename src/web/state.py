@@ -117,6 +117,14 @@ class MLData:
     ml_position_pnl_bps: float = 0.0
     ml_last_prob: float = 0.5
     ml_model_loaded: bool = False
+    ml_drawdown_pct: float = 0.0
+    ml_health_multiplier: float = 1.0
+    ml_consecutive_losses: int = 0
+    ml_recent_winrate: float = 1.0
+    ml_peak_usd: float = 0.0
+    ml_last_pnl_usd: float = 0.0
+    ml_last_qty: float = 0.0
+    ml_total_skips: int = 0
 
 
 @dataclass
