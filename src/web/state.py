@@ -537,6 +537,7 @@ class DashboardState:
                 is_reentry=trade_dict.get("is_reentry", False),
                 exit_time=trade_dict.get("exit_time", ""),
                 entry_time=trade_dict.get("entry_time", ""),
+                qty=trade_dict.get("qty", 0.0),
             )
             self._ml_trades.insert(0, td)
             if len(self._ml_trades) > 100:

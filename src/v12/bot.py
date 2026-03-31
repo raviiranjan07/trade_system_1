@@ -346,6 +346,7 @@ class V12Bot:
                     "exit_reason": str(row.get("exit_reason", "")),
                     "exit_time": str(row.get("exit_time", "")),
                     "entry_time": str(row.get("entry_time", "")),
+                    "qty": float(row.get("qty", 0)),
                 })
             except Exception as e:
                 logger.warning("Failed to load ML trade row: %s", e)
@@ -494,6 +495,7 @@ class V12Bot:
             "is_reentry": trade.is_reentry,
             "exit_time": str(trade.exit_time),
             "entry_time": str(trade.entry_time),
+            "qty": self._ml_qty,
         })
         # Update ML stats
         ml_trades = self._ml_pm.trades
