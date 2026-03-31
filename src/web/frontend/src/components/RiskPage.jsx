@@ -1,4 +1,5 @@
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
+import { createChart, ColorType, LineSeries } from 'lightweight-charts'
 
 const DEFAULT_CAPITAL = 5
 
@@ -22,100 +23,128 @@ function buildWalletHistory(tradesArr, startCapital) {
 }
 
 function WalletChart({ trades, mlTrades }) {
+  const containerRef = useRef(null)
+  const chartRef = useRef(null)
+
   const v14Points = buildWalletHistory(trades, DEFAULT_CAPITAL)
   const mlPoints = buildWalletHistory(mlTrades, DEFAULT_CAPITAL)
 
-  const allValues = [...v14Points.map(p => p.value), ...mlPoints.map(p => p.value)]
-  if (allValues.length < 2) return null
+  useEffect(() => {
+    if (!containerRef.current) return
 
-  const yMin = Math.min(...allValues) * 0.98
-  const yMax = Math.max(...allValues) * 1.02
-  const yRange = yMax - yMin || 1
+    const chart = createChart(containerRef.current, {
+      width: containerRef.current.clientWidth,
+      height: 280,
+      layout: {
+        background: { type: ColorType.Solid, color: '#0a0e14' },
+        textColor: '#8892a0',
+        fontSize: 11,
+      },
+      grid: {
+        vertLines: { color: '#1a2028' },
+        horzLines: { color: '#1a2028' },
+      },
+      rightPriceScale: {
+        borderColor: '#2a3544',
+        scaleMargins: { top: 0.08, bottom: 0.08 },
+      },
+      timeScale: {
+        borderColor: '#2a3544',
+        timeVisible: true,
+        secondsVisible: false,
+      },
+      crosshair: {
+        horzLine: { color: '#3a4555', labelBackgroundColor: '#2a3544' },
+        vertLine: { color: '#3a4555', labelBackgroundColor: '#2a3544' },
+      },
+      handleScroll: { mouseWheel: true, pressedMouseMove: true },
+      handleScale: { mouseWheel: true, pinch: true },
+    })
+    chart.applyOptions({ branding: { visible: false } })
 
-  const W = 800
-  const H = 150
-  const pad = { top: 12, bottom: 24, left: 48, right: 12 }
-  const plotW = W - pad.left - pad.right
-  const plotH = H - pad.top - pad.bottom
+    // V1.4 line (blue)
+    const v14Series = chart.addSeries(LineSeries, {
+      color: '#3b82f6',
+      lineWidth: 2,
+      lastValueVisible: true,
+      priceLineVisible: false,
+      crosshairMarkerVisible: true,
+      title: 'V1.4',
+    })
 
-  const maxLen = Math.max(v14Points.length, mlPoints.length)
+    // ML line (purple)
+    const mlSeries = chart.addSeries(LineSeries, {
+      color: '#8b5cf6',
+      lineWidth: 2,
+      lastValueVisible: true,
+      priceLineVisible: false,
+      crosshairMarkerVisible: true,
+      title: 'ML',
+    })
 
-  function toPolyline(points) {
-    if (points.length < 2) return ''
-    return points.map((p, i) => {
-      const x = pad.left + (i / (maxLen - 1)) * plotW
-      const y = pad.top + plotH - ((p.value - yMin) / yRange) * plotH
-      return `${x},${y}`
-    }).join(' ')
-  }
+    // $5 reference line
+    const refLine = chart.addSeries(LineSeries, {
+      color: 'rgba(136, 146, 160, 0.3)',
+      lineWidth: 1,
+      lineStyle: 2,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+    })
 
-  // Y-axis grid lines (4 lines)
-  const gridLines = []
-  const gridLabels = []
-  for (let i = 0; i <= 4; i++) {
-    const val = yMin + (yRange * i / 4)
-    const y = pad.top + plotH - (i / 4) * plotH
-    gridLines.push(
-      <line key={`g${i}`} x1={pad.left} x2={W - pad.right} y1={y} y2={y}
-        stroke="#333" strokeWidth="0.5" strokeDasharray="4,4" />
-    )
-    gridLabels.push(
-      <text key={`gl${i}`} x={pad.left - 4} y={y + 3} fill="#888"
-        fontSize="9" textAnchor="end">${val.toFixed(2)}</text>
-    )
-  }
-
-  // Starting capital reference line
-  const startY = pad.top + plotH - ((DEFAULT_CAPITAL - yMin) / yRange) * plotH
-
-  // X-axis labels (first, middle, last trade date from the longer series)
-  const longerSeries = v14Points.length >= mlPoints.length ? v14Points : mlPoints
-  const xLabels = []
-  const labelIndices = [0, Math.floor((longerSeries.length - 1) / 2), longerSeries.length - 1]
-  for (const idx of labelIndices) {
-    if (idx < longerSeries.length && longerSeries[idx].time) {
-      const x = pad.left + (idx / (maxLen - 1)) * plotW
-      const d = new Date(longerSeries[idx].time)
-      const label = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
-      xLabels.push(
-        <text key={`xl${idx}`} x={x} y={H - 4} fill="#888" fontSize="9" textAnchor="middle">
-          {label}
-        </text>
-      )
+    function toChartData(points) {
+      const data = []
+      for (const p of points) {
+        if (!p.time) continue
+        const d = new Date(p.time)
+        if (isNaN(d.getTime())) continue
+        const ts = Math.floor(d.getTime() / 1000)
+        data.push({ time: ts, value: Math.round(p.value * 100) / 100 })
+      }
+      const deduped = []
+      for (let i = 0; i < data.length; i++) {
+        if (i === data.length - 1 || data[i].time !== data[i + 1].time) {
+          deduped.push(data[i])
+        }
+      }
+      return deduped
     }
-  }
+
+    const v14Data = toChartData(v14Points)
+    const mlData = toChartData(mlPoints)
+
+    if (v14Data.length > 0) v14Series.setData(v14Data)
+    if (mlData.length > 0) mlSeries.setData(mlData)
+
+    const allData = [...v14Data, ...mlData]
+    if (allData.length >= 2) {
+      const minTime = Math.min(...allData.map(d => d.time))
+      const maxTime = Math.max(...allData.map(d => d.time))
+      refLine.setData([
+        { time: minTime, value: DEFAULT_CAPITAL },
+        { time: maxTime, value: DEFAULT_CAPITAL },
+      ])
+    }
+
+    chart.timeScale().fitContent()
+    chartRef.current = chart
+
+    const handleResize = () => {
+      if (containerRef.current) {
+        chart.applyOptions({ width: containerRef.current.clientWidth })
+      }
+    }
+    window.addEventListener('resize', handleResize)
+
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      chart.remove()
+    }
+  }, [v14Points.length, mlPoints.length])
 
   return (
     <div className="rp-wallet-chart">
-      <div className="rp-wallet-legend">
-        <span className="rp-wallet-legend-item">
-          <span className="rp-legend-dot" style={{ backgroundColor: '#3b82f6' }} />
-          V1.4
-        </span>
-        <span className="rp-wallet-legend-item">
-          <span className="rp-legend-dot" style={{ backgroundColor: '#8b5cf6' }} />
-          ML
-        </span>
-      </div>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="150" preserveAspectRatio="xMidYMid meet">
-        {gridLines}
-        {gridLabels}
-        {/* Starting capital line */}
-        <line x1={pad.left} x2={W - pad.right} y1={startY} y2={startY}
-          stroke="#555" strokeWidth="1" strokeDasharray="6,3" />
-        <text x={W - pad.right + 2} y={startY + 3} fill="#666" fontSize="8">$5</text>
-        {/* V1.4 line */}
-        {v14Points.length >= 2 && (
-          <polyline points={toPolyline(v14Points)} fill="none" stroke="#3b82f6"
-            strokeWidth="1.8" strokeLinejoin="round" />
-        )}
-        {/* ML line */}
-        {mlPoints.length >= 2 && (
-          <polyline points={toPolyline(mlPoints)} fill="none" stroke="#8b5cf6"
-            strokeWidth="1.8" strokeLinejoin="round" />
-        )}
-        {xLabels}
-      </svg>
+      <div ref={containerRef} style={{ width: '100%' }} />
     </div>
   )
 }

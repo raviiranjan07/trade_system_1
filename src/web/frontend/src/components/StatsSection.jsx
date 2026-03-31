@@ -11,8 +11,8 @@ function StatsSection({ stats, risk, ml, trades, mlTrades }) {
     const wins = mlTrades.filter(t => (t.net_profit_bps || 0) > 0).length
     const losses = mlTrades.length - wins
     const totalBps = mlTrades.reduce((s, t) => s + (t.net_profit_bps || 0), 0)
-    const grossWin = mlTrades.filter(t => (t.net_profit_bps || 0) > 0).reduce((s, t) => s + t.net_profit_bps, 0)
-    const grossLoss = Math.abs(mlTrades.filter(t => (t.net_profit_bps || 0) <= 0).reduce((s, t) => s + t.net_profit_bps, 0))
+    const grossWin = mlTrades.filter(t => (t.net_profit_bps || 0) > 0).reduce((s, t) => s + (t.net_profit_bps || 0), 0)
+    const grossLoss = Math.abs(mlTrades.filter(t => (t.net_profit_bps || 0) <= 0).reduce((s, t) => s + (t.net_profit_bps || 0), 0))
     displayStats = {
       total_trades: mlTrades.length,
       wins,

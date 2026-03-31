@@ -4,6 +4,9 @@
   box-sizing: border-box;
 }
 
+/* Hide TradingView watermark */
+a[href*="tradingview.com"] { display: none !important; }
+
 :root {
   --bg-primary: #0b0f15;
   --bg-secondary: #141b22;
@@ -3190,9 +3193,19 @@ body {
   margin-bottom: 16px;
 }
 .db-pos-side {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 800;
   letter-spacing: 1px;
+  padding: 4px 14px;
+  border-radius: 6px;
+}
+.db-pos-side.positive {
+  background: rgba(0, 217, 126, 0.15);
+  color: #00d97e;
+}
+.db-pos-side.negative {
+  background: rgba(230, 55, 87, 0.15);
+  color: #e63757;
 }
 .db-pos-re {
   padding: 2px 8px;
@@ -3220,15 +3233,18 @@ body {
 }
 .db-pos-stat {
   text-align: center;
-  padding: 10px;
-  background: rgba(255,255,255,0.02);
+  padding: 12px 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.05);
   border-radius: 8px;
 }
 .db-pos-stat-value {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: #c9d1d9;
 }
+.db-pos-stat-value.positive { color: #00d97e; }
+.db-pos-stat-value.negative { color: #e63757; }
 .db-pos-stat-label {
   font-size: 10px;
   color: #8892a0;

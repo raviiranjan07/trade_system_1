@@ -51,8 +51,8 @@ function PerformancePanel({ trades, mlTrades }) {
     // --- Avg win / loss ---
     const winners = sorted.filter(t => (t.net_profit_bps || 0) > 0)
     const losers = sorted.filter(t => (t.net_profit_bps || 0) <= 0)
-    const avgWin = winners.length > 0 ? winners.reduce((s, t) => s + t.net_profit_bps, 0) / winners.length : 0
-    const avgLoss = losers.length > 0 ? losers.reduce((s, t) => s + t.net_profit_bps, 0) / losers.length : 0
+    const avgWin = winners.length > 0 ? winners.reduce((s, t) => s + (t.net_profit_bps || 0), 0) / winners.length : 0
+    const avgLoss = losers.length > 0 ? losers.reduce((s, t) => s + (t.net_profit_bps || 0), 0) / losers.length : 0
 
     // --- Streaks ---
     let maxWinStreak = 0, maxLossStreak = 0, curWin = 0, curLoss = 0

@@ -119,6 +119,13 @@ class MLData:
     ml_has_position: bool = False
     ml_position_side: Optional[str] = None
     ml_position_pnl_bps: float = 0.0
+    ml_position_entry_price: float = 0.0
+    ml_position_trailing_stop_bps: float = 0.0
+    ml_position_highest_profit_bps: float = 0.0
+    ml_position_bars_held: int = 0
+    ml_position_max_bars: int = 10
+    ml_position_mfe_bps: float = 0.0
+    ml_position_mae_bps: float = 0.0
     ml_last_prob: float = 0.5
     ml_model_loaded: bool = False
     ml_drawdown_pct: float = 0.0

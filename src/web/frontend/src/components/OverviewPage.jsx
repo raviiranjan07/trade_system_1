@@ -198,6 +198,60 @@ function BotCard({ title, active, wallet, growth, totalBps, trades, winRate, dra
   )
 }
 
+function PositionBlock({ label, accentColor, side, entryPrice, currentPrice, pnlBps, mfeBps, maeBps, trailingStopBps, highestProfitBps, barsHeld, maxBars, isReentry }) {
+  const pnl = pnlBps || 0
+  const pc = pnl >= 0 ? 'positive' : 'negative'
+  const bh = barsHeld || 0
+  const mb = maxBars || 10
+
+  return (
+    <div style={{ borderLeft: `3px solid ${accentColor}`, paddingLeft: 12 }}>
+      <div className="db-pos-header">
+        <span style={{ color: accentColor, fontWeight: 700, fontSize: 12, marginRight: 8 }}>{label}</span>
+        <span className={`db-pos-side ${side === 'LONG' ? 'positive' : 'negative'}`}>
+          {side}
+        </span>
+        {isReentry && <span className="db-pos-re">RE-ENTRY</span>}
+        <span className="db-pos-entry">@ {formatPrice(entryPrice)}</span>
+        {currentPrice ? <span className="db-pos-current">Now: {formatPrice(currentPrice)}</span> : null}
+      </div>
+
+      <div className="db-pos-stats">
+        <div className="db-pos-stat">
+          <div className={`db-pos-stat-value ${pc}`} style={{ fontSize: 24 }}>
+            {formatBps(pnl)} bps
+          </div>
+          <div className="db-pos-stat-label">Current P&L</div>
+        </div>
+        <div className="db-pos-stat">
+          <div className="db-pos-stat-value positive">{formatBps(mfeBps)}</div>
+          <div className="db-pos-stat-label">MFE</div>
+        </div>
+        <div className="db-pos-stat">
+          <div className="db-pos-stat-value negative">{formatBps(maeBps)}</div>
+          <div className="db-pos-stat-label">MAE</div>
+        </div>
+        <div className="db-pos-stat">
+          <div className="db-pos-stat-value">{trailingStopBps || '---'} bps</div>
+          <div className="db-pos-stat-label">Trailing Stop</div>
+        </div>
+        <div className="db-pos-stat">
+          <div className="db-pos-stat-value positive">{formatBps(highestProfitBps)}</div>
+          <div className="db-pos-stat-label">Peak Profit</div>
+        </div>
+      </div>
+
+      <div className="db-pos-bar-section">
+        <div className="db-pos-bar-label">
+          <span>Bar {bh} / {mb}</span>
+          <span>{bh >= mb ? 'TIME EXIT' : `${mb - bh} bars left`}</span>
+        </div>
+        <ProgressBar value={bh} max={mb} color={bh >= mb - 1 ? '#e63757' : bh >= mb - 3 ? '#f59e0b' : accentColor} />
+      </div>
+    </div>
+  )
+}
+
 function OverviewPage({ stats, risk, ml, trades, mlTrades, status, position }) {
   const v14Wallet = risk?.wallet_usd ?? 0
   const mlWallet = ml?.ml_wallet_usd ?? 0
@@ -208,7 +262,9 @@ function OverviewPage({ stats, risk, ml, trades, mlTrades, status, position }) {
   const todayTotalBps = todayV14Bps + todayMlBps
   const todayTrades = (trades || []).filter(t => isToday(t.exit_time)).length + (mlTrades || []).filter(t => isToday(t.exit_time)).length
 
-  const activePositions = position?.has_position ? 1 : 0
+  const v14HasPos = position?.has_position ?? false
+  const mlHasPos = ml?.ml_has_position ?? false
+  const activePositions = (v14HasPos ? 1 : 0) + (mlHasPos ? 1 : 0)
 
   const v14TotalBps = stats?.total_bps ?? 0
   const v14Trades = stats?.total_trades ?? 0
@@ -225,12 +281,26 @@ function OverviewPage({ stats, risk, ml, trades, mlTrades, status, position }) {
   const mlLastTrade = mlTrades && mlTrades.length > 0 ? mlTrades[0] : null
   const mlActive = ml?.ml_model_loaded ?? false
 
+  // V1.4 position
   const pos = position || {}
   const pnlBps = pos.current_pnl_bps || 0
   const pnlClass = pnlBps >= 0 ? 'positive' : 'negative'
   const barsHeld = pos.bars_held || 0
   const maxBars = pos.max_bars || 10
-  const barsPct = Math.min((barsHeld / maxBars) * 100, 100)
+
+  // ML position
+  const mlPos = {
+    has_position: ml?.ml_has_position ?? false,
+    side: ml?.ml_position_side,
+    entry_price: ml?.ml_position_entry_price ?? 0,
+    current_pnl_bps: ml?.ml_position_pnl_bps ?? 0,
+    trailing_stop_bps: ml?.ml_position_trailing_stop_bps ?? 0,
+    highest_profit_bps: ml?.ml_position_highest_profit_bps ?? 0,
+    bars_held: ml?.ml_position_bars_held ?? 0,
+    max_bars: ml?.ml_position_max_bars ?? 10,
+    mfe_bps: ml?.ml_position_mfe_bps ?? 0,
+    mae_bps: ml?.ml_position_mae_bps ?? 0,
+  }
 
   return (
     <div className="db-page">
@@ -298,54 +368,45 @@ function OverviewPage({ stats, risk, ml, trades, mlTrades, status, position }) {
         />
       </div>
 
-      {/* Active Position */}
+      {/* Active Positions */}
       <div className="db-trades-card">
-        <div className="db-trades-header">Active Position</div>
-        {!pos.has_position ? (
-          <div className="db-trades-empty">No open position</div>
+        <div className="db-trades-header">Active Positions</div>
+        {!v14HasPos && !mlHasPos ? (
+          <div className="db-trades-empty">No open positions</div>
         ) : (
-          <div className="db-position">
-            <div className="db-pos-header">
-              <span className={`db-pos-side ${pos.side === 'LONG' ? 'positive' : 'negative'}`}>
-                {pos.side}
-              </span>
-              {pos.is_reentry && <span className="db-pos-re">RE-ENTRY</span>}
-              <span className="db-pos-entry">@ {formatPrice(pos.entry_price)}</span>
-              <span className="db-pos-current">Now: {formatPrice(pos.current_price)}</span>
-            </div>
-
-            <div className="db-pos-stats">
-              <div className="db-pos-stat">
-                <div className={`db-pos-stat-value ${pnlClass}`} style={{ fontSize: 24 }}>
-                  {formatBps(pnlBps)} bps
-                </div>
-                <div className="db-pos-stat-label">Current P&L</div>
-              </div>
-              <div className="db-pos-stat">
-                <div className="db-pos-stat-value positive">{formatBps(pos.mfe_bps)}</div>
-                <div className="db-pos-stat-label">MFE</div>
-              </div>
-              <div className="db-pos-stat">
-                <div className="db-pos-stat-value negative">{formatBps(pos.mae_bps)}</div>
-                <div className="db-pos-stat-label">MAE</div>
-              </div>
-              <div className="db-pos-stat">
-                <div className="db-pos-stat-value">{pos.trailing_stop_bps || '---'} bps</div>
-                <div className="db-pos-stat-label">Trailing Stop</div>
-              </div>
-              <div className="db-pos-stat">
-                <div className="db-pos-stat-value">{formatBps(pos.highest_profit_bps)}</div>
-                <div className="db-pos-stat-label">Peak Profit</div>
-              </div>
-            </div>
-
-            <div className="db-pos-bar-section">
-              <div className="db-pos-bar-label">
-                <span>Bar {barsHeld} / {maxBars}</span>
-                <span>{barsHeld >= maxBars ? 'TIME EXIT' : `${maxBars - barsHeld} bars left`}</span>
-              </div>
-              <ProgressBar value={barsHeld} max={maxBars} color={barsHeld >= maxBars - 1 ? '#e63757' : barsHeld >= maxBars - 3 ? '#f59e0b' : '#3b82f6'} />
-            </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {v14HasPos && (
+              <PositionBlock
+                label="V1.4"
+                accentColor="#3b82f6"
+                side={pos.side}
+                entryPrice={pos.entry_price}
+                currentPrice={pos.current_price}
+                pnlBps={pnlBps}
+                mfeBps={pos.mfe_bps}
+                maeBps={pos.mae_bps}
+                trailingStopBps={pos.trailing_stop_bps}
+                highestProfitBps={pos.highest_profit_bps}
+                barsHeld={barsHeld}
+                maxBars={maxBars}
+                isReentry={pos.is_reentry}
+              />
+            )}
+            {mlHasPos && (
+              <PositionBlock
+                label="ML"
+                accentColor="#8b5cf6"
+                side={mlPos.side}
+                entryPrice={mlPos.entry_price}
+                pnlBps={mlPos.current_pnl_bps}
+                mfeBps={mlPos.mfe_bps}
+                maeBps={mlPos.mae_bps}
+                trailingStopBps={mlPos.trailing_stop_bps}
+                highestProfitBps={mlPos.highest_profit_bps}
+                barsHeld={mlPos.bars_held}
+                maxBars={mlPos.max_bars}
+              />
+            )}
           </div>
         )}
       </div>

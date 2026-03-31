@@ -56,14 +56,18 @@ class BullShortFilters(BaseModel):
 
 
 class ExitConfig(BaseModel):
-    """Exit mechanics. Source: EXP-001 (V1), EXP-009 (time exit validated)."""
+    """Exit mechanics. Source: EXP-5 V2 (frozen 2026-03-29)."""
     model_config = ConfigDict(frozen=True)
 
     long_trailing_stop_bps: float = Field(ge=5, le=100)
     short_trailing_stop_bps: float = Field(ge=5, le=100)
     max_bars: int = Field(ge=1, le=50)
-    tighten_after_bar: int = Field(ge=1, le=50)          # tighten trailing stop after this bar
-    tight_trailing_stop_bps: float = Field(ge=1, le=100)  # tighter stop value
+    tighten_after_bar: int = Field(ge=1, le=50)
+    tight_trailing_stop_bps: float = Field(ge=1, le=100)
+    early_cut_bar3_mfe: float = Field(ge=0, le=50)         # bar 3: exit if MFE < this
+    early_cut_bar4_mfe: float = Field(ge=0, le=50)         # bar 4: exit if MFE < this
+    breakeven_activation_mfe: float = Field(ge=0, le=200)   # activate BE lock when MFE >= this
+    breakeven_floor_gross_bps: float = Field(ge=0, le=100)  # BE floor: minimum exit gross bps
 
 
 class ReentryConfig(BaseModel):

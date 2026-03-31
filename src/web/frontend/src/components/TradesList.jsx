@@ -11,11 +11,14 @@ const SIGNAL_COLORS = {
 
 const REASON_STYLES = {
   TRAILING_STOP: { bg: 'rgba(0, 217, 126, 0.12)', color: '#00d97e', label: 'TS' },
+  TIGHT_TS: { bg: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6', label: 'TIGHT' },
   TIME_EXIT: { bg: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b', label: 'TIME' },
+  BE_LOCK: { bg: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6', label: 'BE' },
+  EARLY_CUT: { bg: 'rgba(230, 55, 87, 0.12)', color: '#e63757', label: 'EARLY' },
 }
 
 function TradesList({ trades, mlTrades }) {
-  const [filter, setFilter] = useState('All')
+  const [filter, setFilter] = useState('Combined')
   const [sortCol, setSortCol] = useState(null)
   const [sortDir, setSortDir] = useState('desc')
 
@@ -66,6 +69,7 @@ function TradesList({ trades, mlTrades }) {
     } else if (filter === 'ML') {
       merged = merged.filter(t => isML(t.signal_type))
     }
+    // 'Combined' shows all
 
     // Apply sort
     if (sortCol) {
@@ -108,7 +112,7 @@ function TradesList({ trades, mlTrades }) {
       <div className="card">
         <div className="card-header">Recent Trades</div>
         <div className="trades-filter-bar">
-          {['All', 'V1.4', 'ML'].map(f => (
+          {['Combined', 'V1.4', 'ML'].map(f => (
             <button
               key={f}
               className={`trades-filter-btn${filter === f ? ' active' : ''}`}
@@ -132,10 +136,11 @@ function TradesList({ trades, mlTrades }) {
                 <th className="sortable-header" onClick={() => handleSort('pnl')}>
                   P&L{sortIndicator('pnl')}
                 </th>
+                <th>Qty</th>
                 <th className="sortable-header" onClick={() => handleSort('bar')}>
                   Bar{sortIndicator('bar')}
                 </th>
-                <th>Exit</th>
+                <th>Reason</th>
                 <th className="sortable-header" onClick={() => handleSort('datetime')}>
                   Date{sortIndicator('datetime')}
                 </th>
@@ -159,7 +164,7 @@ function TradesList({ trades, mlTrades }) {
                       ) : '---'}
                     </td>
                     <td>
-                      <span className={`side-tag ${trade.direction?.toLowerCase()}`}>
+                      <span className={`side-tag ${(trade.direction || '').toLowerCase()}`}>
                         {trade.direction}
                       </span>
                       {trade.is_reentry && <span className="re-tag">RE</span>}
@@ -169,6 +174,7 @@ function TradesList({ trades, mlTrades }) {
                     <td className={`trade-pnl ${(trade.net_profit_bps || 0) >= 0 ? 'positive' : 'negative'}`}>
                       {formatBps(trade.net_profit_bps || 0)}
                     </td>
+                    <td className="trade-qty">{trade.qty ? Number(trade.qty).toFixed(4) : '---'}</td>
                     <td className="trade-bar">{trade.exit_bar || '---'}</td>
                     <td>
                       <span className="reason-tag" style={{ background: reasonStyle.bg, color: reasonStyle.color }}>

@@ -33,13 +33,17 @@ bull_short_filters:
   atr_percentile_min: 60     # only in high volatility (60th+ percentile)
   ema_separation_min: 1.0    # only when EMAs separated by 1%+
 
-# --- Exit Mechanics (EXP-001 + EXP-009: time exit validated, V1.3.1 tightening) ---
+# --- Exit Mechanics (EXP-5 V2: early cut + BE lock + tighter tightening) ---
 exit:
   long_trailing_stop_bps: 20   # 20 bps trailing stop for LONG
   short_trailing_stop_bps: 30  # 30 bps trailing stop for SHORT
   max_bars: 10                 # bar 10 time exit
-  tighten_after_bar: 5         # tighten trailing stop after bar 5 (V1.3.1)
-  tight_trailing_stop_bps: 8   # tighter stop: 8 bps after bar 5
+  tighten_after_bar: 4         # tighten after bar 4 (was 5)
+  tight_trailing_stop_bps: 6   # 6 bps after bar 4 (was 8)
+  early_cut_bar3_mfe: 3        # bar 3: exit if MFE < 3 bps
+  early_cut_bar4_mfe: 5        # bar 4: exit if MFE < 5 bps
+  breakeven_activation_mfe: 15 # BE lock when MFE >= 15 bps
+  breakeven_floor_gross_bps: 9 # BE floor: 9 bps gross (+1 net)
 
 # --- Re-entry (EXP-012: Config A+RE validated) ---
 reentry:

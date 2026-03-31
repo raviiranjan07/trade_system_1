@@ -1,9 +1,12 @@
-"""V1.3 Position Manager — Tracks open positions, handles exits and re-entry.
+"""V2 Position Manager — Tracks open positions, handles exits and re-entry.
 
-Exit mechanics (from experiments):
-  - Trailing stop: 20 bps LONG, 30 bps SHORT (EXP-001)
-  - Time exit: bar 10 (EXP-009 validated)
-  - Re-entry: 1 max, 2 bar cooldown after trailing stop (EXP-012)
+Exit mechanics (EXP-5 V2, frozen 2026-03-29):
+  - Trailing stop: 20 bps LONG, 30 bps SHORT
+  - Tighten: bar 4+ to 6 bps
+  - Early cut: bar 3 MFE<3, bar 4 MFE<5
+  - Breakeven lock: MFE>=15, floor 9 bps gross
+  - Time exit: bar 10
+  - Re-entry: 1 max, 2 bar cooldown after trailing stop
 """
 
 from dataclasses import dataclass, field
@@ -126,7 +129,12 @@ class V12PositionManager:
         if bar_mfe > pos.highest_profit_bps:
             pos.highest_profit_bps = bar_mfe
 
-        # Check trailing stop (tighten after configured bar — V1.3.1)
+        # Breakeven lock: activate when MFE >= threshold
+        be_activation = self.cfg.exit.breakeven_activation_mfe
+        be_floor = self.cfg.exit.breakeven_floor_gross_bps
+        be_active = pos.highest_profit_bps >= be_activation
+
+        # Trailing stop (tighten after configured bar)
         tighten_bar = self.cfg.exit.tighten_after_bar
         if pos.bars_held > tighten_bar:
             active_trailing = self.cfg.exit.tight_trailing_stop_bps
@@ -136,10 +144,24 @@ class V12PositionManager:
         drawdown = pos.highest_profit_bps - bar_close_pnl
         if drawdown >= active_trailing and pos.highest_profit_bps > 0:
             exit_profit = pos.highest_profit_bps - active_trailing
+            if be_active and exit_profit < be_floor:
+                exit_profit = be_floor
             reason = "TIGHT_TS" if pos.bars_held > tighten_bar else "TRAILING_STOP"
             return self._close_position(exit_profit, bar_time, bar_index, reason)
 
-        # Check time exit
+        # Breakeven lock exit: if PnL drops to floor after activation
+        if be_active and bar_close_pnl <= be_floor:
+            return self._close_position(be_floor, bar_time, bar_index, "BE_LOCK")
+
+        # Early cut: dead trades that never moved
+        early_cut_bar3 = self.cfg.exit.early_cut_bar3_mfe
+        early_cut_bar4 = self.cfg.exit.early_cut_bar4_mfe
+        if pos.bars_held == 3 and pos.highest_profit_bps < early_cut_bar3:
+            return self._close_position(bar_close_pnl, bar_time, bar_index, "EARLY_CUT")
+        if pos.bars_held == 4 and pos.highest_profit_bps < early_cut_bar4:
+            return self._close_position(bar_close_pnl, bar_time, bar_index, "EARLY_CUT")
+
+        # Time exit
         if pos.bars_held >= pos.max_bars:
             return self._close_position(bar_close_pnl, bar_time, bar_index, "TIME_EXIT")
 

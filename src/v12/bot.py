@@ -752,6 +752,36 @@ class V12Bot:
             is_reentry=pos.is_reentry,
         )
 
+    def _push_ml_position_to_dashboard(self, close_price: float) -> None:
+        """Push ML position state to dashboard."""
+        if not self._dashboard or not self._ml_pm.position:
+            return
+
+        pos = self._ml_pm.position
+        if pos.direction == Direction.LONG:
+            current_pnl = (close_price - pos.entry_price) / pos.entry_price * 10000
+        else:
+            current_pnl = (pos.entry_price - close_price) / pos.entry_price * 10000
+
+        tighten_bar = self.cfg.exit.tighten_after_bar
+        if pos.bars_held > tighten_bar:
+            active_ts = self.cfg.exit.tight_trailing_stop_bps
+        else:
+            active_ts = pos.trailing_stop_bps
+
+        self._dashboard.update_ml(
+            ml_has_position=True,
+            ml_position_side=pos.direction.value,
+            ml_position_pnl_bps=round(current_pnl, 1),
+            ml_position_entry_price=pos.entry_price,
+            ml_position_trailing_stop_bps=active_ts,
+            ml_position_highest_profit_bps=round(pos.highest_profit_bps, 1),
+            ml_position_bars_held=pos.bars_held,
+            ml_position_max_bars=pos.max_bars,
+            ml_position_mfe_bps=round(pos.mfe_bps, 1),
+            ml_position_mae_bps=round(pos.mae_bps, 1),
+        )
+
     async def start(self) -> None:
         """Start the bot with Binance WebSocket."""
         # Load connector directly — bypass live/__init__.py (old orchestrator imports)
@@ -931,6 +961,8 @@ class V12Bot:
                 self._log_ml_trade(ml_trade)
                 self._update_ml_risk_after_trade(ml_trade)
                 self._push_ml_trade_to_dashboard(ml_trade)
+                # Clear ML position from dashboard
+                self._dashboard.update_ml(ml_has_position=False, ml_position_side=None)
                 logger.info(
                     "[ML] CLOSED %s (%s) | %s | %+.1f bps | bar %d | %s",
                     ml_trade.direction,
@@ -940,6 +972,9 @@ class V12Bot:
                     ml_trade.exit_bar,
                     bar_time,
                 )
+            else:
+                # Still in position — push live ML position data
+                self._push_ml_position_to_dashboard(candle["close"])
 
         # === ML: If not in ML position, check for ML signal ===
         if self._ml_gen.loaded and not self._ml_pm.is_in_position:
