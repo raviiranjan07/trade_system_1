@@ -963,8 +963,19 @@ class V12Bot:
                 self._log_ml_trade(ml_trade)
                 self._update_ml_risk_after_trade(ml_trade)
                 self._push_ml_trade_to_dashboard(ml_trade)
-                # Clear ML position from dashboard
-                self._dashboard.update_ml(ml_has_position=False, ml_position_side=None)
+                # Clear ALL ML position fields from dashboard
+                self._dashboard.update_ml(
+                    ml_has_position=False,
+                    ml_position_side=None,
+                    ml_position_pnl_bps=0.0,
+                    ml_position_entry_price=0.0,
+                    ml_position_trailing_stop_bps=0.0,
+                    ml_position_highest_profit_bps=0.0,
+                    ml_position_bars_held=0,
+                    ml_position_max_bars=10,
+                    ml_position_mfe_bps=0.0,
+                    ml_position_mae_bps=0.0,
+                )
                 logger.info(
                     "[ML] CLOSED %s (%s) | %s | %+.1f bps | bar %d | %s",
                     ml_trade.direction,
@@ -1014,6 +1025,19 @@ class V12Bot:
                         signal_time=ml_signal.timestamp,
                     )
                     self._push_ml_to_dashboard()
+                    # Push fresh position data immediately (not stale from previous trade)
+                    self._dashboard.update_ml(
+                        ml_has_position=True,
+                        ml_position_side=ml_signal.direction.value,
+                        ml_position_pnl_bps=0.0,
+                        ml_position_entry_price=current_price,
+                        ml_position_trailing_stop_bps=20 if ml_signal.direction == Direction.LONG else 30,
+                        ml_position_highest_profit_bps=0.0,
+                        ml_position_bars_held=0,
+                        ml_position_max_bars=self.cfg.exit.max_bars,
+                        ml_position_mfe_bps=0.0,
+                        ml_position_mae_bps=0.0,
+                    )
                     logger.info(
                         "[ML] ENTRY %s (%s) @ %.2f | prob=%.3f | %s",
                         ml_signal.direction.value,

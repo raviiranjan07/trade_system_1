@@ -371,7 +371,6 @@ class DashboardState:
                 pnl_usd=trade.get("pnl_usd", 0.0),
             )
             self._trades.insert(0, trade_data)
-            self._trades = self._trades[:50]
 
         self._broadcast_update()
 
@@ -456,9 +455,10 @@ class DashboardState:
         with self._lock:
             return asdict(self._stats)
 
-    def get_trades(self, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_trades(self, limit: int = 0) -> List[Dict[str, Any]]:
         with self._lock:
-            return [asdict(t) for t in self._trades[:limit]]
+            trades = self._trades if limit <= 0 else self._trades[:limit]
+            return [asdict(t) for t in trades]
 
     def get_signals(self, limit: int = 20) -> List[Dict[str, Any]]:
         with self._lock:
@@ -540,13 +540,13 @@ class DashboardState:
                 qty=trade_dict.get("qty", 0.0),
             )
             self._ml_trades.insert(0, td)
-            if len(self._ml_trades) > 100:
-                self._ml_trades = self._ml_trades[:100]
+            # No cap — store all trades
         self._broadcast_update()
 
-    def get_ml_trades(self, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_ml_trades(self, limit: int = 0) -> List[Dict[str, Any]]:
         with self._lock:
-            return [asdict(t) for t in self._ml_trades[:limit]]
+            trades = self._ml_trades if limit <= 0 else self._ml_trades[:limit]
+            return [asdict(t) for t in trades]
 
     def get_all(self) -> Dict[str, Any]:
         """Get all dashboard data. Excludes candles (too large for WS broadcast)."""
@@ -555,13 +555,13 @@ class DashboardState:
             "status": self.get_status(),
             "position": self.get_position(),
             "stats": self.get_stats(),
-            "trades": self.get_trades(limit=50),
+            "trades": self.get_trades(limit=0),
             "signals": self.get_signals(),
             "config": self.get_config(),
             "proximity": self.get_proximity(),
             "risk": self.get_risk(),
             "ml": self.get_ml(),
-            "ml_trades": self.get_ml_trades(limit=20),
+            "ml_trades": self.get_ml_trades(limit=0),
         }
 
     def register_ws_client(self, queue: asyncio.Queue) -> None:
