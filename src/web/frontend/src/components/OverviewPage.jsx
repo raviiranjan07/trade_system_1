@@ -122,7 +122,7 @@ function PnlBar({ bps, maxBps = 500 }) {
   )
 }
 
-function BotCard({ title, active, wallet, growth, totalBps, trades, winRate, drawdown, lastTrade, accentColor, tradeHistory }) {
+function BotCard({ title, active, wallet, growth, totalBps, trades, winRate, drawdown, lastTrade, accentColor, tradeHistory, prediction }) {
   const growthNum = Number(growth)
   const ddPct = (drawdown * 100)
   const ddColor = ddPct > 15 ? '#e63757' : ddPct > 5 ? '#f59e0b' : '#00d97e'
@@ -194,11 +194,43 @@ function BotCard({ title, active, wallet, growth, totalBps, trades, winRate, dra
           <span className="db-last-label">No trades yet</span>
         )}
       </div>
+
+      {/* ML Prediction (only for ML card) */}
+      {prediction && (
+        <div className="db-prediction">
+          <div className="db-prediction-header">ML Prediction</div>
+          <div className="db-prediction-row">
+            <span className="db-prediction-label" style={{ color: '#00d97e' }}>LONG</span>
+            <div className="db-prediction-bar-track">
+              <div className="db-prediction-bar-fill" style={{
+                width: `${prediction.longPct}%`,
+                background: prediction.longPct > 60 ? '#00d97e' : 'rgba(0, 217, 126, 0.3)',
+              }} />
+            </div>
+            <span className="db-prediction-pct">{prediction.longPct.toFixed(1)}%</span>
+          </div>
+          <div className="db-prediction-row">
+            <span className="db-prediction-label" style={{ color: '#e63757' }}>SHORT</span>
+            <div className="db-prediction-bar-track">
+              <div className="db-prediction-bar-fill" style={{
+                width: `${prediction.shortPct}%`,
+                background: prediction.shortPct > 65 ? '#e63757' : 'rgba(230, 55, 87, 0.3)',
+              }} />
+            </div>
+            <span className="db-prediction-pct">{prediction.shortPct.toFixed(1)}%</span>
+          </div>
+          {prediction.status && (
+            <div className={`db-prediction-status ${prediction.status.includes('SIGNAL') ? 'db-prediction-signal' : ''}`}>
+              {prediction.status}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
 
-function PositionBlock({ label, accentColor, side, entryPrice, currentPrice, pnlBps, mfeBps, maeBps, trailingStopBps, highestProfitBps, barsHeld, maxBars, isReentry }) {
+function PositionBlock({ label, accentColor, side, entryPrice, currentPrice, pnlBps, mfeBps, maeBps, trailingStopBps, highestProfitBps, barsHeld, maxBars, isReentry, liqPrice }) {
   const pnl = pnlBps || 0
   const pc = pnl >= 0 ? 'positive' : 'negative'
   const bh = barsHeld || 0
@@ -238,6 +270,10 @@ function PositionBlock({ label, accentColor, side, entryPrice, currentPrice, pnl
         <div className="db-pos-stat">
           <div className="db-pos-stat-value positive">{formatBps(highestProfitBps)}</div>
           <div className="db-pos-stat-label">Peak Profit</div>
+        </div>
+        <div className="db-pos-stat">
+          <div className="db-pos-stat-value negative">{liqPrice ? formatPrice(liqPrice) : '---'}</div>
+          <div className="db-pos-stat-label">Liq Price</div>
         </div>
       </div>
 
@@ -300,6 +336,7 @@ function OverviewPage({ stats, risk, ml, trades, mlTrades, status, position }) {
     max_bars: ml?.ml_position_max_bars ?? 10,
     mfe_bps: ml?.ml_position_mfe_bps ?? 0,
     mae_bps: ml?.ml_position_mae_bps ?? 0,
+    liq_price: ml?.ml_position_liq_price ?? 0,
   }
 
   return (
@@ -365,6 +402,11 @@ function OverviewPage({ stats, risk, ml, trades, mlTrades, status, position }) {
           lastTrade={mlLastTrade}
           accentColor="#8b5cf6"
           tradeHistory={mlTrades}
+          prediction={{
+            longPct: ml?.ml_long_pct ?? 50,
+            shortPct: ml?.ml_short_pct ?? 50,
+            status: ml?.ml_signal_status ?? '',
+          }}
         />
       </div>
 
@@ -390,6 +432,7 @@ function OverviewPage({ stats, risk, ml, trades, mlTrades, status, position }) {
                 barsHeld={barsHeld}
                 maxBars={maxBars}
                 isReentry={pos.is_reentry}
+                liqPrice={pos.liq_price}
               />
             )}
             {mlHasPos && (
@@ -405,6 +448,7 @@ function OverviewPage({ stats, risk, ml, trades, mlTrades, status, position }) {
                 highestProfitBps={mlPos.highest_profit_bps}
                 barsHeld={mlPos.bars_held}
                 maxBars={mlPos.max_bars}
+                liqPrice={mlPos.liq_price}
               />
             )}
           </div>

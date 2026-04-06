@@ -44,6 +44,7 @@ class PositionData:
     mfe_bps: float = 0
     mae_bps: float = 0
     is_reentry: bool = False
+    liq_price: float = 0.0
 
 
 @dataclass
@@ -77,6 +78,7 @@ class TradeData:
     entry_time: Optional[str] = None
     qty: float = 0.0
     pnl_usd: float = 0.0
+    liq_price: float = 0.0
 
 
 @dataclass
@@ -126,7 +128,11 @@ class MLData:
     ml_position_max_bars: int = 10
     ml_position_mfe_bps: float = 0.0
     ml_position_mae_bps: float = 0.0
+    ml_position_liq_price: float = 0.0
     ml_last_prob: float = 0.5
+    ml_long_pct: float = 50.0
+    ml_short_pct: float = 50.0
+    ml_signal_status: str = ""
     ml_model_loaded: bool = False
     ml_drawdown_pct: float = 0.0
     ml_health_multiplier: float = 1.0
@@ -369,6 +375,7 @@ class DashboardState:
                 entry_time=trade.get("entry_time", ""),
                 qty=trade.get("qty", 0.0),
                 pnl_usd=trade.get("pnl_usd", 0.0),
+                liq_price=trade.get("liq_price", 0.0),
             )
             self._trades.insert(0, trade_data)
 
@@ -538,6 +545,7 @@ class DashboardState:
                 exit_time=trade_dict.get("exit_time", ""),
                 entry_time=trade_dict.get("entry_time", ""),
                 qty=trade_dict.get("qty", 0.0),
+                liq_price=trade_dict.get("liq_price", 0.0),
             )
             self._ml_trades.insert(0, td)
             # No cap — store all trades

@@ -3122,6 +3122,63 @@ body {
 .db-last-value { font-weight: 700; }
 .db-last-time { color: #8892a0; font-size: 11px; }
 
+/* ML Prediction */
+.db-prediction {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.db-prediction-header {
+  font-size: 10px;
+  color: #8892a0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+.db-prediction-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.db-prediction-label {
+  font-size: 11px;
+  font-weight: 700;
+  width: 42px;
+  flex-shrink: 0;
+}
+.db-prediction-bar-track {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.06);
+  overflow: hidden;
+}
+.db-prediction-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+.db-prediction-pct {
+  font-size: 12px;
+  font-weight: 700;
+  color: #c9d1d9;
+  width: 48px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.db-prediction-status {
+  font-size: 11px;
+  color: #8892a0;
+  margin-top: 4px;
+  text-align: center;
+}
+.db-prediction-signal {
+  color: #00d97e;
+  font-weight: 700;
+  animation: pulse 1.5s infinite;
+}
+
 /* Recent Trades Card */
 .db-trades-card {
   background: #141b22;

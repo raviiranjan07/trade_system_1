@@ -28,6 +28,7 @@ from .strategy import V12Strategy, Direction, Signal, SignalType
 from .risk.risk_calculator import RiskCalculator, RiskConfig, RiskDecision
 from .risk.account_health import AccountHealthMonitor, HealthConfig
 from .risk.exchange_constants import DEFAULT_CAPITAL
+from .risk.exchange_math import calc_liq_distance_bps
 from .risk.tests.decision_logger import DecisionLogger
 from .risk.tests.preflight import run_preflight
 
@@ -36,6 +37,17 @@ logger = logging.getLogger(__name__)
 # Need 200+ bars for SMA200 warm-up + margin
 MIN_BUFFER_SIZE = 300
 BUFFER_SIZE = 500
+
+
+def _calc_liq_price(entry_price: float, direction: str, wallet: float, qty: float) -> float:
+    """Calculate liquidation price from entry, direction, wallet, qty."""
+    if qty <= 0:
+        return 0.0
+    liq_dist_bps = calc_liq_distance_bps(wallet, qty, entry_price)
+    if direction == "LONG":
+        return round(entry_price * (1 - liq_dist_bps / 10000), 2)
+    else:
+        return round(entry_price * (1 + liq_dist_bps / 10000), 2)
 
 
 
@@ -482,6 +494,7 @@ class V12Bot:
         """Push completed ML trade to dashboard."""
         if not self._dashboard:
             return
+        liq_price = _calc_liq_price(trade.entry_price, trade.direction, self._ml_wallet, self._ml_qty)
         self._dashboard.add_ml_trade({
             "direction": trade.direction,
             "signal_type": trade.signal_type,
@@ -496,6 +509,7 @@ class V12Bot:
             "exit_time": str(trade.exit_time),
             "entry_time": str(trade.entry_time),
             "qty": self._ml_qty,
+            "liq_price": liq_price,
         })
         # Update ML stats
         ml_trades = self._ml_pm.trades
@@ -535,6 +549,7 @@ class V12Bot:
             return
 
         pnl_usd = self._current_qty * trade.entry_price * (trade.net_profit_bps / 10000) if self._current_qty > 0 else 0
+        liq_price = _calc_liq_price(trade.entry_price, trade.direction, self._wallet, self._current_qty)
         self._dashboard.add_trade({
             "trade_id": f"{trade.direction[0]}{self._bar_count}",
             "direction": trade.direction,
@@ -550,6 +565,7 @@ class V12Bot:
             "exit_time": str(trade.exit_time),
             "qty": self._current_qty,
             "pnl_usd": round(pnl_usd, 4),
+            "liq_price": liq_price,
         })
 
         # Clear position
@@ -740,6 +756,8 @@ class V12Bot:
         else:
             active_ts = pos.trailing_stop_bps
 
+        liq_price = _calc_liq_price(pos.entry_price, pos.direction.value, self._wallet, self._current_qty)
+
         self._dashboard.update_position(
             has_position=True,
             side=pos.direction.value,
@@ -752,6 +770,7 @@ class V12Bot:
             mfe_bps=round(pos.mfe_bps, 1),
             mae_bps=round(pos.mae_bps, 1),
             is_reentry=pos.is_reentry,
+            liq_price=liq_price,
         )
 
     def _push_ml_position_to_dashboard(self, close_price: float) -> None:
@@ -771,6 +790,8 @@ class V12Bot:
         else:
             active_ts = pos.trailing_stop_bps
 
+        liq_price = _calc_liq_price(pos.entry_price, pos.direction.value, self._ml_wallet, self._ml_qty)
+
         self._dashboard.update_ml(
             ml_has_position=True,
             ml_position_side=pos.direction.value,
@@ -782,6 +803,7 @@ class V12Bot:
             ml_position_max_bars=pos.max_bars,
             ml_position_mfe_bps=round(pos.mfe_bps, 1),
             ml_position_mae_bps=round(pos.mae_bps, 1),
+            ml_position_liq_price=liq_price,
         )
 
     async def start(self) -> None:
@@ -1003,6 +1025,13 @@ class V12Bot:
                     status = ">>> ML_SHORT SIGNAL <<<"
                 else:
                     status = "NO TRADE (not confident)"
+                # Push prediction to dashboard
+                self._dashboard.update_ml(
+                    ml_last_prob=ml_prob,
+                    ml_long_pct=round(long_pct, 1),
+                    ml_short_pct=round(short_pct, 1),
+                    ml_signal_status=status,
+                )
                 logger.info(
                     "[ML] LONG=%.1f%% SHORT=%.1f%% | %s",
                     long_pct, short_pct, status,

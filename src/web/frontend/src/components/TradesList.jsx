@@ -137,6 +137,7 @@ function TradesList({ trades, mlTrades }) {
                   P&L{sortIndicator('pnl')}
                 </th>
                 <th>Qty</th>
+                <th>Liq Price</th>
                 <th className="sortable-header" onClick={() => handleSort('bar')}>
                   Bar{sortIndicator('bar')}
                 </th>
@@ -175,6 +176,7 @@ function TradesList({ trades, mlTrades }) {
                       {formatBps(trade.net_profit_bps || 0)}
                     </td>
                     <td className="trade-qty">{trade.qty ? Number(trade.qty).toFixed(4) : '---'}</td>
+                    <td className="trade-price">{trade.liq_price ? formatPrice(trade.liq_price) : '---'}</td>
                     <td className="trade-bar">{trade.exit_bar || '---'}</td>
                     <td>
                       <span className="reason-tag" style={{ background: reasonStyle.bg, color: reasonStyle.color }}>
