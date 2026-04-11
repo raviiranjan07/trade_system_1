@@ -1,0 +1,52 @@
+{
+  "train_acc": 0.7569501041383682,
+  "val_acc": 0.498429648241206,
+  "test_acc": 0.5072919645410352,
+  "features_used": [
+    "support_range_low",
+    "support_range_high",
+    "resistance_range_low",
+    "resistance_range_high",
+    "zone_width",
+    "support_retest",
+    "resistance_retest",
+    "distance_to_support",
+    "distance_to_resistance",
+    "recovery_up",
+    "recovery_down",
+    "window_low",
+    "window_high"
+  ],
+  "num_features": 13,
+  "train_samples": 11043,
+  "val_samples": 6368,
+  "test_samples": 10491,
+  "best_iteration": 215,
+  "params": {
+    "objective": "multi:softprob",
+    "num_class": 4,
+    "max_depth": 5,
+    "learning_rate": 0.05,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "min_child_weight": 10,
+    "eval_metric": "mlogloss",
+    "seed": 42,
+    "verbosity": 1
+  },
+  "feature_importance": {
+    "distance_to_support": 59.44806671142578,
+    "distance_to_resistance": 19.01526641845703,
+    "zone_width": 3.0046403408050537,
+    "recovery_up": 2.48781681060791,
+    "support_retest": 2.4841208457946777,
+    "recovery_down": 2.4226086139678955,
+    "resistance_retest": 2.3740761280059814,
+    "support_range_high": 2.078922748565674,
+    "window_low": 2.043797016143799,
+    "resistance_range_high": 2.040031909942627,
+    "support_range_low": 1.9731959104537964,
+    "resistance_range_low": 1.969527006149292,
+    "window_high": 1.887880802154541
+  }
+}
