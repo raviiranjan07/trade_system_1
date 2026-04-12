@@ -1,0 +1,218 @@
+# Model Card: LSTM/GRU Direction Prediction
+# Tested during L2-003 Stage 3 investigation. Rejected — same accuracy as simpler MLP.
+
+name: lstm_gru_direction
+version: 1
+created: 2026-03-10
+status: REJECTED (same accuracy as MLP, more complex, no benefit)
+protocol: direction_prediction_v1
+data_card: l2_003_feature_cache
+
+# ============================================================
+# What the model does
+# ============================================================
+purpose: |
+  Same goal as MLP V1.5: predict LONG vs SHORT direction.
+  Tests whether sequential memory (LSTM/GRU) improves over single-bar MLP.
+  Hypothesis: feature trajectories over 8 lookback steps carry temporal signal.
+
+prediction:
+  type: binary classification (multi-task: MFE regression + direction)
+  output: mfe_up (8 horizons) + mfe_down (8 horizons) + direction logit
+  direction_interpretation:
+    "> 0.5 after sigmoid": LONG
+    "< 0.5 after sigmoid": SHORT
+
+# ============================================================
+# Architecture
+# ============================================================
+architecture:
+  type: LSTM (connected multi-task)
+  class_name: LSTMConnected
+  source_file: experiments/layer2/L2-003/stage_3/L2_003_stage3_mlp.py
+
+  layers:
+    - name: lstm
+      type: LSTM
+      input_size: 4
+      hidden_size: 128
+      num_layers: 1
+      batch_first: true
+      purpose: "Process 8-step sequence of [roc_diff, rsi_diff, rp_diff, sma200_diff]"
+
+    - name: dropout
+      type: Dropout
+      p: 0.5
+      purpose: "Regularization on hidden state"
+
+    - name: h_mfe_up
+      type: Linear
+      input_dim: 256  # hidden*2 (h + c concatenated)
+      output_dim: 8
+      purpose: "Predict upward MFE at horizons 1-8"
+
+    - name: h_mfe_down
+      type: Linear
+      input_dim: 256
+      output_dim: 8
+      purpose: "Predict downward MFE at horizons 1-8"
+
+    - name: h_dir
+      type: Linear
+      input_dim: 272  # 256 (h+c) + 8 (mfe_up) + 8 (mfe_down)
+      output_dim: 1
+      purpose: "Predict direction using hidden state + MFE predictions (connected)"
+
+  total_params: ~70000
+  # LSTM: 4*128*(4+128+2) = ~68,608
+  # h_mfe_up: 256*8+8 = 2,056
+  # h_mfe_down: 256*8+8 = 2,056
+  # h_dir: 272*1+1 = 273
+
+  diagram: |
+    Input: (batch, 8 steps, 4 features)
+         │
+         ▼
+    LSTM(4→128, 1 layer)
+         │
+         ├── h (128d) + c (128d) = hc (256d)
+         │
+         ▼
+    Dropout(0.5)
+         │
+         ├──► Linear(256→8) → mfe_up predictions
+         ├──► Linear(256→8) → mfe_down predictions
+         │
+         ▼
+    Concat [hc(256), mfe_up(8), mfe_down(8)] = 272d
+         │
+         ▼
+    Linear(272→1) → direction logit
+         │
+         ▼
+    Sigmoid → LONG / SHORT
+
+  key_design_choice: |
+    CONNECTED MULTI-TASK: Direction head sees MFE predictions.
+    This is how MAGNITUDE is modeled internally:
+      1. MFE UP head predicts "how far up?" (magnitude)
+      2. MFE DOWN head predicts "how far down?" (magnitude)
+      3. Direction head receives [hidden_state + mfe_up + mfe_down]
+      → Direction is INFORMED by magnitude predictions
+
+    The loss trains all three heads jointly:
+      loss = MSE(mfe_up) + MSE(mfe_down) + 5.0 × BCE(direction)
+    Direction is weighted 5× (primary task). MFE is auxiliary.
+
+    Result: MFE prediction works (pred_mean ≈ actual_mean) but the model
+    predicts mfe_up ≈ mfe_down for every bar — it learns magnitude but
+    NOT directional asymmetry. The connected signal adds nothing because
+    both MFE heads output the same value.
+
+    NOTE: This connected architecture was DROPPED in the V1.5 production
+    model (MLPBinaryDir), which has no MFE heads at all. Production only
+    predicts direction from 10 features, with no magnitude modeling.
+
+# ============================================================
+# Input features
+# ============================================================
+input:
+  n_features: 4 per step (diff features)
+  n_steps: 8
+  shape: [8, 4]
+  note: "Each step is a DIFFERENCE between current bar and N bars ago"
+
+  features_per_step:
+    roc_diff:
+      description: "ROC at lookback N minus ROC at lookback N-1 (momentum change)"
+      computed: "(close[t] - close[t-N]) / close[t-N] * 10000"
+    rsi_diff:
+      description: "RSI7 change over N bars"
+      computed: "rsi7[t] - rsi7[t-N]"
+    rp_diff:
+      description: "Range position change over N bars"
+      computed: "range_position[t] - range_position[t-N]"
+    sma200_diff:
+      description: "SMA200 distance change over N bars"
+      computed: "sma200_dist_pct[t] - sma200_dist_pct[t-N]"
+
+  lookback_steps: [1, 2, 3, 4, 5, 6, 7, 8]
+  normalization: z-score (fit on train 2020-2023 only)
+
+# ============================================================
+# Data usage (exact columns read from each file)
+# ============================================================
+data_usage:
+  feature_cache:
+    path: experiments/layer2/L2-003/feature_cache.parquet
+    columns_read: [close, rsi7, range_position, sma200_dist_pct]
+    columns_used_from_cache: 4 of 23
+    feature_processing: |
+      Same as curriculum model. Reads 4 columns, computes diffs:
+        roc_diff, rsi_diff, rp_diff, sma200_diff × 8 lookbacks = 32 features.
+      Fed as SEQUENCE [8 steps, 4 features] (not flattened like curriculum).
+
+  labels:
+    path: experiments/layer2/L2-003/labels.parquet
+    columns_read: [direction_h8, mfe_up_1-8, mfe_down_1-8]
+    columns_used_from_labels: 17 of 30
+    label_processing: |
+      direction_h8 (H8): binary LONG/SHORT. BOTH/SKIP excluded.
+      mfe_up_1-8 + mfe_down_1-8: regression targets for connected MFE heads.
+    not_used: "13 of 30 columns (mfe H10-96, timing, H96 direction, expansion)"
+
+# ============================================================
+# Training
+# ============================================================
+training:
+  framework: PyTorch (Google Colab T4 GPU)
+  label: direction_h8 (binary LONG/SHORT, BOTH/SKIP excluded)
+  mfe_label: mfe_up/down at H1-H8 (multi-task)
+  loss: MSELoss(mfe) + BCEWithLogitsLoss(direction) — equally weighted
+  optimizer: Adam (lr=0.001, weight_decay=0.0)
+  scheduler: ReduceLROnPlateau (patience=5, factor=0.5)
+  batch_size: 2048
+  max_epochs: 100
+  early_stopping: patience=10
+  dropout: 0.5
+
+  data_split:
+    train: "2020-01-01 to 2023-12-31"
+    val: "2024-01-01 to 2024-06-30"
+    test: "2025-01-01 to 2025-12-31"
+
+# ============================================================
+# Performance
+# ============================================================
+performance:
+  test_confident_accuracy: "57-58%"
+  note: "Same as MLP despite sequential processing"
+
+# ============================================================
+# Why it was rejected
+# ============================================================
+rejection_reason: |
+  LSTM produces identical accuracy to the much simpler MLP (57-58%).
+
+  Root cause: the 4 input features (roc, rsi, range_position, sma200_dist)
+  are ALREADY temporal indicators — they encode historical price information
+  by construction. Adding LSTM memory on top of features that already
+  summarize history is redundant. The LSTM's gates learn to pass information
+  straight through (near-identity mapping).
+
+  Key finding: temporal signal adds only 1-2% beyond single-bar features.
+  The MLP captures this without sequential processing.
+
+  Also: weight decay blocks LSTM gate learning. Without weight decay, gates
+  shut down memory entirely. Neither configuration helps.
+
+what_it_learned:
+  - "LSTM hidden states converge to near-identical representations as MLP hidden layer"
+  - "Memory gates learn near-identity function — passing input through without meaningful recurrence"
+  - "Temporal signal from feature trajectories is only 1-2% — not enough to justify LSTM complexity"
+  - "Connected MFE heads predict mfe_up ≈ mfe_down — cannot distinguish directional asymmetry"
+
+caveats:
+  - "Tested with indicator-based diff features only. LSTM might help with raw OHLCV or orderbook data."
+  - "Only tested with 1-layer LSTM. Deeper architectures not explored."
+  - "GRU produced essentially identical results to LSTM."

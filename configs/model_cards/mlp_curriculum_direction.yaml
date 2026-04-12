@@ -1,0 +1,204 @@
+# Model Card: MLP + Curriculum Learning Direction Prediction
+# Tested during L2-003 Stage 4A. Two variants: loose and strict phasing.
+
+name: mlp_curriculum_direction
+version: 1
+created: 2026-03-26
+status: COMPLETE (did not improve over baseline MLP)
+protocol: direction_prediction_v1
+data_card: l2_003_feature_cache
+
+# ============================================================
+# What the model does
+# ============================================================
+purpose: |
+  Connected multi-task MLP (NOT same as V1.5), trained with CURRICULUM LEARNING:
+  train on easy bars first, gradually add harder ones.
+  Hypothesis: model learns clear directional patterns first, then refines.
+  Currently the model averages across all bars and clear patterns get diluted by noise.
+
+prediction:
+  type: binary classification (multi-task: MFE regression + direction)
+
+# ============================================================
+# Architecture (same as baseline MLP)
+# ============================================================
+architecture:
+  type: MLP (same as V1.5 — the training procedure changes, not the model)
+  note: |
+    Architecture is NOT identical to V1.5 production MLP.
+    This uses the CONNECTED MULTI-TASK architecture (same as LSTM/GRU/Attention):
+      - MFE UP head (8 horizons) + MFE DOWN head (8 horizons) + Direction head
+      - Direction head sees [hidden + mfe_up_pred + mfe_down_pred]
+      - Magnitude is modeled internally via connected MFE heads
+    V1.5 production MLP has NO MFE heads — only direction output.
+
+  layers:
+    - name: fc1
+      type: Linear
+      input_dim: 32  # 4 features × 8 lookbacks (flattened)
+      output_dim: 128
+      activation: ReLU
+
+    - name: fc2
+      type: Linear
+      input_dim: 128
+      output_dim: 128
+      activation: ReLU
+
+    - name: mfe_up_head
+      type: Linear
+      input_dim: 128
+      output_dim: 8
+
+    - name: mfe_down_head
+      type: Linear
+      input_dim: 128
+      output_dim: 8
+
+    - name: direction_head
+      type: Linear
+      input_dim: 144  # 128 + 8 + 8 (connected)
+      output_dim: 1
+
+# ============================================================
+# Curriculum learning — the key difference
+# ============================================================
+curriculum:
+  description: |
+    Instead of training on all bars equally, we phase the training data
+    from "easy" to "hard" bars. Easy = large |mfe_up - mfe_down| difference
+    (clear directional signal). Hard = small difference (ambiguous).
+
+  loose_variant:
+    phases:
+      - name: "Phase 1 (easy)"
+        filter: "|mfe_up_h8 - mfe_down_h8| > 50 bps"
+        bars: "~20% of training data"
+        epochs: 20
+      - name: "Phase 2 (medium)"
+        filter: "|mfe_up_h8 - mfe_down_h8| > 30 bps"
+        epochs: 20
+      - name: "Phase 3 (harder)"
+        filter: "|mfe_up_h8 - mfe_down_h8| > 15 bps"
+        epochs: 20
+      - name: "Phase 4 (all)"
+        filter: "all bars"
+        epochs: 40
+    result:
+      test_confident_accuracy: "57.6%"
+      finding: "Easy patterns were UNLEARNED when noisy bars were added in later phases"
+
+  strict_variant:
+    phases:
+      - name: "Phase 1 (very easy only)"
+        filter: "|mfe_up_h8 - mfe_down_h8| > 80 bps"
+        bars: "~5-10% of training data"
+        epochs: 30
+      - name: "Phase 2-4 (gradually relax)"
+        filter: "progressively lower thresholds"
+    result:
+      test_confident_accuracy: "54.9%"
+      finding: "Too few bars in Phase 1 — model couldn't learn robust patterns from tiny dataset"
+
+  source_note: |
+    Curriculum code was run in Google Colab. PHASES variable defined in Colab cell,
+    not saved in the script file. Results taken from PLAN.md Stage 4 results table.
+    Phase thresholds and epoch counts cannot be verified from saved code.
+
+# ============================================================
+# Input features (same 4 diff features × 8 lookbacks)
+# ============================================================
+input:
+  n_features: 32 (4 features × 8 lookbacks, flattened)
+  shape: [32]
+  features: [roc_diff, rsi_diff, rp_diff, sma200_diff] × lookbacks [1,2,3,4,5,6,7,8]
+  normalization: z-score (fit on train 2020-2023 only)
+
+# ============================================================
+# Data usage (exact columns read from each file)
+# ============================================================
+data_usage:
+  feature_cache:
+    path: experiments/layer2/L2-003/feature_cache.parquet
+    columns_read: [close, rsi7, range_position, sma200_dist_pct]
+    columns_used_from_cache: 4 of 23
+    feature_processing: |
+      Reads 4 columns. Computes diffs at training time:
+        roc_diff[N]    = (close[t] - close[t-N]) / close[t-N] * 10000
+        rsi_diff[N]    = rsi7[t] - rsi7[t-N]
+        rp_diff[N]     = range_position[t] - range_position[t-N]
+        sma200_diff[N] = sma200_dist_pct[t] - sma200_dist_pct[t-N]
+      For N in [1,2,3,4,5,6,7,8]. Total: 4 × 8 = 32 features (flattened).
+
+  labels:
+    path: experiments/layer2/L2-003/labels.parquet
+    columns_read: [direction_h8, mfe_up_1-8, mfe_down_1-8]
+    columns_used_from_labels: 17 of 30
+    label_processing: |
+      direction_h8 (H8): binary LONG/SHORT. BOTH/SKIP excluded.
+      mfe_up_1-8: MFE up regression targets for connected head (divided by 100).
+      mfe_down_1-8: MFE down regression targets for connected head (divided by 100).
+      mfe_diff_h8 = |mfe_up_8 - mfe_down_8| used for curriculum phasing thresholds.
+    not_used: "13 of 30 columns (mfe H10-96, timing, H96 direction, expansion)"
+
+# ============================================================
+# Training
+# ============================================================
+training:
+  framework: PyTorch (Google Colab T4 GPU)
+  label: direction_h8
+  loss: "MSELoss(mfe_up) + MSELoss(mfe_down) + 5.0 × BCEWithLogitsLoss(direction)"
+  loss_note: "Direction weighted 5× because it's the primary task. MFE is auxiliary."
+  optimizer: Adam (lr=0.001, weight_decay=0.0)
+  batch_size: 2048
+  max_epochs: 100 (across all phases)
+  early_stopping: patience=10
+  dropout: 0.5
+  grad_clip: 1.0
+
+  data_split:
+    train: "2020-01-01 to 2023-12-31"
+    val: "2024-01-01 to 2024-06-30"
+    test: "2025-01-01 to 2025-12-31"
+
+# ============================================================
+# Performance
+# ============================================================
+performance:
+  loose:
+    test_confident_accuracy: "57.6%"
+    vs_baseline: "+0.6% over MLP baseline (not significant)"
+  strict:
+    test_confident_accuracy: "54.9%"
+    vs_baseline: "-2.1% WORSE than baseline"
+
+# ============================================================
+# Why it didn't work
+# ============================================================
+failure_analysis: |
+  Curriculum learning assumes two things:
+  1. Easy patterns exist that are distinct from hard patterns
+  2. Learning easy patterns first helps with hard patterns later
+
+  In our data, BOTH assumptions failed:
+  - "Easy" bars (large MFE asymmetry) don't have detectably different features
+    from "hard" bars — the features look the same, only the outcomes differ
+  - The patterns learned in Phase 1 were OVERWRITTEN when noisy Phase 4 bars
+    were added — the model re-averaged to ~50%, losing Phase 1 gains
+  - The strict variant had too few Phase 1 bars (~5%) to learn anything robust
+
+  Root cause: 95.7% of bars have opposite-direction twins (same features,
+  opposite outcome). Curriculum can't separate what the features themselves
+  don't separate.
+
+what_it_learned:
+  - "Easy and hard bars have the SAME feature distributions — curriculum can't help if features don't differ"
+  - "Phase 1 patterns are fragile — destroyed by exposure to full dataset noise"
+  - "Strict phasing fails on small data — not enough examples to learn from"
+  - "Curriculum learning is a VALIDATED technique but needs features that actually differ between easy/hard"
+
+caveats:
+  - "Only tested with 4 diff features. Richer features might enable curriculum to work."
+  - "Only two phasing schedules tested. More gradual transitions not explored."
+  - "Technique is NOT invalid — it may work with new data sources where easy/hard bars are actually separable."

@@ -167,3 +167,162 @@ def _compute_trading_metrics(
         f"{split_name}_avg_loser_bps": round(avg_loser, 2),
         f"{split_name}_n_trades": n_trades,
     }
+
+
+# =====================================================================
+# Direction Prediction Evaluator (direction_prediction_v1 protocol)
+# =====================================================================
+
+def evaluate_direction_prediction(
+    probs: np.ndarray,
+    labels: np.ndarray,
+    mfe_up_bps: np.ndarray | None = None,
+    mfe_down_bps: np.ndarray | None = None,
+    conf_threshold_long: float = 0.60,
+    conf_threshold_short: float = 0.35,
+    split_name: str = "test",
+) -> dict:
+    """Compute all metrics for the direction_prediction_v1 protocol.
+
+    Args:
+        probs:               model output probabilities (0-1). High=LONG, Low=SHORT.
+        labels:              actual outcomes. 1=LONG, 0=SHORT.
+        mfe_up_bps:          max favorable excursion upward in bps (for magnitude metrics)
+        mfe_down_bps:        max favorable excursion downward in bps (for magnitude metrics)
+        conf_threshold_long:  probability above this = confident LONG (default 0.60)
+        conf_threshold_short: probability below this = confident SHORT (default 0.35)
+        split_name:          prefix for metric keys ("test", "val", "train")
+
+    Returns:
+        dict with all 26 required metrics for direction_prediction_v1.
+    """
+    probs = np.asarray(probs)
+    labels = np.asarray(labels)
+    n = len(labels)
+
+    if n == 0:
+        return {f"{split_name}_accuracy": 0.0, f"n_{split_name}": 0}
+
+    # --- Overall metrics ---
+    preds = (probs > 0.5).astype(int)
+    correct = (preds == labels)
+    accuracy = correct.mean()
+
+    # Per-class
+    long_mask = (labels == 1)
+    short_mask = (labels == 0)
+    pred_long = (preds == 1)
+    pred_short = (preds == 0)
+
+    tp_long = (pred_long & long_mask).sum()
+    fp_long = (pred_long & short_mask).sum()
+    fn_long = (~pred_long & long_mask).sum()
+    tp_short = (pred_short & short_mask).sum()
+    fp_short = (pred_short & long_mask).sum()
+    fn_short = (~pred_short & short_mask).sum()
+
+    prec_long = tp_long / max(tp_long + fp_long, 1)
+    rec_long = tp_long / max(tp_long + fn_long, 1)
+    prec_short = tp_short / max(tp_short + fp_short, 1)
+    rec_short = tp_short / max(tp_short + fn_short, 1)
+
+    f1_long = _f1(prec_long, rec_long)
+    f1_short = _f1(prec_short, rec_short)
+    f1_macro = (f1_long + f1_short) / 2
+
+    confusion = [
+        [int(tp_short), int(fp_long)],
+        [int(fn_long), int(tp_long)],
+    ]
+
+    baseline_accuracy = float(max(long_mask.mean(), short_mask.mean()))
+    delta_vs_baseline = float(accuracy - baseline_accuracy)
+    class_balance = float(long_mask.mean())
+
+    # --- Confidence metrics ---
+    conf_long_mask = (probs >= conf_threshold_long)
+    conf_short_mask = (probs <= conf_threshold_short)
+    conf_mask = conf_long_mask | conf_short_mask
+
+    n_confident = int(conf_mask.sum())
+    n_confident_long = int(conf_long_mask.sum())
+    n_confident_short = int(conf_short_mask.sum())
+
+    if n_confident > 0:
+        conf_preds = np.where(probs[conf_mask] > 0.5, 1, 0)
+        conf_accuracy = float((conf_preds == labels[conf_mask]).mean())
+    else:
+        conf_accuracy = 0.0
+
+    if n_confident_long > 0:
+        conf_long_correct = (labels[conf_long_mask] == 1).sum()
+        conf_acc_long = float(conf_long_correct / n_confident_long)
+    else:
+        conf_acc_long = 0.0
+
+    if n_confident_short > 0:
+        conf_short_correct = (labels[conf_short_mask] == 0).sum()
+        conf_acc_short = float(conf_short_correct / n_confident_short)
+    else:
+        conf_acc_short = 0.0
+
+    long_short_ratio = n_confident_long / max(n_confident_short, 1)
+
+    metrics = {
+        # Overall
+        f"{split_name}_accuracy": round(float(accuracy), 4),
+        f"{split_name}_f1": round(float(f1_macro), 4),
+        f"{split_name}_confusion_matrix": confusion,
+        f"n_{split_name}": int(n),
+        f"class_balance_{split_name}": round(class_balance, 4),
+        "baseline_accuracy": round(baseline_accuracy, 4),
+        "delta_vs_baseline": round(delta_vs_baseline, 4),
+        # Confidence
+        f"{split_name}_confident_accuracy": round(conf_accuracy, 4),
+        f"{split_name}_n_confident": n_confident,
+        f"{split_name}_confidence_threshold_long": conf_threshold_long,
+        f"{split_name}_confidence_threshold_short": conf_threshold_short,
+        # Per-class ML
+        f"{split_name}_precision_long": round(float(prec_long), 4),
+        f"{split_name}_precision_short": round(float(prec_short), 4),
+        f"{split_name}_recall_long": round(float(rec_long), 4),
+        f"{split_name}_recall_short": round(float(rec_short), 4),
+        f"{split_name}_f1_long": round(float(f1_long), 4),
+        f"{split_name}_f1_short": round(float(f1_short), 4),
+        # Per-class confidence
+        f"{split_name}_n_confident_long": n_confident_long,
+        f"{split_name}_n_confident_short": n_confident_short,
+        f"{split_name}_confident_accuracy_long": round(conf_acc_long, 4),
+        f"{split_name}_confident_accuracy_short": round(conf_acc_short, 4),
+        f"{split_name}_long_short_ratio": round(long_short_ratio, 2),
+    }
+
+    # --- Magnitude metrics (only if MFE provided) ---
+    if mfe_up_bps is not None and mfe_down_bps is not None:
+        mfe_up_bps = np.asarray(mfe_up_bps)
+        mfe_down_bps = np.asarray(mfe_down_bps)
+
+        # For confident LONG bars: MFE up is favorable, MFE down is adverse
+        if n_confident_long > 0:
+            avg_mfe_long = float(mfe_up_bps[conf_long_mask].mean())
+            avg_mae_long = float(mfe_down_bps[conf_long_mask].mean())
+        else:
+            avg_mfe_long = 0.0
+            avg_mae_long = 0.0
+
+        # For confident SHORT bars: MFE down is favorable, MFE up is adverse
+        if n_confident_short > 0:
+            avg_mfe_short = float(mfe_down_bps[conf_short_mask].mean())
+            avg_mae_short = float(mfe_up_bps[conf_short_mask].mean())
+        else:
+            avg_mfe_short = 0.0
+            avg_mae_short = 0.0
+
+        metrics.update({
+            f"{split_name}_avg_mfe_long": round(avg_mfe_long, 2),
+            f"{split_name}_avg_mfe_short": round(avg_mfe_short, 2),
+            f"{split_name}_avg_mae_long": round(avg_mae_long, 2),
+            f"{split_name}_avg_mae_short": round(avg_mae_short, 2),
+        })
+
+    return metrics

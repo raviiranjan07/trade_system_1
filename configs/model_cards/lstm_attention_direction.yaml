@@ -1,0 +1,230 @@
+# Model Card: LSTM + Attention Direction Prediction
+# Tested during L2-003 Stage 4B. Best accuracy (58.8%) but too few confident bars.
+
+name: lstm_attention_direction
+version: 1
+created: 2026-03-26
+status: COMPLETE (best accuracy achieved, not deployed due to low bar count)
+protocol: direction_prediction_v1
+data_card: l2_003_feature_cache
+
+# ============================================================
+# What the model does
+# ============================================================
+purpose: |
+  Same goal as MLP V1.5: predict LONG vs SHORT direction.
+  Tests whether attention mechanism helps LSTM focus on the most
+  relevant lookback steps for each bar (dynamic step weighting).
+  Hypothesis: crash bars need recent steps, trending bars need all steps.
+
+prediction:
+  type: binary classification (multi-task: MFE regression + direction)
+  output: mfe_up (8 horizons) + mfe_down (8 horizons) + direction logit
+
+# ============================================================
+# Architecture
+# ============================================================
+architecture:
+  type: LSTM + Attention (with temperature control)
+  class_name: LSTMAttention
+  source_file: experiments/layer2/L2-003/stage_3/L2_003_stage3_mlp.py
+
+  layers:
+    - name: lstm
+      type: LSTM
+      input_size: 4
+      hidden_size: 128
+      num_layers: 1
+      batch_first: true
+      purpose: "Process 8-step sequence, output hidden state at each step"
+
+    - name: attn_score
+      type: Linear
+      input_dim: 128
+      output_dim: 1
+      purpose: "Score each step's hidden state for attention weighting"
+
+    - name: attention_mechanism
+      type: "softmax(scores / temperature)"
+      purpose: "Produce weighted combination of all 8 hidden states"
+      note: "Temperature controls sharpness: low temp = sharper focus on fewer steps"
+
+    - name: dropout
+      type: Dropout
+      p: 0.5
+
+    - name: h_mfe_up
+      type: Linear
+      input_dim: 128  # attended hidden state
+      output_dim: 8
+
+    - name: h_mfe_down
+      type: Linear
+      input_dim: 128
+      output_dim: 8
+
+    - name: h_dir
+      type: Linear
+      input_dim: 144  # 128 (attended) + 8 (mfe_up) + 8 (mfe_down)
+      output_dim: 1
+      purpose: "CONNECTED: direction sees attended state + magnitude predictions from both MFE heads"
+
+  magnitude_modeling: |
+    CONNECTED MULTI-TASK architecture (same as LSTM/GRU):
+      1. MFE UP head predicts magnitude upward (8 horizons)
+      2. MFE DOWN head predicts magnitude downward (8 horizons)
+      3. Direction head receives [attended_state(128) + mfe_up(8) + mfe_down(8)]
+      → Direction decision is INFORMED by magnitude predictions
+
+    Loss: MSE(mfe_up) + MSE(mfe_down) + 5.0 × BCE(direction)
+
+    With attention: the attended state already selects the most relevant
+    time steps, THEN magnitude is predicted from that attended state,
+    THEN direction uses both attended state + magnitude.
+
+    This is the most sophisticated magnitude integration tested.
+    Still limited by mfe_up ≈ mfe_down prediction (can't distinguish asymmetry).
+
+    NOTE: This connected architecture was DROPPED in V1.5 production MLP.
+
+  total_params: ~69000
+
+  diagram: |
+    Input: (batch, 8 steps, 4 features)
+         │
+         ▼
+    LSTM(4→128, 1 layer) → all_hidden_states (8 × 128)
+         │
+         ▼
+    attn_score: Linear(128→1) per step → 8 raw scores
+         │
+         ▼
+    softmax(scores / temperature) → 8 attention weights (sum to 1)
+         │
+         ▼
+    weighted sum of hidden states → attended (128d)
+         │
+         ▼
+    Dropout(0.5)
+         │
+         ├──► Linear(128→8) → mfe_up
+         ├──► Linear(128→8) → mfe_down
+         │
+         ▼
+    Concat [attended(128), mfe_up(8), mfe_down(8)] = 144d
+         │
+         ▼
+    Linear(144→1) → direction logit → Sigmoid
+
+# ============================================================
+# Temperature variants tested
+# ============================================================
+temperature_experiments:
+  temp_1.0:
+    description: "Default softmax (no temperature scaling)"
+    result: "Near-uniform weights — no step preference learned"
+    confident_accuracy: "~57%"
+
+  temp_0.5:
+    description: "Moderately sharper attention"
+    result: "57.8% confident accuracy, 1,814 confident bars"
+    finding: "Best balance between accuracy and bar count"
+    attention_pattern: "LONG attends to medium-term steps (5-7), SHORT to short-term (1-2)"
+
+  temp_0.1:
+    description: "Very sharp attention"
+    result: "~58% but fewer confident bars"
+
+  temp_0.05:
+    description: "Near-hard attention (almost picks one step)"
+    result: "58.8% confident accuracy — BEST EVER — but only 816 confident bars"
+    finding: "Highest accuracy achieved by any architecture, but trades too rarely to be useful"
+
+# ============================================================
+# Input features (same as LSTM/GRU)
+# ============================================================
+input:
+  n_features: 4 per step
+  n_steps: 8
+  shape: [8, 4]
+  features_per_step: [roc_diff, rsi_diff, rp_diff, sma200_diff]
+  lookback_steps: [1, 2, 3, 4, 5, 6, 7, 8]
+  normalization: z-score (fit on train 2020-2023 only)
+
+# ============================================================
+# Data usage (exact columns read from each file)
+# ============================================================
+data_usage:
+  feature_cache:
+    path: experiments/layer2/L2-003/feature_cache.parquet
+    columns_read: [close, rsi7, range_position, sma200_dist_pct]
+    columns_used_from_cache: 4 of 23
+    feature_processing: |
+      Same as LSTM/GRU. Reads 4 columns, computes diffs:
+        roc_diff, rsi_diff, rp_diff, sma200_diff × 8 lookbacks = 32 features.
+      Fed as SEQUENCE [8 steps, 4 features].
+      Attention mechanism then weights the 8 steps dynamically.
+
+  labels:
+    path: experiments/layer2/L2-003/labels.parquet
+    columns_read: [direction_h8, mfe_up_1-8, mfe_down_1-8]
+    columns_used_from_labels: 17 of 30
+    label_processing: |
+      direction_h8 (H8): binary LONG/SHORT. BOTH/SKIP excluded.
+      mfe_up_1-8 + mfe_down_1-8: regression targets for connected MFE heads.
+    not_used: "13 of 30 columns (mfe H10-96, timing, H96 direction, expansion)"
+
+# ============================================================
+# Training (same setup as LSTM/GRU)
+# ============================================================
+training:
+  framework: PyTorch (Google Colab T4 GPU)
+  label: direction_h8 (binary LONG/SHORT, BOTH/SKIP excluded)
+  mfe_label: mfe_up/down at H1-H8
+  loss: MSELoss(mfe) + BCEWithLogitsLoss(direction)
+  optimizer: Adam (lr=0.001, weight_decay=0.0)
+  batch_size: 2048
+  max_epochs: 100
+  early_stopping: patience=10
+
+  data_split:
+    train: "2020-01-01 to 2023-12-31"
+    val: "2024-01-01 to 2024-06-30"
+    test: "2025-01-01 to 2025-12-31"
+
+# ============================================================
+# Performance
+# ============================================================
+performance:
+  best_result:
+    temperature: 0.05
+    test_confident_accuracy: "58.8%"
+    n_confident_bars: 816
+    note: "Best accuracy of ANY architecture tested. But 816 bars is too few for reliable trading."
+
+  practical_result:
+    temperature: 0.5
+    test_confident_accuracy: "57.8%"
+    n_confident_bars: 1814
+    note: "Best balance — slightly better than MLP (57-58%) with reasonable bar count."
+
+# ============================================================
+# What attention learned
+# ============================================================
+what_it_learned:
+  - "LONG signals attend to medium-term steps (5-7 bar lookback) — trend confirmation"
+  - "SHORT signals attend to short-term steps (1-2 bar lookback) — immediate reversal"
+  - "Attention weights stay near-uniform at high temperature — model can't find strongly different patterns per step"
+  - "Sharper temperature forces the model to commit — improves accuracy but reduces confident predictions"
+  - "Attention is the ONLY technique that showed improvement over baseline MLP (+1-2%)"
+
+why_not_deployed:
+  - "58.8% accuracy on only 816 bars is statistically unreliable"
+  - "V1.5 MLP achieves 57-58% on ~4,000+ bars — more stable, more tradeable"
+  - "Complexity of LSTM+Attention not justified for 0.8-1.8% improvement"
+  - "May be worth revisiting with new data sources (orderbook, funding rate)"
+
+caveats:
+  - "Only tested with 4 diff features. Attention might find more value with richer inputs."
+  - "Temperature was hand-tuned (5 values). Learnable temperature not tested."
+  - "The 58.8% result is on a small confident subset — could be statistical noise."

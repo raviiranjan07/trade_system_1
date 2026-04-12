@@ -18,21 +18,37 @@ data_split:
   test: ["2025-01-01", "2025-12-31"]
 
 required_metrics:
+  # Overall
   - test_accuracy
-  - test_confident_accuracy
-  - test_n_confident
-  - test_confidence_threshold_long
-  - test_confidence_threshold_short
-  - test_precision_long
-  - test_precision_short
-  - test_recall_long
-  - test_recall_short
   - test_f1
   - test_confusion_matrix
   - n_test
   - class_balance_test
   - baseline_accuracy
   - delta_vs_baseline
+  # Confidence filtering
+  - test_confident_accuracy
+  - test_n_confident
+  - test_confidence_threshold_long
+  - test_confidence_threshold_short
+  # Per-class ML metrics
+  - test_precision_long
+  - test_precision_short
+  - test_recall_long
+  - test_recall_short
+  - test_f1_long
+  - test_f1_short
+  # Per-class confident analysis
+  - test_n_confident_long
+  - test_n_confident_short
+  - test_confident_accuracy_long
+  - test_confident_accuracy_short
+  - test_long_short_ratio
+  # Per-class magnitude (MFE/MAE) — verifies magnitude gate
+  - test_avg_mfe_long
+  - test_avg_mfe_short
+  - test_avg_mae_long
+  - test_avg_mae_short
 
 optional_metrics:
   - test_signal_win_rate
@@ -52,7 +68,8 @@ required_artifacts:
 baseline:
   name: random_direction
   description: ~50% random (LONG/SHORT balanced after removing BOTH/SKIP)
-  current_best: 57-58% confident accuracy (V1.5 MLP, H96)
+  current_best_research: 58.8% confident accuracy (LSTM+Attention temp=0.05, H8, 816 bars)
+  current_best_production: 57-58% confident accuracy (V1.5 MLP, H96, deployed)
 
 tags:
   problem: direction_prediction

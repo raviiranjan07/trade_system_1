@@ -123,11 +123,46 @@ Features, model architecture, hyperparameters, and horizon are NOT in the protoc
 | `direction_prediction_v1` | Which direction hits ±15bps first | LONG vs SHORT |
 | `sr_bounce_break_v1` | Does price bounce or break at S/R zone | Bounce vs Break |
 
+### Base metrics (must be in EVERY protocol)
+
+Every protocol, regardless of problem type, must include these baseline performance analysis metrics. Copy this list when creating a new protocol, then add problem-specific metrics on top.
+
+**Overall performance:**
+```
+test_accuracy                  — overall accuracy on test set
+test_f1                        — macro F1 score
+test_confusion_matrix          — full confusion matrix
+n_test                         — number of test samples
+class_balance_test             — fraction of positive class in test
+baseline_accuracy              — what random/majority would score
+delta_vs_baseline              — how much better than baseline
+```
+
+**Per-class analysis (replace `{class}` with your class names):**
+```
+test_precision_{class}         — precision per class
+test_recall_{class}            — recall per class
+test_f1_{class}                — F1 per class
+```
+
+**Required artifact:**
+```
+metrics.json                   — all metrics in one file
+```
+
+These 10+ metrics are the minimum. Without them, you can't do basic performance analysis: overall accuracy, per-class breakdown, comparison to baseline, confusion patterns.
+
+**Problem-specific metrics are added on top.** For example:
+- Direction prediction adds: confidence thresholds, per-class confident accuracy, MFE/MAE per class, long/short ratio
+- S/R bounce/break adds: trading metrics (win rate, profit factor, expected value after fees)
+
 ### Adding a new protocol
 
-1. Create `configs/protocols/<name>.yaml` with: name, label_spec, data_split, required_metrics, required_artifacts, baseline
-2. Reference it by name in `run_experiment(protocol_name="<name>")`
-3. If needed, add an evaluator function in `src/mlops/evaluation.py`
+1. Start with the base metrics listed above
+2. Add problem-specific metrics
+3. Create `configs/protocols/<name>.yaml` with: name, label_spec, data_split, required_metrics, required_artifacts, baseline
+4. Reference it by name in `run_experiment(protocol_name="<name>")`
+5. If needed, add an evaluator function in `src/mlops/evaluation.py`
 
 ---
 

@@ -1,0 +1,196 @@
+# Data Card: L2-003 Feature Cache + Labels
+# Used by: L2-003 Stages 2-4, V1.5 production model, ml_train.py
+
+name: l2_003_feature_cache
+version: 1
+created: 2026-03-01
+last_updated: 2026-03-26
+
+files:
+  feature_cache:
+    path: experiments/layer2/L2-003/feature_cache.parquet
+    size_mb: 40
+    dvc_hash: e395c57f0eb678807d4d22cf08ea6eec
+    cleaned: "2026-04-12 — reduced from 1,266 to 23 columns (1 GB → 40 MB). Dropped 1,200 derivative features (slope, acceleration, zscore, percentile_rank, dist_from_max, dist_from_min) that were never used by any successful model. Old 1,266-column version still in DVC cache under hash 863db21d."
+  labels:
+    path: experiments/layer2/L2-003/labels.parquet
+    size_mb: 31
+    dvc_hash: 5ab7883630d668e1e96f6ef6e08491f9
+
+source:
+  raw_data: data/ohlcv/BTCUSDT_15m_ohlcv.parquet
+  asset: BTCUSDT
+  timeframe: 15m
+  builder_script: experiments/layer2/L2-003/stage_3/L2_003_stage3_labels.py
+
+# ============================================================
+# Pipeline: how the data was built
+# ============================================================
+pipeline:
+  step_1_ohlcv:
+    description: Load 15-min BTCUSDT OHLCV bars
+    output: 210,069 bars (2019-12-31 to 2025-12-30)
+
+  step_2_feature_computation:
+    description: Compute 1,261 features per bar from OHLCV
+    categories:
+      ohlcv: 5 columns (open, high, low, close, volume)
+      direction: rsi7, range_position, sma200_dist_pct, roc5, momentum10, rsi
+      magnitude: atr_pct, atr_percentile, ema_separation, range_bps, body_bps, dist_from_high20_pct, hour_utc, volume_ratio
+      analysis: ema20_slope, ema50_dist_pct, sma200_slope, range_position_50
+    total_columns: 23
+    note: |
+      Cleaned 2026-04-12. Originally 1,266 columns (14 magnitude base + 672 derivatives +
+      11 direction base + 528 derivatives + 9 binary/categorical + extras).
+      1,200 derivative features (slope, acceleration, zscore, percentile_rank, dist_from_max,
+      dist_from_min × 8 lookbacks) were NEVER used by any successful model — only by
+      Stage 2 LightGBM which failed (50.5%). All successful models compute their own
+      features from close/rsi7/range_position/sma200_dist_pct at training time.
+
+  step_3_label_computation:
+    description: Compute MFE and direction labels from lookahead
+    entry: open of next bar (open[i+1])
+    mfe_horizons: [1, 2, 3, 4, 5, 6, 7, 8, 10, 20, 32, 96] bars
+    direction_logic:
+      LONG_0: first_up_bar < first_down_bar (up hits ±15bps first)
+      SHORT_1: first_down_bar < first_up_bar (down hits ±15bps first)
+      BOTH_2: both hit on same bar
+      SKIP_3: neither hits within horizon
+    threshold_bps: 15
+
+  step_4_snapshot_assembly:
+    description: At training time, 9 snapshots assembled per bar (NOT stored in parquet)
+    snapshots: [t-96, t-32, t-20, t-10, t-5, t-3, t-2, t-1, t]
+    input_shape_per_bar: [9, 1242]
+    note: feature_cache stores per-bar features; snapshots are created at train time by reading 9 rows
+
+# ============================================================
+# Composition: what's inside
+# ============================================================
+composition:
+  feature_cache:
+    total_bars: 210069
+    date_range: 2019-12-31 to 2025-12-30
+    columns: 1266
+    dtypes: float64
+    missing_values: some (NaN in early bars for lookback-dependent features)
+
+  labels:
+    total_bars: 209877
+    date_range: 2020-01-01 to 2025-12-29
+    columns: 30
+
+    label_columns:
+      mfe_up: [mfe_up_1, mfe_up_2, ..., mfe_up_96]  # 12 horizons, float32, bps
+      mfe_down: [mfe_down_1, mfe_down_2, ..., mfe_down_96]  # 12 horizons, float32, bps
+      time_to_first_up_hit: int16 (0-96, 0 means never)
+      time_to_first_down_hit: int16 (0-96, 0 means never)
+      direction: int8 (0=LONG, 1=SHORT, 2=BOTH, 3=SKIP) — H96 horizon
+      direction_h8: int8 (0=LONG, 1=SHORT, 2=BOTH, 3=SKIP) — H8 horizon
+      vol_expansion: int8 (0/1)
+      volume_expansion: int8 (0/1)
+
+    # --- Two direction label systems ---
+    # H96 was used first (Stages 2-3 early). H8 replaced it for production.
+    # The switch happened because H96 has near-zero SKIP bars — nearly all bars
+    # hit ±15bps within 24 hours, making the label near-random (BOTH dominates).
+    # H8 has meaningful SKIP bars (2%) and produces tradeable signals.
+
+    direction_h96:
+      description: "Which direction hits ±15bps first within 96 bars (24 hours)"
+      used_by: "L2-003 Stage 2 (LightGBM, FAILED), Stage 3 early attempts"
+      result: "Near-random — too wide a window, everything hits ±15bps"
+      backtest: "+6,096 bps standalone (but less selective)"
+      distribution:
+        LONG: 85455 (40.7%)
+        SHORT: 86859 (41.4%)
+        BOTH: 37562 (17.9%)
+        SKIP: 1 (0.0%)
+
+    direction_h8:
+      description: "Which direction hits ±15bps first within 8 bars (2 hours)"
+      used_by: "V1.5 PRODUCTION, Stage 3 MLP (deployed), all Stage 4 experiments"
+      result: "57-58% confident accuracy — deployed"
+      backtest: "+3,815 bps standalone (more selective than H96)"
+      why_chosen: |
+        H96 has only 1 SKIP bar — useless for filtering.
+        H8 has 4,182 SKIP bars (2%) — model can meaningfully say "skip this bar".
+        H8 forces the model to predict SHORT-TERM direction which is more tradeable.
+      distribution:
+        LONG: 83261 (39.7%)
+        SHORT: 84890 (40.5%)
+        BOTH: 37544 (17.9%)
+        SKIP: 4182 (2.0%)
+
+    # --- MFE labels at 12 horizons ---
+    # Used by Stage 3 multi-task training (MFE prediction heads)
+    # MFE = Max Favorable Excursion — how far price moved in bps
+    mfe_horizons:
+      bars: [1, 2, 3, 4, 5, 6, 7, 8, 10, 20, 32, 96]
+      columns_per_horizon: 2 (mfe_up_N, mfe_down_N)
+      total_mfe_columns: 24
+      range: "0 to ~5,300 bps (max mfe_up_96)"
+      used_by: "Stage 3 multi-task heads (MFE prediction worked but was not deployed)"
+      finding: "MFE prediction accurate (pred_mean ≈ actual_mean) but model predicts mfe_up ≈ mfe_down — cannot distinguish directional asymmetry"
+
+    # --- Other label columns ---
+    time_to_first_up_hit:
+      description: "First bar where high >= entry + 15bps (0 if never within 96 bars)"
+      dtype: int16
+      range: [0, 96]
+
+    time_to_first_down_hit:
+      description: "First bar where low <= entry - 15bps (0 if never within 96 bars)"
+      dtype: int16
+      range: [0, 96]
+
+    vol_expansion:
+      description: "ATR at peak bar > ATR at current bar (1=yes, 0=no)"
+      used_by: "Stage 2 multi-task (not used in production)"
+
+    volume_expansion:
+      description: "Volume at peak bar > volume MA at current bar (1=yes, 0=no)"
+      used_by: "Stage 2 multi-task (not used in production)"
+
+  data_split:
+    method: date-based
+    train: 2020-01-01 to 2023-12-31 (140,031 bars)
+    val: 2024-01-01 to 2024-12-31 (used for early stopping)
+    test: 2025-01-01 to 2025-12-31
+
+# ============================================================
+# V1.5 Production model usage
+# ============================================================
+production_usage:
+  model: MLP 10 → 128 → 128 → 1
+  features_used: [roc1, roc2, roc3, roc4, roc5, roc6, roc7, roc8, range_position, rsi7]
+  label_used: direction_h8 (binary: LONG vs SHORT, BOTH/SKIP excluded)
+  snapshots_used: 9 per bar
+  input_shape: [9, 10]
+  threshold: LONG > 0.60, SHORT < 0.35
+  note: only 10 of 1,261 features are used by V1.5
+
+# ============================================================
+# Key findings from L2-001 feature validation
+# ============================================================
+validated_features:
+  magnitude_5of5:
+    description: Features that predict move SIZE (used as gate)
+    features: [atr_pct, atr_percentile, ema_separation, range_bps, body_bps, dist_from_high20_pct, hour_utc, volume_ratio]
+    note: 7 distinct after removing 95%+ correlated duplicates
+
+  direction_3of5:
+    description: Features that predict DIRECTION (used as signal)
+    features: [rsi, rsi7, rsi21, roc5, roc10, roc20, momentum5, momentum10, ema_dist variants, bb_position, range_position, sma200_dist_pct]
+    note: pass direction + PnL tests but fail Case1 + raw MFE
+
+# ============================================================
+# Known issues
+# ============================================================
+known_issues:
+  - "SKIP mislabeling bug was found and fixed (23K bars affected). Current labels.parquet has the corrected version."
+  - "H96 direction has only 1 SKIP bar — nearly all bars hit ±15bps within 96 bars. H8 has 4,182 SKIP bars."
+  - "V1.5 uses only 10 of 1,261 features. 99.2% of feature_cache is unused by production."
+  - "feature_cache.parquet is 1 GB — large for a single file. Snapshots are assembled at train time, not pre-stored."
+  - "Early bars (before lookback=96 warm-up) have NaN values in derivative features."
+  - "95.7% of bars have an opposite-direction twin (same features, opposite outcome) — fundamental ceiling on prediction accuracy."
