@@ -26,8 +26,8 @@ from mlops.evaluation import evaluate_direction_prediction
 # ============================================================
 # CONFIG (exact match to L2_003_stage3_mlp.py)
 # ============================================================
-CACHE_PATH = Path("experiments/layer2/L2-003/feature_cache.parquet")
-LABELS_PATH = Path("experiments/layer2/L2-003/labels.parquet")
+CACHE_PATH = Path("data/features/direction_prediction/feature_cache.parquet")
+LABELS_PATH = Path("data/features/direction_prediction/labels.parquet")
 
 TRAIN_START, TRAIN_END = "2020-01-01", "2023-12-31"
 VAL_START, VAL_END = "2024-01-01", "2024-06-30"

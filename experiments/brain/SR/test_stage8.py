@@ -22,9 +22,9 @@ print("=" * 60)
 
 # === Load S/R features ===
 print("\nLoading data...")
-train = np.load("experiments/brain/SR/datasets_every_bar/train_stage6.npz")
-val = np.load("experiments/brain/SR/datasets_every_bar/val_stage6.npz")
-test = np.load("experiments/brain/SR/datasets_every_bar/test_stage6.npz")
+train = np.load("data/features/sr_bounce_break/every_bar/train_stage6.npz")
+val = np.load("data/features/sr_bounce_break/every_bar/val_stage6.npz")
+test = np.load("data/features/sr_bounce_break/every_bar/test_stage6.npz")
 
 sr_dyn_train = train["X_sr_dynamic"]  # (N, 11) or 2D
 sr_sta_train = train["X_sr_static"]   # (N, 6)

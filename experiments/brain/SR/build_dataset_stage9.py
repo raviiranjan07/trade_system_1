@@ -355,7 +355,7 @@ def build_dataset(config_path: str):
     print(f"  Test:  {test_mask.sum()}")
 
     # --- Save ---
-    out_dir = Path(config_path).parent / "datasets_stage9"
+    out_dir = Path("data/features/sr_bounce_break/stage9")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     for name, mask in [("train", train_mask), ("val", val_mask), ("test", test_mask)]:

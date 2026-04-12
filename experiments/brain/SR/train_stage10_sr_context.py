@@ -1,6 +1,6 @@
 """Stage 10: Base direction model with optional S/R context branch.
 
-Uses experiments/brain/datasets/{train,val,test}.npz:
+Uses data/archive/brain_datasets/{train,val,test}.npz:
   X: [N, 8, 23]
   Y[:,0]: binary direction label (0/1)
 
@@ -23,7 +23,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
 
-DATA_DIR = Path("experiments/brain/datasets")
+DATA_DIR = Path("data/archive/brain_datasets")
 META_PATH = DATA_DIR / "metadata.json"
 SCALER_PATH = DATA_DIR / "scaler.npz"
 
@@ -345,7 +345,7 @@ def main():
         "--base-cols",
         type=str,
         default="roc,rsi7,range_position,volume_ratio",
-        help="Comma-separated base feature columns from experiments/brain/datasets/metadata.json",
+        help="Comma-separated base feature columns from data/archive/brain_datasets/metadata.json",
     )
     args = parser.parse_args()
 

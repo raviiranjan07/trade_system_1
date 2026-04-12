@@ -19,7 +19,7 @@ print("CONNECTED LSTM: 25 snap x 4 feat, H25, multi-task")
 print("=" * 60)
 
 # Load features
-fc = pd.read_parquet("experiments/layer2/L2-003/feature_cache.parquet")
+fc = pd.read_parquet("data/features/direction_prediction/feature_cache.parquet")
 fc.index = fc.index.tz_localize(None) if fc.index.tz is not None else fc.index
 
 # Load OHLCV for label computation

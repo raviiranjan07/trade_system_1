@@ -22,7 +22,7 @@ open_arr = df["open"].values
 N = len(df)
 
 # Load saved dataset (has bar numbers)
-data = np.load("experiments/brain/SR/datasets_every_bar/train.npz")
+data = np.load("data/features/sr_bounce_break/every_bar/train.npz")
 Xd = data["X_dynamic"][:, -1, :]  # last snapshot
 Xs = data["X_static"]
 bars = data["bars"]

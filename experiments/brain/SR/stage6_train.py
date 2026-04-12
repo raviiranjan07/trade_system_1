@@ -18,9 +18,9 @@ print("STAGE 6: End-to-End Training")
 print("=" * 60)
 
 print("\nLoading data...")
-train = np.load("experiments/brain/SR/datasets_every_bar/train_stage6.npz")
-val = np.load("experiments/brain/SR/datasets_every_bar/val_stage6.npz")
-test = np.load("experiments/brain/SR/datasets_every_bar/test_stage6.npz")
+train = np.load("data/features/sr_bounce_break/every_bar/train_stage6.npz")
+val = np.load("data/features/sr_bounce_break/every_bar/val_stage6.npz")
+test = np.load("data/features/sr_bounce_break/every_bar/test_stage6.npz")
 
 def load_split(data):
     sr_dyn = data["X_sr_dynamic"]   # (N, 11)

@@ -18,10 +18,10 @@ from mlops.evaluation import evaluate_direction_prediction
 
 
 # Paths
-CACHE_PATH = Path("experiments/layer2/L2-003/feature_cache.parquet")
-LABELS_PATH = Path("experiments/layer2/L2-003/labels.parquet")
-MODEL_PATH = Path("src/v12/ml_model/direction_model.pt")
-SCALER_PATH = Path("src/v12/ml_model/scaler.npz")
+CACHE_PATH = Path("data/features/direction_prediction/feature_cache.parquet")
+LABELS_PATH = Path("data/features/direction_prediction/labels.parquet")
+MODEL_PATH = Path("models/direction_v15/direction_model.pt")
+SCALER_PATH = Path("models/direction_v15/scaler.npz")
 
 # Same split as ml_train.py (but we only evaluate on 2025 test)
 TEST_START = "2025-01-01"

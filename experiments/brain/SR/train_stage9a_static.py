@@ -15,7 +15,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
 
-DATA_DIR = Path("experiments/brain/SR/datasets_stage9a_static")
+DATA_DIR = Path("data/features/sr_bounce_break/stage9a_static")
 
 
 def load_split(name: str):

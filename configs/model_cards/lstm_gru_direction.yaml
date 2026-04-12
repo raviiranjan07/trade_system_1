@@ -144,7 +144,7 @@ input:
 # ============================================================
 data_usage:
   feature_cache:
-    path: experiments/layer2/L2-003/feature_cache.parquet
+    path: data/features/direction_prediction/feature_cache.parquet
     columns_read: [close, rsi7, range_position, sma200_dist_pct]
     columns_used_from_cache: 4 of 23
     feature_processing: |
@@ -153,7 +153,7 @@ data_usage:
       Fed as SEQUENCE [8 steps, 4 features] (not flattened like curriculum).
 
   labels:
-    path: experiments/layer2/L2-003/labels.parquet
+    path: data/features/direction_prediction/labels.parquet
     columns_read: [direction_h8, mfe_up_1-8, mfe_down_1-8]
     columns_used_from_labels: 17 of 30
     label_processing: |

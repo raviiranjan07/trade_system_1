@@ -4,7 +4,7 @@ Same architecture, features, label as production V1.5.
 Only difference: date-based split (train 2020-2023, val 2024, test 2025).
 Scaler fit on train only. No data leakage.
 
-The production model (src/v12/ml_model/) is NOT modified.
+The production model (models/direction_v15/) is NOT modified.
 This is a separate training run purely for honest metrics.
 
 Usage:
@@ -23,8 +23,8 @@ from mlops.evaluation import evaluate_direction_prediction
 
 
 # Paths
-CACHE_PATH = Path("experiments/layer2/L2-003/feature_cache.parquet")
-LABELS_PATH = Path("experiments/layer2/L2-003/labels.parquet")
+CACHE_PATH = Path("data/features/direction_prediction/feature_cache.parquet")
+LABELS_PATH = Path("data/features/direction_prediction/labels.parquet")
 
 # Date-based split (honest evaluation)
 TRAIN_START, TRAIN_END = "2020-01-01", "2023-12-31"

@@ -1,0 +1,292 @@
+# Layer 2: Centralized Config
+# Used by: L2-001 (feature computation), L2-002 (framework), and all investigation scripts
+# Change these to test different parameters without editing source code
+
+# =============================================================================
+# FEATURE COMPUTATION (used by compute_all_features)
+# =============================================================================
+
+# --- Volatility ---
+atr_period: 14                    # Primary ATR period (EWM span)
+atr_extra_periods: [7, 21]        # Additional ATR periods to compute
+atr_percentile_window: 500        # Rolling window for ATR percentile
+atr_percentile_min_periods: 100   # Min periods before percentile is valid
+std_period: 20                    # Standard deviation period
+
+# --- Bollinger Bands ---
+bb_period: 20                     # BB EMA and std period
+bb_multiplier: 2                  # BB band width multiplier
+
+# --- Channel Widths ---
+keltner_multiplier: 2             # Keltner channel ATR multiplier
+donchian_period: 50               # Donchian channel lookback
+
+# --- Moving Averages ---
+ema_periods: [9, 20, 50, 100, 200]     # EMA periods to compute
+ema_slope_periods: [20, 50, 200]        # Which EMAs get slope computation
+ema_slope_lookback: 5                   # Bars back for slope calc
+sma200_period: 200                      # SMA period for bull/bear market
+
+# --- Trend ---
+ema_separation_short: 50          # Short EMA for separation calc
+ema_separation_long: 200          # Long EMA for separation calc
+
+# --- RSI ---
+rsi_period: 14                    # Primary RSI period
+rsi_extra_periods: [7, 21]        # Additional RSI periods
+rsi_oversold: 30                  # RSI oversold zone threshold
+rsi_extreme_oversold: 20          # RSI extreme oversold threshold
+
+# --- Rate of Change ---
+roc_periods: [5, 10, 20]         # ROC periods
+
+# --- Momentum ---
+momentum_periods: [5, 10]        # Raw momentum periods
+
+# --- Price Structure ---
+high_low_lookback: 20            # Period for dist_from_high20/low20
+hh_ll_lookback: 5                # Higher high / lower low count window
+up_down_lookback: 5              # Up/down bar count window
+
+# --- Extras ---
+bar_range_avg_period: 10         # Rolling avg of bar range
+recent_vol_period: 10            # Recent volatility window
+range_position_period: 50        # Range position lookback
+
+# --- Volume ---
+volume_ma_period: 20             # Volume moving average period
+volume_trend_short: 5            # Short volume MA
+volume_trend_long: 20            # Long volume MA
+
+# =============================================================================
+# REGIME CLASSIFICATION (used by RegimeClassifier in framework)
+# =============================================================================
+
+regime:
+  feature_x: "atr_pct"           # First axis (volatility dimension)
+  feature_y: "ema_separation"    # Second axis (trend dimension)
+  split_method: "median"         # How to split: "median", "q25", "q75", or fixed value
+  # Regime labels (2x2 grid):
+  #   HIGH_X + HIGH_Y = ACTIVE_TREND
+  #   HIGH_X + LOW_Y  = ACTIVE_FLAT
+  #   LOW_X  + HIGH_Y = QUIET_TREND
+  #   LOW_X  + LOW_Y  = QUIET_FLAT
+
+# =============================================================================
+# EXIT STRATEGY — "How do we manage the trade after entry?"
+# Auto-generates all parameter combinations (grid).
+# Each exit config gets its own precomputation (simulate every bar once).
+# Categories organize by purpose, NOT restrict combinations.
+# =============================================================================
+
+exit_strategy:
+  categories:
+    # PROTECTION — "How much loss can we tolerate?"
+    # Controls risk per trade via trailing stop distance
+    PROTECTION:
+      trailing_stop_bps: [10, 15, 20, 25, 30]
+
+    # TIMING — "How long do we hold?"
+    # Controls maximum holding period
+    TIMING:
+      max_bars: [5, 8, 10, 12, 15]
+
+    # ADAPTATION — "Does exit change mid-trade?"
+    # Controls whether trailing stop tightens after N bars
+    ADAPTATION:
+      configs:
+        - {tighten: false}
+        - {tighten: true, tighten_after_bar: 3, tight_stop_bps: 5}
+        - {tighten: true, tighten_after_bar: 3, tight_stop_bps: 8}
+        - {tighten: true, tighten_after_bar: 3, tight_stop_bps: 10}
+        - {tighten: true, tighten_after_bar: 5, tight_stop_bps: 5}
+        - {tighten: true, tighten_after_bar: 5, tight_stop_bps: 8}
+        - {tighten: true, tighten_after_bar: 5, tight_stop_bps: 10}
+        - {tighten: true, tighten_after_bar: 7, tight_stop_bps: 5}
+        - {tighten: true, tighten_after_bar: 7, tight_stop_bps: 8}
+        - {tighten: true, tighten_after_bar: 7, tight_stop_bps: 10}
+
+# =============================================================================
+# DATA & TEST PARAMETERS
+# =============================================================================
+
+data:
+  path: "data/raw/BTCUSDT_15m_ohlcv.parquet"
+  train_start: "2020-01-01"
+  train_end: "2023-12-31"
+  oos_start: "2024-01-01"
+  oos_end: "2025-12-31"
+
+test:
+  horizons: [10, 15, 20]         # Bars forward for directional/Case1 testing
+  target_bps: 25                 # Minimum profitable move for Case1
+
+# =============================================================================
+# BASE FEATURES — 34 validated, deduplicated features from L2-001a + L2-001b
+# Source of truth for all experiments. Categorized by domain.
+# =============================================================================
+
+base_features:
+  # --- MAGNITUDE (23) — predict HOW FAR price moves ---
+  magnitude:
+    volatility:
+      - keltner_width        # 4.73x — replaces atr_pct, atr7_pct, atr21_pct, bar_range_avg_10, recent_volatility
+      - std20                # 3.95x — replaces bb_width
+      - donchian_width       # 3.71x
+      - atr_percentile       # 2.13x
+
+    bar_size:
+      - range_bps            # 3.88x
+      - body_bps             # 2.70x
+
+    position:
+      - dist_from_high20_pct # 2.61x
+      - dist_from_low20_pct  # 2.50x
+
+    trend:
+      - ema_separation       # 2.51x
+      - price_above_sma200   # 1.12x
+
+    rsi_zones:
+      - rsi_extreme_oversold # 2.16x
+      - rsi_oversold_zone    # 1.70x
+
+    volume:
+      - volume_trend         # 1.35x
+      - volume_ratio         # 1.25x
+
+    time:
+      - day_of_week          # 1.63x
+      - session              # 1.49x — replaces hour_utc
+      - is_weekend           # 1.44x
+      - session_asia_night   # 1.25x
+      - session_europe       # 1.17x
+      - session_us           # 1.11x
+
+    microstructure:
+      - ll_count5            # 1.27x
+      - down_bars5           # 1.26x — replaces up_bars5
+      - hh_count5            # 1.11x
+
+  # --- DIRECTION (11) — predict WHICH WAY price moves ---
+  direction:
+    momentum:
+      - rsi7                 # 14.87pp — replaces ema9_dist_pct
+      - roc5                 # 10.97pp — replaces momentum5
+      - roc20                # 11.40pp
+      - momentum10           # 10.27pp — replaces roc10
+
+    position:
+      - bb_position          # 14.67pp — replaces rsi, rsi21, ema20_dist_pct
+      - range_position_50    # 11.00pp
+      - range_position       # 10.13pp
+
+    trend:
+      - ema20_slope          # 11.13pp
+      - ema50_dist_pct       # 10.47pp — replaces ema100_dist_pct, ema50_slope
+      - sma200_dist_pct      # 7.13pp — replaces ema200_dist_pct, ema200_slope
+      - sma200_slope         # 4.10pp
+
+# =============================================================================
+# DERIVATIVES — computed from base features to add time-awareness (L2-001c)
+# =============================================================================
+
+derivatives:
+  types:
+    - slope              # (current - N_bars_ago) / N
+    - acceleration       # slope_now - slope_N_bars_ago
+    - zscore             # (current - rolling_mean_N) / rolling_std_N
+    - percentile_rank    # rank in last N bars (0-100)
+    - dist_from_max      # (rolling_max_N - current) / rolling_max_N
+    - dist_from_min      # (current - rolling_min_N) / rolling_min_N
+
+  lookbacks: [1, 2, 3, 5, 10, 20, 32, 96]  # N bars
+  # 1=15min, 2=30min, 3=45min, 5=75min, 10=2.5hrs, 20=5hrs, 32=8hrs, 96=1day
+
+  # Features excluded from derivatives (binary/categorical — slope/zscore meaningless)
+  excluded:
+    - price_above_sma200
+    - rsi_extreme_oversold
+    - rsi_oversold_zone
+    - is_weekend
+    - session_asia_night
+    - session_europe
+    - session_us
+    - day_of_week
+    - session
+
+# =============================================================================
+# MAGNITUDE GATE — "Does this bar have enough OPPORTUNITY to be worth trading?"
+# Based purely on L2-001b magnitude rankings. Direction-agnostic.
+# Framework auto-generates all 1, 2, 3-feature combos + tags by category.
+# =============================================================================
+
+magnitude_gate:
+  max_conditions: 3              # Max features combined in one gate (1, 2, or 3)
+
+  # 3 gate categories — for organizing results, NOT restricting tests.
+  # All combos (within-category and cross-category) are tested.
+  # Each combo gets a category tag (e.g. MARKET, MARKET+ENTRY, etc.)
+
+  categories:
+    # MARKET — "Is the environment tradeable?"
+    # Measures the OVERALL market state (slow-changing, multi-bar context)
+    MARKET:
+      features:
+        - {feature: "atr_pct", operator: ">=", thresholds: ["q25", "q50", "q75"]}          # Rank 1 (4.01x)
+        - {feature: "ema_separation", operator: ">=", thresholds: ["q25", "q50", "q75"]}    # Rank 4 (2.21x)
+        - {feature: "atr_percentile", operator: ">=", thresholds: ["q25", "q50", "q75"]}    # Rank 6 (1.70x)
+        - {feature: "volume_ratio", operator: ">=", thresholds: ["q25", "q50", "q75"]}      # Rank 8 (1.25x)
+
+    # ENTRY — "Is THIS bar strong enough?"
+    # Measures the CURRENT bar's quality (changes every bar)
+    ENTRY:
+      features:
+        - {feature: "range_bps", operator: ">=", thresholds: ["q25", "q50", "q75"]}         # Rank 2 (3.37x)
+        - {feature: "body_bps", operator: ">=", thresholds: ["q25", "q50", "q75"]}          # Rank 5 (2.16x)
+
+    # STRUCTURE — "Is price positioned well?"
+    # Measures WHERE price is (medium-changing)
+    STRUCTURE:
+      features:
+        - {feature: "dist_from_high20_pct", operator: ">=", thresholds: ["q25", "q50", "q75"]}  # Rank 3 (2.24x)
+        - {feature: "hour_utc", operator: ">=", thresholds: ["q25", "q50", "q75"]}              # Rank 7 (1.22x)
+
+  # Regime configs — pre-built MARKET configurations (ATR × EMA sep = 4 labels)
+  # Tagged as MARKET (they ARE market conditions, not a separate gate)
+  regimes:
+    individual: ["ACTIVE_TREND", "ACTIVE_FLAT", "QUIET_TREND", "QUIET_FLAT"]
+    combos:
+      - {name: "ACTIVE_ANY", regimes: ["ACTIVE_TREND", "ACTIVE_FLAT"]}
+      - {name: "TREND_ANY", regimes: ["ACTIVE_TREND", "QUIET_TREND"]}
+
+# =============================================================================
+# SIGNAL GATE — "Which DIRECTION should we trade?"
+# Based on L2-001b direction rankings. Magnitude-agnostic.
+# feature <= long_threshold → LONG signal
+# feature >= short_threshold → SHORT signal
+# =============================================================================
+
+signal_gate:
+  max_conditions: 3              # Max features combined in one signal (1, 2, or 3)
+                                 # Combo = AND logic: ALL conditions must be true
+
+  categories:
+    # MOMENTUM — "Is the move exhausted?"
+    # Measures speed/strength of recent price movement
+    MOMENTUM:
+      features:
+        - {feature: "rsi7", long_thresholds: [20, 25, 30, 35], short_thresholds: [80, 75, 70, 65]}       # Rank 2 direction
+        - {feature: "roc5", long_thresholds: [-0.3, -0.5], short_thresholds: [0.3, 0.5]}                  # Rank 3 direction
+
+    # REVERSION — "Has price deviated too far from mean?"
+    # Measures distance from moving average (stretched rubber band)
+    REVERSION:
+      features:
+        - {feature: "ema9_dist_pct", long_thresholds: [-0.2, -0.3, -0.5], short_thresholds: [0.2, 0.3, 0.5]}  # Rank 1 direction
+
+    # RANGE — "Is price at an extreme of its range?"
+    # Measures position within recent high-low channel (0 to 1)
+    RANGE:
+      features:
+        - {feature: "range_position", long_thresholds: [0.2, 0.3], short_thresholds: [0.8, 0.7]}          # Rank 4 direction

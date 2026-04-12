@@ -132,14 +132,14 @@ input:
   normalization:
     method: z-score
     fit_on: "ALL data 2020-2025 (production). Research used train-only 2020-2023."
-    note: "Scaler saved to src/v12/ml_model/scaler.npz. Same scaler applied at inference."
+    note: "Scaler saved to models/direction_v15/scaler.npz. Same scaler applied at inference."
 
 # ============================================================
 # Data usage (exact columns read from each file)
 # ============================================================
 data_usage:
   feature_cache:
-    path: experiments/layer2/L2-003/feature_cache.parquet
+    path: data/features/direction_prediction/feature_cache.parquet
     columns_read: [close, high, low]
     columns_used_from_cache: 3 of 23
     feature_processing: |
@@ -150,7 +150,7 @@ data_usage:
       Total: 10 features, none stored in feature_cache
 
   labels:
-    path: experiments/layer2/L2-003/labels.parquet
+    path: data/features/direction_prediction/labels.parquet
     columns_read: [direction]
     columns_used_from_labels: 1 of 30
     label_processing: |

@@ -54,7 +54,7 @@ config = load_config()
 trades = run_backtest(config)
 
 # Load OHLCV and compute indicators to get ATR, EMA sep at each bar
-data_path = Path("data/ohlcv/BTCUSDT_15m_ohlcv.parquet")
+data_path = Path("data/raw/BTCUSDT_15m_ohlcv.parquet")
 df = pd.read_parquet(data_path)
 df.index = pd.to_datetime(df.index).tz_localize(None)
 strategy = V12Strategy(config)

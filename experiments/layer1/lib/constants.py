@@ -21,4 +21,4 @@ N_SIMS = 1000
 DEFAULT_CAPITAL = 10.0
 
 # Data path
-DATA_PATH = "data/ohlcv/BTCUSDT_15m_ohlcv.parquet"
+DATA_PATH = "data/raw/BTCUSDT_15m_ohlcv.parquet"

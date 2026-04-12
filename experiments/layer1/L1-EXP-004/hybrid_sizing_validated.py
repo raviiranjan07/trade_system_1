@@ -39,7 +39,7 @@ N_SIMS = 1000
 # LOAD DATA + INDICATORS
 # ============================================================
 config = load_config()
-data_path = Path("data/ohlcv/BTCUSDT_15m_ohlcv.parquet")
+data_path = Path("data/raw/BTCUSDT_15m_ohlcv.parquet")
 df = pd.read_parquet(data_path)
 df.index = pd.to_datetime(df.index).tz_localize(None)
 strategy = V12Strategy(config)

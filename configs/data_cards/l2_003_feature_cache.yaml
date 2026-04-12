@@ -8,17 +8,17 @@ last_updated: 2026-03-26
 
 files:
   feature_cache:
-    path: experiments/layer2/L2-003/feature_cache.parquet
+    path: data/features/direction_prediction/feature_cache.parquet
     size_mb: 40
     dvc_hash: e395c57f0eb678807d4d22cf08ea6eec
     cleaned: "2026-04-12 — reduced from 1,266 to 23 columns (1 GB → 40 MB). Dropped 1,200 derivative features (slope, acceleration, zscore, percentile_rank, dist_from_max, dist_from_min) that were never used by any successful model. Old 1,266-column version still in DVC cache under hash 863db21d."
   labels:
-    path: experiments/layer2/L2-003/labels.parquet
+    path: data/features/direction_prediction/labels.parquet
     size_mb: 31
     dvc_hash: 5ab7883630d668e1e96f6ef6e08491f9
 
 source:
-  raw_data: data/ohlcv/BTCUSDT_15m_ohlcv.parquet
+  raw_data: data/raw/BTCUSDT_15m_ohlcv.parquet
   asset: BTCUSDT
   timeframe: 15m
   builder_script: experiments/layer2/L2-003/stage_3/L2_003_stage3_labels.py

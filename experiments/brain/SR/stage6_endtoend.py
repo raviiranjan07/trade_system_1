@@ -14,16 +14,16 @@ print("STAGE 6: End-to-End S/R + Base Features")
 print("=" * 60)
 
 print("\nStep 1: Loading S/R datasets...")
-train = np.load("experiments/brain/SR/datasets_every_bar/train.npz")
-val = np.load("experiments/brain/SR/datasets_every_bar/val.npz")
-test = np.load("experiments/brain/SR/datasets_every_bar/test.npz")
+train = np.load("data/features/sr_bounce_break/every_bar/train.npz")
+val = np.load("data/features/sr_bounce_break/every_bar/val.npz")
+test = np.load("data/features/sr_bounce_break/every_bar/test.npz")
 
 for name, d in [("Train", train), ("Val", val), ("Test", test)]:
     print(f"  {name}: {len(d['Y'])} events, bars range [{d['bars'].min()}-{d['bars'].max()}]")
 
 # === Step 2: Load base features ===
 print("\nStep 2: Loading base features from feature_cache...")
-fc = pd.read_parquet("experiments/layer2/L2-003/feature_cache.parquet")
+fc = pd.read_parquet("data/features/direction_prediction/feature_cache.parquet")
 fc.index = fc.index.tz_localize(None) if fc.index.tz is not None else fc.index
 
 # roc5 = single-bar rate of change (closest to roc in snapshot setup)
@@ -110,7 +110,7 @@ for name, d in [("Train", train), ("Val", val), ("Test", test)]:
 
     # Save combined
     np.savez_compressed(
-        f"experiments/brain/SR/datasets_every_bar/{name}_stage6.npz",
+        f"data/features/sr_bounce_break/every_bar/{name}_stage6.npz",
         X_sr_dynamic=Xd,
         X_sr_static=Xs,
         X_base=base,
@@ -131,7 +131,7 @@ print("SUMMARY")
 print("=" * 60)
 
 # Load back train to show full picture
-train_s6 = np.load("experiments/brain/SR/datasets_every_bar/train_stage6.npz")
+train_s6 = np.load("data/features/sr_bounce_break/every_bar/train_stage6.npz")
 print(f"\nFeatures per event:")
 print(f"  S/R dynamic: {train_s6['X_sr_dynamic'].shape[1]} features")
 print(f"  S/R static:  {train_s6['X_sr_static'].shape[1]} features")
@@ -140,4 +140,4 @@ print(f"  Total:        {train_s6['X_sr_dynamic'].shape[1] + train_s6['X_sr_stat
 print(f"\nLabels:")
 print(f"  H25 direction: LONG/SHORT/BOTH/SKIP")
 print(f"  MFE 3-class:   BOUNCE/BREAK/CHOP (kept for reference)")
-print(f"\nSaved to: experiments/brain/SR/datasets_every_bar/*_stage6.npz")
+print(f"\nSaved to: data/features/sr_bounce_break/every_bar/*_stage6.npz")

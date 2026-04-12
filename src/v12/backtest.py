@@ -22,7 +22,7 @@ from .strategy import V12Strategy, Direction, SignalType
 
 logger = logging.getLogger(__name__)
 
-DATA_PATH = Path("data/ohlcv/BTCUSDT_15m_ohlcv.parquet")
+DATA_PATH = Path("data/raw/BTCUSDT_15m_ohlcv.parquet")
 
 
 def run_backtest(
@@ -64,8 +64,8 @@ def run_backtest(
     logger.info("V1.4 signals: %d", len(signals))
 
     # Generate ML signals
-    ml_model_path = Path("src/v12/ml_model/direction_model.onnx")
-    ml_scaler_path = Path("src/v12/ml_model/scaler.npz")
+    ml_model_path = Path("models/direction_v15/direction_model.onnx")
+    ml_scaler_path = Path("models/direction_v15/scaler.npz")
     ml_gen = MLSignalGenerator(model_path=ml_model_path, scaler_path=ml_scaler_path)
 
     if ml_gen.loaded:

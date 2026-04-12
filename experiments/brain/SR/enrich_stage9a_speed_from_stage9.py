@@ -15,8 +15,8 @@ from pathlib import Path
 import numpy as np
 
 
-STAGE9_DIR = Path("experiments/brain/SR/datasets_stage9")
-STAGE9A_DIR = Path("experiments/brain/SR/datasets_stage9a_static")
+STAGE9_DIR = Path("data/features/sr_bounce_break/stage9")
+STAGE9A_DIR = Path("data/features/sr_bounce_break/stage9a_static")
 SPEED_FEATURES = ["speed_short", "speed_mid", "speed_long"]
 
 

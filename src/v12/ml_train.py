@@ -1,7 +1,7 @@
 """Train ML direction model and export to ONNX for production use.
 
 Trains on ALL data (2020-2025) with random 10% validation split.
-Saves ONNX model + scaler to src/v12/ml_model/
+Saves ONNX model + scaler to models/direction_v15/
 
 Requires torch (local training only — production uses onnxruntime).
 
@@ -16,11 +16,11 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 
-MODEL_DIR = Path("src/v12/ml_model")
+MODEL_DIR = Path("models/direction_v15")
 MODEL_DIR.mkdir(exist_ok=True)
 
-CACHE_PATH = Path("experiments/layer2/L2-003/feature_cache.parquet")
-LABELS_PATH = Path("experiments/layer2/L2-003/labels.parquet")
+CACHE_PATH = Path("data/features/direction_prediction/feature_cache.parquet")
+LABELS_PATH = Path("data/features/direction_prediction/labels.parquet")
 
 
 # Model definition (training only — production uses ONNX)

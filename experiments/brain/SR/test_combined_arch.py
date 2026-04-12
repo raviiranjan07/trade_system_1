@@ -28,7 +28,7 @@ open_arr = df["open"].values
 N_ohlcv = len(df)
 
 # Load base features
-fc = pd.read_parquet("experiments/layer2/L2-003/feature_cache.parquet")
+fc = pd.read_parquet("data/features/direction_prediction/feature_cache.parquet")
 fc.index = fc.index.tz_localize(None) if fc.index.tz is not None else fc.index
 common = fc.index.intersection(df.index)
 fc = fc.loc[common]
@@ -44,9 +44,9 @@ print(f"Base features: {base_cols}")
 
 # Load S/R features from every_bar dataset
 print("\nLoading S/R features...")
-sr_train = np.load("experiments/brain/SR/datasets_every_bar/train_stage6.npz")
-sr_val = np.load("experiments/brain/SR/datasets_every_bar/val_stage6.npz")
-sr_test = np.load("experiments/brain/SR/datasets_every_bar/test_stage6.npz")
+sr_train = np.load("data/features/sr_bounce_break/every_bar/train_stage6.npz")
+sr_val = np.load("data/features/sr_bounce_break/every_bar/val_stage6.npz")
+sr_test = np.load("data/features/sr_bounce_break/every_bar/test_stage6.npz")
 
 # Get bar numbers for S/R events
 sr_bars_train = sr_train["bars"]

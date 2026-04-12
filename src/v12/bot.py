@@ -64,7 +64,7 @@ class V12Bot:
         self._last_signal: Optional[Signal] = None
 
         # Trade logging
-        self._trades_dir = Path("data/v12_trades")
+        self._trades_dir = Path("data/trades")
         self._trades_dir.mkdir(parents=True, exist_ok=True)
         self._trades_csv = self._trades_dir / f"trades_{config.execution.mode}.csv"
         self._init_csv()
@@ -77,25 +77,25 @@ class V12Bot:
         self._current_qty = 0.0
         self._current_decision: Optional[RiskDecision] = None
         self._total_skips = 0
-        self._risk_state_path = Path("data/v12_trades/risk_state.json")
+        self._risk_state_path = Path("data/trades/risk_state.json")
         self._load_risk_state()
 
         # ML signal generator — separate position manager, wallet, and CSV
         self._ml_gen = MLSignalGenerator(
-            model_path=Path("src/v12/ml_model/direction_model.onnx"),
-            scaler_path=Path("src/v12/ml_model/scaler.npz"),
+            model_path=Path("models/direction_v15/direction_model.onnx"),
+            scaler_path=Path("models/direction_v15/scaler.npz"),
         )
         self._ml_pm = V12PositionManager(config)
         self._ml_wallet = DEFAULT_CAPITAL
         self._ml_health = AccountHealthMonitor()
         self._ml_risk_calc = RiskCalculator(worst_loss_bps=865, health=self._ml_health)
         self._ml_decision_logger = DecisionLogger(
-            log_dir="data/risk_logs/ml"
+            log_dir="data/trades/risk_logs/ml"
         )
         self._ml_qty = 0.0
         self._ml_trades_csv = self._trades_dir / f"trades_ml_{config.execution.mode}.csv"
         self._init_ml_csv()
-        self._ml_risk_state_path = Path("data/v12_trades/risk_state_ml.json")
+        self._ml_risk_state_path = Path("data/trades/risk_state_ml.json")
         self._load_ml_risk_state()
         if self._ml_gen.loaded:
             logger.info("ML model loaded — ML_LONG/ML_SHORT signals enabled")

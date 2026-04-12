@@ -28,7 +28,7 @@ data:
   end_date: "2025-12-31"
 
   # Data source: "local" or "database"
-  # - local: Load from data/ohlcv/{pair}_{timeframe}_ohlcv.parquet (fast, offline)
+  # - local: Load from data/raw/{pair}_{timeframe}_ohlcv.parquet (fast, offline)
   # - database: Fetch from PostgreSQL via OHLCVLoader (requires DB connection)
   source: "local"
 

@@ -315,7 +315,7 @@ if __name__ == "__main__":
     print("="*60)
 
     # Load OHLCV data
-    ohlcv_path = Path("data/ohlcv/BTCUSDT_1m_ohlcv.parquet")
+    ohlcv_path = Path("data/raw/BTCUSDT_1m_ohlcv.parquet")
     if ohlcv_path.exists():
         ohlcv = pd.read_parquet(ohlcv_path)
         print(f"Loaded {len(ohlcv):,} candles")

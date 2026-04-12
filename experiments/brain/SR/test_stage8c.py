@@ -19,9 +19,9 @@ print("=" * 60)
 
 # Load data
 print("\nLoading data...")
-train = np.load("experiments/brain/SR/datasets_every_bar/train.npz")
-val = np.load("experiments/brain/SR/datasets_every_bar/val.npz")
-test = np.load("experiments/brain/SR/datasets_every_bar/test.npz")
+train = np.load("data/features/sr_bounce_break/every_bar/train.npz")
+val = np.load("data/features/sr_bounce_break/every_bar/val.npz")
+test = np.load("data/features/sr_bounce_break/every_bar/test.npz")
 
 # Get dynamic (last snapshot) and static
 def get_split(data):

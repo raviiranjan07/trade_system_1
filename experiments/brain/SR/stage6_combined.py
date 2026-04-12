@@ -16,13 +16,13 @@ print("=" * 60)
 
 # Load S/R datasets (has bar numbers)
 print("\nLoading S/R datasets...")
-train = np.load("experiments/brain/SR/datasets_every_bar/train.npz")
-val = np.load("experiments/brain/SR/datasets_every_bar/val.npz")
-test = np.load("experiments/brain/SR/datasets_every_bar/test.npz")
+train = np.load("data/features/sr_bounce_break/every_bar/train.npz")
+val = np.load("data/features/sr_bounce_break/every_bar/val.npz")
+test = np.load("data/features/sr_bounce_break/every_bar/test.npz")
 
 # Load base features from feature cache
 print("Loading base features from feature_cache.parquet...")
-fc = pd.read_parquet("experiments/layer2/L2-003/feature_cache.parquet")
+fc = pd.read_parquet("data/features/direction_prediction/feature_cache.parquet")
 fc.index = fc.index.tz_localize(None) if fc.index.tz is not None else fc.index
 
 # Get base features

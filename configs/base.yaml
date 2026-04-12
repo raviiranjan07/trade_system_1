@@ -1,0 +1,127 @@
+# Brain Pipeline — Base Config
+# All experiments inherit from this. Override only what's different.
+
+ingestion:
+  symbol: BTCUSDT
+  timeframe: 15m
+  source: data/raw/
+  date_range:
+    start: "2020-01-01"
+    end: "2025-12-31"
+  validation:
+    check_gaps: true
+    max_gap_bars: 3
+    fill_method: forward
+  warm_up:
+    min_bars: 50
+
+features:
+  price_action:
+    enabled: true
+    roc: true
+    rsi7: true
+    range_position: true
+
+  market_structure:
+    enabled: true
+    sr_method: v5_confirmed
+    sr_min_touches: 2
+    sr_lookback: 8
+    sr_carry_forward: true
+    zone_relative: false
+
+  volatility:
+    enabled: true
+    atr_pct: true
+    atr_percentile: true
+    ema_separation: true
+
+  bar_characteristics:
+    enabled: true
+    range_bps: true
+    body_bps: true
+    dist_from_high20_pct: true
+
+  activity:
+    enabled: true
+    volume_ratio: true
+
+labels:
+  direction:
+    enabled: true
+    horizon: 8
+    threshold_bps: 15
+  mfe:
+    enabled: true
+    horizons: [1, 2, 3, 4, 5, 6, 7, 8]
+  bounce_break:
+    enabled: false
+    distance_threshold: 5   # bps — "near S/R" definition
+    move_threshold: 15      # bps — how far to count as bounce/break
+    horizon: 8              # bars to look ahead
+
+dataset:
+  snapshot_count: 8
+  snapshot_gap: 1
+  split:
+    train: ["2020-01-01", "2022-12-31"]
+    val: ["2023-01-01", "2023-12-31"]
+    test: ["2024-01-01", "2025-12-31"]
+  normalization:
+    method: zscore
+    fit_on: train
+    raw_price_method: relative_bps
+    nan_handling: zero
+  filtering:
+    remove_skip: true
+    min_zone_width: 0
+    require_zone: false
+
+training:
+  architecture: lstm
+  model:
+    hidden_size: 128
+    num_layers: 1
+    dropout: 0.2
+    snapshot_dense: 64
+  tasks:
+    direction:
+      enabled: true
+      loss: cross_entropy
+      weight: 1.0
+    mfe:
+      enabled: true
+      loss: mse
+      weight: 5.0
+  optimizer:
+    type: adam
+    lr: 0.001
+    weight_decay: 0.0001
+  schedule:
+    batch_size: 512
+    max_epochs: 200
+    patience: 10
+  device: cuda
+  seed: 42
+
+evaluation:
+  confidence_thresholds: [0.55, 0.60, 0.65, 0.70]
+  sr_position:
+    method: data_driven
+  backtest:
+    enabled: true
+    exit_rules:
+      trailing_stop_long: 20
+      trailing_stop_short: 30
+      tighten_after_bar: 5
+      tighten_to: 8
+      time_exit: 10
+
+tracking:
+  experiment_dir: experiments/brain/
+  auto_log: true
+
+reproducibility:
+  seed: 42
+  feature_version: v5
+  label_version: v1
