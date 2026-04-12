@@ -1,0 +1,60 @@
+name: direction_prediction_v1
+version: 1
+description: |
+  Binary classification: LONG vs SHORT direction prediction.
+  15-min BTCUSDT. Which direction hits threshold first.
+  Covers: L2-003 Stages 2-4, V1.5 production model.
+
+label_spec:
+  type: binary
+  classes: [long, short]
+  method: first_hit
+  threshold_bps: 15
+  entry: next_bar_open
+
+data_split:
+  train: ["2020-01-01", "2023-12-31"]
+  val: ["2024-01-01", "2024-12-31"]
+  test: ["2025-01-01", "2025-12-31"]
+
+required_metrics:
+  - test_accuracy
+  - test_confident_accuracy
+  - test_n_confident
+  - test_confidence_threshold_long
+  - test_confidence_threshold_short
+  - test_precision_long
+  - test_precision_short
+  - test_recall_long
+  - test_recall_short
+  - test_f1
+  - test_confusion_matrix
+  - n_test
+  - class_balance_test
+  - baseline_accuracy
+  - delta_vs_baseline
+
+optional_metrics:
+  - test_signal_win_rate
+  - test_expected_value_bps
+  - test_expected_value_bps_after_fees
+  - test_profit_factor
+  - test_avg_winner_bps
+  - test_avg_loser_bps
+  - test_n_trades
+  - val_accuracy
+  - val_confident_accuracy
+  - train_accuracy
+
+required_artifacts:
+  - metrics.json
+
+baseline:
+  name: random_direction
+  description: ~50% random (LONG/SHORT balanced after removing BOTH/SKIP)
+  current_best: 57-58% confident accuracy (V1.5 MLP, H96)
+
+tags:
+  problem: direction_prediction
+  timeframe: 15m
+  asset: BTCUSDT

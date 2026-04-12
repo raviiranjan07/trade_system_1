@@ -1,0 +1,57 @@
+name: sr_bounce_break_v1
+version: 1
+description: |
+  Binary classification: bounce vs break at S/R zone touch.
+  15-min BTCUSDT, hybrid KDE zones.
+  Covers: Brain EXP-B002, Brain SR Stages 1-9.
+
+label_spec:
+  type: binary
+  classes: [break, bounce]
+  method: dominance
+  threshold_bps: 15
+  dominance_pct: 70
+  direction_normalized: true
+  entry: next_bar_open
+
+data_split:
+  train: ["2020-01-01", "2022-11-30"]
+  val: ["2023-01-01", "2023-11-30"]
+  test: ["2024-01-01", "2025-12-31"]
+
+required_metrics:
+  - test_accuracy
+  - test_precision_bounce
+  - test_precision_break
+  - test_recall_bounce
+  - test_recall_break
+  - test_f1
+  - test_confusion_matrix
+  - n_test
+  - class_balance_test
+  - baseline_accuracy
+  - delta_vs_baseline
+
+optional_metrics:
+  - test_signal_win_rate
+  - test_expected_value_bps
+  - test_expected_value_bps_after_fees
+  - test_profit_factor
+  - test_avg_winner_bps
+  - test_avg_loser_bps
+  - test_n_trades
+  - val_accuracy
+  - train_accuracy
+
+required_artifacts:
+  - metrics.json
+
+baseline:
+  name: always_predict_majority
+  description: ~50% on balanced test set
+  current_best: 52.0% (Stage 8c-B)
+
+tags:
+  problem: sr_bounce_break
+  timeframe: 15m
+  asset: BTCUSDT
