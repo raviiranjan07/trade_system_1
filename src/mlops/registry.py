@@ -24,9 +24,13 @@ COLUMNS = [
     "status",
     "start_time",
     "duration_s",
+    "user",
+    "source_name",
     "git_commit",
     "git_dirty",
     "git_branch",
+    "model_type",
+    "dataset_version",
     "config_path",
     "artifacts_dir",
     "primary_metric_name",
@@ -44,9 +48,13 @@ class RegistryRow:
     status: str = ""
     start_time: str = ""
     duration_s: float = 0.0
+    user: str = ""
+    source_name: str = ""
     git_commit: str = ""
     git_dirty: str = ""
     git_branch: str = ""
+    model_type: str = ""
+    dataset_version: str = ""
     config_path: str = ""
     artifacts_dir: str = ""
     primary_metric_name: str = ""

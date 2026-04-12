@@ -18,8 +18,11 @@ Usage:
 Ties together: git.py, tracking.py, protocol.py, registry.py, evaluation.py.
 """
 
+import getpass
+import inspect
 import io
 import json
+import os
 import shutil
 import sys
 import time
@@ -145,6 +148,10 @@ def run_experiment(
     config_path: str | Path | None = None,
     params: dict | None = None,
     primary_metric: str = "test_accuracy",
+    model_type: str = "",
+    dataset_version: str = "",
+    user: str = "",
+    source_name: str = "",
     notes: str = "",
     experiments_dir: Path | None = None,
 ):
@@ -173,6 +180,13 @@ def run_experiment(
     start_dt = datetime.now()
     run_id = _generate_run_id()
     params = params or {}
+
+    # Auto-detect user and source if not provided
+    if not user:
+        user = getpass.getuser()
+    if not source_name:
+        frame = inspect.stack()[-1]
+        source_name = frame.filename
 
     # Load protocol
     protocol = load_protocol(protocol_name)
@@ -284,9 +298,13 @@ def run_experiment(
             status=status,
             start_time=start_dt.strftime("%Y-%m-%d %H:%M:%S"),
             duration_s=duration_s,
+            user=user,
+            source_name=source_name,
             git_commit=git_info.get("commit", ""),
             git_dirty=str(git_info.get("dirty", "")),
             git_branch=git_info.get("branch", ""),
+            model_type=model_type,
+            dataset_version=dataset_version,
             config_path=str(config_path or ""),
             artifacts_dir=str(run_dir),
             primary_metric_name=primary_metric,
