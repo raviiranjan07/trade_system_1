@@ -36,6 +36,8 @@ class SignalType(Enum):
     BULL_SHORT = "BULL_SHORT"
     ML_LONG = "ML_LONG"
     ML_SHORT = "ML_SHORT"
+    ML_ATTN_LONG = "ML_ATTN_LONG"
+    ML_ATTN_SHORT = "ML_ATTN_SHORT"
 
 
 @dataclass

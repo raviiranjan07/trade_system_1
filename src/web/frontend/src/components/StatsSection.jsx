@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 
-function StatsSection({ stats, risk, ml, trades, mlTrades }) {
+function StatsSection({ stats, risk, ml, trades, mlTrades, mlAttnTrades }) {
   const [view, setView] = useState('combined')
 
   // Compute stats based on view
@@ -23,13 +23,28 @@ function StatsSection({ stats, risk, ml, trades, mlTrades }) {
       profit_factor: grossLoss > 0 ? grossWin / grossLoss : 0,
     }
     walletUsd = ml?.ml_wallet_usd ?? 0
+  } else if (view === 'mlv2' && mlAttnTrades && mlAttnTrades.length > 0) {
+    const wins = mlAttnTrades.filter(t => (t.net_profit_bps || 0) > 0).length
+    const losses = mlAttnTrades.length - wins
+    const totalBps = mlAttnTrades.reduce((s, t) => s + (t.net_profit_bps || 0), 0)
+    const grossWin = mlAttnTrades.filter(t => (t.net_profit_bps || 0) > 0).reduce((s, t) => s + (t.net_profit_bps || 0), 0)
+    const grossLoss = Math.abs(mlAttnTrades.filter(t => (t.net_profit_bps || 0) <= 0).reduce((s, t) => s + (t.net_profit_bps || 0), 0))
+    displayStats = {
+      total_trades: mlAttnTrades.length,
+      wins,
+      losses,
+      win_rate: mlAttnTrades.length > 0 ? wins / mlAttnTrades.length : 0,
+      total_bps: totalBps,
+      avg_bps: mlAttnTrades.length > 0 ? totalBps / mlAttnTrades.length : 0,
+      profit_factor: grossLoss > 0 ? grossWin / grossLoss : 0,
+    }
+    walletUsd = 0  // will be updated when ml_attn wallet is available
   } else if (view === 'v14') {
     walletUsd = risk?.wallet_usd ?? 0
   } else {
-    // combined — use default stats which are V1.4 only from backend
-    // Merge with ML if available
-    if (mlTrades && mlTrades.length > 0 && stats) {
-      const allTrades = [...(trades || []), ...(mlTrades || [])]
+    // combined — merge V1.4 + ML + ML V2
+    const allTrades = [...(trades || []), ...(mlTrades || []), ...(mlAttnTrades || [])]
+    if (allTrades.length > 0 && stats) {
       const totalWins = allTrades.filter(t => (t.net_profit_bps || 0) > 0).length
       const totalLosses = allTrades.length - totalWins
       const totalBps = allTrades.reduce((s, t) => s + (t.net_profit_bps || 0), 0)
@@ -61,6 +76,7 @@ function StatsSection({ stats, risk, ml, trades, mlTrades }) {
         <button className={`stats-filter-btn ${view === 'combined' ? 'active' : ''}`} onClick={() => setView('combined')}>Combined</button>
         <button className={`stats-filter-btn ${view === 'v14' ? 'active' : ''}`} onClick={() => setView('v14')}>V1.4</button>
         <button className={`stats-filter-btn ${view === 'ml' ? 'active' : ''}`} onClick={() => setView('ml')}>ML</button>
+        <button className={`stats-filter-btn ${view === 'mlv2' ? 'active' : ''}`} onClick={() => setView('mlv2')}>ML V2</button>
       </div>
       <div className="stats-hero">
         <div className="stats-hero-card">

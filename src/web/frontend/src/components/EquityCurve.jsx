@@ -32,11 +32,12 @@ function buildCurveData(tradesArr) {
   return deduped
 }
 
-function EquityCurve({ trades, mlTrades }) {
+function EquityCurve({ trades, mlTrades, mlAttnTrades }) {
   const containerRef = useRef(null)
   const chartRef = useRef(null)
   const v14SeriesRef = useRef(null)
   const mlSeriesRef = useRef(null)
+  const mlAttnSeriesRef = useRef(null)
   const zeroLineRef = useRef(null)
 
   // Chart initialization
@@ -88,6 +89,15 @@ function EquityCurve({ trades, mlTrades }) {
       crosshairMarkerVisible: true,
     })
 
+    // ML V2 line (amber)
+    const mlAttnSeries = chart.addSeries(LineSeries, {
+      color: '#f59e0b',
+      lineWidth: 2,
+      lastValueVisible: true,
+      priceLineVisible: false,
+      crosshairMarkerVisible: true,
+    })
+
     // Zero reference line
     const zeroLine = chart.addSeries(LineSeries, {
       color: 'rgba(136, 146, 160, 0.3)',
@@ -101,6 +111,7 @@ function EquityCurve({ trades, mlTrades }) {
     chartRef.current = chart
     v14SeriesRef.current = v14Series
     mlSeriesRef.current = mlSeries
+    mlAttnSeriesRef.current = mlAttnSeries
     zeroLineRef.current = zeroLine
 
     const handleResize = () => {
@@ -122,6 +133,7 @@ function EquityCurve({ trades, mlTrades }) {
 
     const v14Data = buildCurveData(trades)
     const mlData = buildCurveData(mlTrades)
+    const mlAttnData = buildCurveData(mlAttnTrades)
 
     if (v14Data.length > 0) {
       v14SeriesRef.current.setData(v14Data)
@@ -129,9 +141,12 @@ function EquityCurve({ trades, mlTrades }) {
     if (mlData.length > 0) {
       mlSeriesRef.current.setData(mlData)
     }
+    if (mlAttnData.length > 0 && mlAttnSeriesRef.current) {
+      mlAttnSeriesRef.current.setData(mlAttnData)
+    }
 
-    // Zero line spanning full range of both series
-    const allTimes = [...v14Data.map(d => d.time), ...mlData.map(d => d.time)]
+    // Zero line spanning full range of all series
+    const allTimes = [...v14Data.map(d => d.time), ...mlData.map(d => d.time), ...mlAttnData.map(d => d.time)]
     if (allTimes.length > 0) {
       const minTime = Math.min(...allTimes)
       const maxTime = Math.max(...allTimes)
@@ -144,9 +159,9 @@ function EquityCurve({ trades, mlTrades }) {
     if (chartRef.current) {
       chartRef.current.timeScale().fitContent()
     }
-  }, [trades, mlTrades])
+  }, [trades, mlTrades, mlAttnTrades])
 
-  const hasTrades = (trades && trades.length > 0) || (mlTrades && mlTrades.length > 0)
+  const hasTrades = (trades && trades.length > 0) || (mlTrades && mlTrades.length > 0) || (mlAttnTrades && mlAttnTrades.length > 0)
 
   if (!hasTrades) {
     return (

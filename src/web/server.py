@@ -61,7 +61,7 @@ def create_app(state: Optional[DashboardState] = None) -> FastAPI:
     # =========================================================================
     # Persistence files for drawings & indicators
     # =========================================================================
-    PERSIST_DIR = Path("data/v12_trades")
+    PERSIST_DIR = Path("data/trades")
     DRAWINGS_FILE = PERSIST_DIR / "drawings.json"
     INDICATORS_FILE = PERSIST_DIR / "indicators.json"
 
@@ -246,8 +246,8 @@ def create_app(state: Optional[DashboardState] = None) -> FastAPI:
         ]
         frames = []
         for csv_path in [
-            Path("data/risk_logs/decisions.csv"),
-            Path("data/risk_logs/ml/decisions.csv"),
+            Path("data/trades/risk_logs/decisions.csv"),
+            Path("data/trades/risk_logs/ml/decisions.csv"),
         ]:
             if csv_path.exists():
                 try:

@@ -385,7 +385,7 @@ function App() {
       <div className="dashboard">
         <header className="header">
           <h1>
-            V1.3 Bot
+            ALPHA
             <span className="pair">{config?.pair || 'BTCUSDT'}</span>
             <span className="timeframe">{config?.timeframe || '15m'}</span>
           </h1>
@@ -406,7 +406,7 @@ function App() {
       {/* Header */}
       <header className="header">
         <h1>
-          V1.3 Bot
+          ALPHA
           <span className="pair">{config?.pair || 'BTCUSDT'}</span>
           <span className="timeframe">{config?.timeframe || '15m'}</span>
           {config?.config_hash && (
@@ -448,8 +448,10 @@ function App() {
             stats={stats}
             risk={data?.risk}
             ml={data?.ml}
+            mlAttn={data?.ml_attn}
             trades={trades}
             mlTrades={data?.ml_trades}
+            mlAttnTrades={data?.ml_attn_trades}
             status={status}
             position={position}
           />
@@ -565,9 +567,9 @@ function App() {
       {/* ========== TRADES PAGE (full-width) ========== */}
       {activePage === 'trades' && (
         <div className="page-content page-trades">
-          <StatsSection stats={stats} risk={data?.risk} ml={data?.ml} trades={trades} mlTrades={data?.ml_trades} />
+          <StatsSection stats={stats} risk={data?.risk} ml={data?.ml} trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} />
 
-          <TradesList trades={trades} mlTrades={data?.ml_trades} />
+          <TradesList trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} />
 
           <div className="card signals-full-container">
             <div className="card-header">Signal Log</div>
@@ -580,22 +582,22 @@ function App() {
       {/* ========== RISK PAGE (full-width) ========== */}
       {activePage === 'risk' && (
         <div className="page-content page-risk">
-          <RiskPage risk={data?.risk} ml={data?.ml} decisions={decisions} trades={trades} mlTrades={data?.ml_trades} />
+          <RiskPage risk={data?.risk} ml={data?.ml} mlAttn={data?.ml_attn} decisions={decisions} trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} />
         </div>
       )}
 
       {/* ========== ANALYTICS PAGE (full-width) ========== */}
       {activePage === 'analytics' && (
         <div className="page-content page-analytics">
-          <StatsSection stats={stats} risk={data?.risk} ml={data?.ml} trades={trades} mlTrades={data?.ml_trades} />
+          <StatsSection stats={stats} risk={data?.risk} ml={data?.ml} trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} />
 
           <div className="analytics-equity">
-            <EquityCurve trades={trades} mlTrades={data?.ml_trades} />
+            <EquityCurve trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} />
           </div>
 
-          <PnLCalendar trades={trades} mlTrades={data?.ml_trades} />
+          <PnLCalendar trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} />
 
-          <PerformancePanel trades={trades} mlTrades={data?.ml_trades} />
+          <PerformancePanel trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} />
         </div>
       )}
 

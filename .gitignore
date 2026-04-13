@@ -20,8 +20,8 @@ data/features/
 data/archive/
 data/trades/
 
-# Model artifacts
-models/
+# Model artifacts — tracked in git (needed on server)
+# models/
 
 # Logs
 logs/

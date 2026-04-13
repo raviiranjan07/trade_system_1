@@ -44,6 +44,7 @@ class PositionData:
     mfe_bps: float = 0
     mae_bps: float = 0
     is_reentry: bool = False
+    liq_price: float = 0
     liq_price: float = 0.0
 
 
@@ -145,6 +146,37 @@ class MLData:
 
 
 @dataclass
+class MLAttnData:
+    """ML Attention model state for dashboard display (A/B test)."""
+    ml_attn_wallet_usd: float = 0.0
+    ml_attn_total_trades: int = 0
+    ml_attn_wins: int = 0
+    ml_attn_losses: int = 0
+    ml_attn_win_rate: float = 0.0
+    ml_attn_total_bps: float = 0.0
+    ml_attn_avg_bps: float = 0.0
+    ml_attn_has_position: bool = False
+    ml_attn_position_side: Optional[str] = None
+    ml_attn_position_pnl_bps: float = 0.0
+    ml_attn_position_entry_price: float = 0.0
+    ml_attn_position_trailing_stop_bps: float = 0.0
+    ml_attn_position_highest_profit_bps: float = 0.0
+    ml_attn_position_bars_held: int = 0
+    ml_attn_position_max_bars: int = 10
+    ml_attn_position_mfe_bps: float = 0.0
+    ml_attn_position_mae_bps: float = 0.0
+    ml_attn_position_liq_price: float = 0.0
+    ml_attn_model_loaded: bool = False
+    ml_attn_drawdown_pct: float = 0.0
+    ml_attn_last_pnl_usd: float = 0.0
+    ml_attn_last_qty: float = 0.0
+    ml_attn_last_prob: float = 0.5
+    ml_attn_long_pct: float = 50.0
+    ml_attn_short_pct: float = 50.0
+    ml_attn_signal_status: str = ""
+
+
+@dataclass
 class ConfigData:
     """V1.2 trading configuration."""
     pair: str = "BTCUSDT"
@@ -186,7 +218,9 @@ class DashboardState:
         self._config = ConfigData()
         self._risk = RiskData()
         self._ml = MLData()
+        self._ml_attn = MLAttnData()
         self._ml_trades: List[TradeData] = []
+        self._ml_attn_trades: List[TradeData] = []
         self._trades: List[TradeData] = []
         self._signals: List[SignalData] = []
         self._start_time: Optional[datetime] = None
@@ -304,6 +338,7 @@ class DashboardState:
         mfe_bps: float = 0,
         mae_bps: float = 0,
         is_reentry: bool = False,
+        liq_price: float = 0,
     ) -> None:
         """Update position information."""
         with self._lock:
@@ -318,6 +353,7 @@ class DashboardState:
             self._position.mfe_bps = mfe_bps
             self._position.mae_bps = mae_bps
             self._position.is_reentry = is_reentry
+            self._position.liq_price = liq_price
 
         self._broadcast_update()
 
@@ -548,8 +584,48 @@ class DashboardState:
                 liq_price=trade_dict.get("liq_price", 0.0),
             )
             self._ml_trades.insert(0, td)
-            # No cap — store all trades
         self._broadcast_update()
+
+    # ML Attention state (A/B test)
+    def update_ml_attn(self, **kwargs) -> None:
+        """Update ML Attention model state."""
+        with self._lock:
+            for k, v in kwargs.items():
+                if hasattr(self._ml_attn, k):
+                    setattr(self._ml_attn, k, v)
+        self._broadcast_update()
+
+    def get_ml_attn(self) -> Dict[str, Any]:
+        with self._lock:
+            return asdict(self._ml_attn)
+
+    def add_ml_attn_trade(self, trade_dict: Dict[str, Any]) -> None:
+        """Add a completed ML Attention trade."""
+        with self._lock:
+            td = TradeData(
+                trade_id=str(len(self._ml_attn_trades) + 1),
+                direction=trade_dict.get("direction", ""),
+                signal_type=trade_dict.get("signal_type", ""),
+                entry_price=trade_dict.get("entry_price", 0),
+                exit_price=trade_dict.get("exit_price", 0),
+                net_profit_bps=trade_dict.get("net_profit_bps", 0),
+                mfe_bps=trade_dict.get("mfe_bps", 0),
+                mae_bps=trade_dict.get("mae_bps", 0),
+                exit_bar=trade_dict.get("exit_bar", 0),
+                exit_reason=trade_dict.get("exit_reason", ""),
+                is_reentry=trade_dict.get("is_reentry", False),
+                exit_time=trade_dict.get("exit_time", ""),
+                entry_time=trade_dict.get("entry_time", ""),
+                qty=trade_dict.get("qty", 0.0),
+                liq_price=trade_dict.get("liq_price", 0.0),
+            )
+            self._ml_attn_trades.insert(0, td)
+        self._broadcast_update()
+
+    def get_ml_attn_trades(self, limit: int = 10) -> List[Dict[str, Any]]:
+        with self._lock:
+            trades = self._ml_attn_trades[:limit] if limit > 0 else self._ml_attn_trades
+            return [asdict(t) for t in trades]
 
     def get_ml_trades(self, limit: int = 0) -> List[Dict[str, Any]]:
         with self._lock:
@@ -570,6 +646,8 @@ class DashboardState:
             "risk": self.get_risk(),
             "ml": self.get_ml(),
             "ml_trades": self.get_ml_trades(limit=0),
+            "ml_attn": self.get_ml_attn(),
+            "ml_attn_trades": self.get_ml_attn_trades(limit=0),
         }
 
     def register_ws_client(self, queue: asyncio.Queue) -> None:

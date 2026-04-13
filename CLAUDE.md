@@ -42,37 +42,6 @@
 3. **Break-even Win Rate**
    - Formula: `break_even = stop / (target + stop)`
 
----
-
-## KEY FINDINGS (2026-01-11)
-
-See full details: `docs/analysis_findings.md`
-
-1. **Market moves enough** - At H=60, median max move is 53.7 bps
-
-2. **Direction is 50/50** - UP first 46.5%, DOWN first 47.1%
-
-3. **Random entry has no edge** - 0/432 combinations profitable after 8 bps fees
-
-4. **Noise filtering doesn't help** - Only +1pp improvement
-
-6. **Path Analysis:**
-   - Clean wins (no drawdown): Only 2-5% of trades
-   - Winning trades often see 24+ bps drawdown first
-   - At H=3: 54% of bars are noise (<12 bps move)
-   - Among real moves: Still 50/50 direction
-
-7. **Recovery Analysis (when price goes against you):**
-   - Target 8bp: Only 5% wrong direction, 95% eventually recover
-   - Target 15bp: Only 10% wrong direction, 90% eventually recover
-   - Target 25bp: Only 16% wrong direction, 84% eventually recover
-   - Most "failures" are timing issues, not direction issues
-   - MAE by case: Quick Rec (3-12bp), Slow Rec (16-53bp), Wrong Dir (150-180bp)
-   - If drawdown > 50bp, likely wrong direction
-
-**Conclusion:** Need selective entry (not random) to be profitable.
-
----
 
 ## CURRENT PHASE: Foundation Work
 
@@ -154,9 +123,7 @@ Option A: [approach 1]
 Option B: [approach 2]
 
 Which should I proceed with?
-```
 
----
 
 
 

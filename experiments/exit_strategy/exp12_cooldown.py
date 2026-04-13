@@ -27,7 +27,7 @@ def main():
     df_15m.index = pd.to_datetime(df_15m.index).tz_localize(None)
 
     from v12.strategy import V12Strategy
-    from v12.ml_signal import MLSignalGenerator
+    from v12.signals.direction_v15 import DirectionV15 as MLSignalGenerator
     from pathlib import Path
 
     strategy = V12Strategy(config)

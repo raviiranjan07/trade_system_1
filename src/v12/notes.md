@@ -104,3 +104,10 @@ data/risk_logs/
 - [ ] Track ML_SHORT — monitor if it should be disabled
 - [ ] Check if model needs retraining after 3-6 months
 - [ ] Monitor confident prediction rate — should stay around 5%
+
+## Next Release TODO
+- [ ] Add liquidation price calculation to bot + dashboard
+  - At 0.002 BTC, $7 wallet, 20x leverage → liq is only ~498 bps away
+  - Need to show liq price in logs and dashboard for safety
+  - Formula: liq_price = entry ± (wallet / position_value) for LONG/SHORT
+- [ ] Fix dashboard "IN POSITION: ?" — show correct position direction for ML trades

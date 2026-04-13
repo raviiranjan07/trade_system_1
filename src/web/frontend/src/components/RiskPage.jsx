@@ -22,12 +22,13 @@ function buildWalletHistory(tradesArr, startCapital) {
   return points
 }
 
-function WalletChart({ trades, mlTrades }) {
+function WalletChart({ trades, mlTrades, mlAttnTrades }) {
   const containerRef = useRef(null)
   const chartRef = useRef(null)
 
   const v14Points = buildWalletHistory(trades, DEFAULT_CAPITAL)
   const mlPoints = buildWalletHistory(mlTrades, DEFAULT_CAPITAL)
+  const mlAttnPoints = buildWalletHistory(mlAttnTrades, DEFAULT_CAPITAL)
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -254,10 +255,11 @@ function DrawdownBar({ pct }) {
   )
 }
 
-function RiskPage({ risk, ml, decisions, trades, mlTrades }) {
+function RiskPage({ risk, ml, mlAttn, decisions, trades, mlTrades, mlAttnTrades }) {
   const v14Wallet = risk?.wallet_usd ?? 0
   const mlWallet = ml?.ml_wallet_usd ?? 0
-  const totalCapital = v14Wallet + mlWallet
+  const mlAttnWallet = mlAttn?.ml_attn_wallet_usd ?? 0
+  const totalCapital = v14Wallet + mlWallet + mlAttnWallet
 
   const v14Peak = risk?.peak_usd ?? v14Wallet
   const mlPeak = ml?.ml_peak_usd ?? mlWallet
@@ -301,7 +303,7 @@ function RiskPage({ risk, ml, decisions, trades, mlTrades }) {
       </div>
 
       {/* Wallet Growth Chart */}
-      <WalletChart trades={trades} mlTrades={mlTrades} />
+      <WalletChart trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} />
 
       {/* Two columns */}
       <div className="rp-cards">
@@ -383,6 +385,41 @@ function RiskPage({ risk, ml, decisions, trades, mlTrades }) {
             <div className="rp-row">
               <span className="rp-label">Skips</span>
               <span className="rp-value">{mlSkips}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ML V2 Card */}
+        <div className="rp-card">
+          <div className="rp-card-title" style={{borderColor: '#f59e0b'}}>ML V2</div>
+          <div className="rp-card-body">
+            <div className="rp-row">
+              <span className="rp-label">Wallet</span>
+              <span className="rp-value">${mlAttnWallet.toFixed(2)}</span>
+            </div>
+            <div className="rp-row">
+              <span className="rp-label">Growth</span>
+              <span className={`rp-value ${mlAttnWallet >= DEFAULT_CAPITAL ? 'positive' : 'negative'}`}>
+                {mlAttnWallet >= DEFAULT_CAPITAL ? '+' : ''}{((mlAttnWallet - DEFAULT_CAPITAL) / DEFAULT_CAPITAL * 100).toFixed(1)}% from ${DEFAULT_CAPITAL}
+              </span>
+            </div>
+            <div className="rp-row">
+              <span className="rp-label">Drawdown</span>
+              <DrawdownBar pct={(mlAttn?.ml_attn_drawdown_pct ?? 0) * 100} />
+            </div>
+            <div className="rp-row">
+              <span className="rp-label">Trades</span>
+              <span className="rp-value">{mlAttn?.ml_attn_total_trades ?? 0}</span>
+            </div>
+            <div className="rp-row">
+              <span className="rp-label">Win Rate</span>
+              <span className="rp-value">{((mlAttn?.ml_attn_win_rate ?? 0) * 100).toFixed(0)}%</span>
+            </div>
+            <div className="rp-row">
+              <span className="rp-label">Total bps</span>
+              <span className={`rp-value ${(mlAttn?.ml_attn_total_bps ?? 0) >= 0 ? 'positive' : 'negative'}`}>
+                {(mlAttn?.ml_attn_total_bps ?? 0) >= 0 ? '+' : ''}{(mlAttn?.ml_attn_total_bps ?? 0).toFixed(1)}
+              </span>
             </div>
           </div>
         </div>

@@ -9,9 +9,9 @@ const SIGNAL_COLORS = {
   ML_SHORT: '#ec4899',
 }
 
-function PerformancePanel({ trades, mlTrades }) {
+function PerformancePanel({ trades, mlTrades, mlAttnTrades }) {
   const analytics = useMemo(() => {
-    const allTrades = [...(trades || []), ...(mlTrades || [])]
+    const allTrades = [...(trades || []), ...(mlTrades || []), ...(mlAttnTrades || [])]
     if (allTrades.length === 0) return null
 
     const sorted = [...allTrades].reverse() // oldest first
@@ -86,7 +86,7 @@ function PerformancePanel({ trades, mlTrades }) {
     }
 
     return { byDir, bySignal, best, worst, avgWin, avgLoss, maxWinStreak, maxLossStreak, maxDD, totalTrades: sorted.length, byExit }
-  }, [trades, mlTrades])
+  }, [trades, mlTrades, mlAttnTrades])
 
   if (!analytics) {
     return (

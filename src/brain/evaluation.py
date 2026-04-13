@@ -4,7 +4,7 @@ Comprehensive evaluation of trained model.
 Generates standard report with direction, S/R, MFE, consistency metrics.
 
 Usage:
-  PYTHONPATH=src python -m brain.evaluation --data_dir experiments/brain/datasets --model_dir experiments/brain/EXP-B001 --config configs/base.yaml
+  PYTHONPATH=src python -m brain.evaluation --data_dir data/archive/brain_datasets --model_dir experiments/brain/EXP-B001 --config configs/base.yaml
 """
 
 import argparse

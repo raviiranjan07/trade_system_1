@@ -7,6 +7,8 @@ const SIGNAL_COLORS = {
   BULL_SHORT: '#f59e0b',
   ML_LONG: '#8b5cf6',
   ML_SHORT: '#ec4899',
+  ML_ATTN_LONG: '#f59e0b',
+  ML_ATTN_SHORT: '#d97706',
 }
 
 const REASON_STYLES = {
@@ -17,7 +19,7 @@ const REASON_STYLES = {
   EARLY_CUT: { bg: 'rgba(230, 55, 87, 0.12)', color: '#e63757', label: 'EARLY' },
 }
 
-function TradesList({ trades, mlTrades }) {
+function TradesList({ trades, mlTrades, mlAttnTrades }) {
   const [filter, setFilter] = useState('Combined')
   const [sortCol, setSortCol] = useState(null)
   const [sortDir, setSortDir] = useState('desc')
@@ -48,13 +50,15 @@ function TradesList({ trades, mlTrades }) {
   }
 
   const isV14 = (sig) => sig && (sig.startsWith('V12_') || sig.startsWith('BEAR_') || sig.startsWith('BULL_'))
-  const isML = (sig) => sig && sig.startsWith('ML_')
+  const isML = (sig) => sig && sig.startsWith('ML_') && !sig.startsWith('ML_ATTN_')
+  const isMLAttn = (sig) => sig && sig.startsWith('ML_ATTN_')
 
   // Merge and sort by exit_time descending, then apply filter and sort
   const displayTrades = useMemo(() => {
     const v14 = Array.isArray(trades) ? trades : []
     const ml = Array.isArray(mlTrades) ? mlTrades : []
-    let merged = [...v14, ...ml]
+    const mlAttn = Array.isArray(mlAttnTrades) ? mlAttnTrades : []
+    let merged = [...v14, ...ml, ...mlAttn]
 
     // Sort by exit_time descending first (default order)
     merged.sort((a, b) => {
@@ -68,6 +72,8 @@ function TradesList({ trades, mlTrades }) {
       merged = merged.filter(t => isV14(t.signal_type))
     } else if (filter === 'ML') {
       merged = merged.filter(t => isML(t.signal_type))
+    } else if (filter === 'ML V2') {
+      merged = merged.filter(t => isMLAttn(t.signal_type))
     }
     // 'Combined' shows all
 
@@ -91,7 +97,7 @@ function TradesList({ trades, mlTrades }) {
     }
 
     return merged
-  }, [trades, mlTrades, filter, sortCol, sortDir])
+  }, [trades, mlTrades, mlAttnTrades, filter, sortCol, sortDir])
 
   const handleSort = (col) => {
     if (sortCol === col) {
@@ -112,7 +118,7 @@ function TradesList({ trades, mlTrades }) {
       <div className="card">
         <div className="card-header">Recent Trades</div>
         <div className="trades-filter-bar">
-          {['Combined', 'V1.4', 'ML'].map(f => (
+          {['Combined', 'V1.4', 'ML', 'ML V2'].map(f => (
             <button
               key={f}
               className={`trades-filter-btn${filter === f ? ' active' : ''}`}

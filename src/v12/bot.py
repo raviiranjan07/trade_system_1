@@ -23,7 +23,8 @@ from .config.constants import SYMBOL, TIMEFRAME
 from .config.loader import load_config
 from .config.schema import AppConfig
 from .position_manager import V12PositionManager, TradeRecord
-from .ml_signal import MLSignalGenerator
+from .signals.direction_v15 import DirectionV15 as MLSignalGenerator
+from .signals.direction_attention import DirectionAttention as MLAttnSignalGenerator
 from .strategy import V12Strategy, Direction, Signal, SignalType
 from .risk.risk_calculator import RiskCalculator, RiskConfig, RiskDecision
 from .risk.account_health import AccountHealthMonitor, HealthConfig
@@ -98,9 +99,31 @@ class V12Bot:
         self._ml_risk_state_path = Path("data/trades/risk_state_ml.json")
         self._load_ml_risk_state()
         if self._ml_gen.loaded:
-            logger.info("ML model loaded — ML_LONG/ML_SHORT signals enabled")
+            logger.info("ML V1.5 model loaded — ML_LONG/ML_SHORT signals enabled")
         else:
-            logger.warning("ML model not found — ML signals disabled")
+            logger.warning("ML V1.5 model not found — ML signals disabled")
+
+        # ML Attention signal generator — A/B test alongside V1.5
+        self._ml_attn_gen = MLAttnSignalGenerator(
+            model_path=Path("models/direction_attention/attention_model.onnx"),
+            scaler_path=Path("models/direction_attention/scaler.npz"),
+        )
+        self._ml_attn_pm = V12PositionManager(config)
+        self._ml_attn_wallet = DEFAULT_CAPITAL
+        self._ml_attn_health = AccountHealthMonitor()
+        self._ml_attn_risk_calc = RiskCalculator(worst_loss_bps=865, health=self._ml_attn_health)
+        self._ml_attn_decision_logger = DecisionLogger(
+            log_dir="data/trades/risk_logs/ml_attn"
+        )
+        self._ml_attn_qty = 0.0
+        self._ml_attn_trades_csv = self._trades_dir / f"trades_ml_attn_{config.execution.mode}.csv"
+        self._init_ml_attn_csv()
+        self._ml_attn_risk_state_path = Path("data/trades/risk_state_ml_attn.json")
+        self._load_ml_attn_risk_state()
+        if self._ml_attn_gen.loaded:
+            logger.info("ML Attention model loaded — ML_ATTN_LONG/ML_ATTN_SHORT signals enabled")
+        else:
+            logger.warning("ML Attention model not found — ML_ATTN signals disabled")
 
         # Session state
         self._running = False
@@ -200,6 +223,11 @@ class V12Bot:
             self._push_risk_to_dashboard()
         except Exception as e:
             logger.warning("Failed to push initial risk state: %s", e)
+        # Push initial ML Attention state
+        dashboard_state.update_ml_attn(
+            ml_attn_model_loaded=self._ml_attn_gen.loaded,
+            ml_attn_wallet_usd=round(self._ml_attn_wallet, 2),
+        )
 
         # Push initial ML state (trades loaded later by _load_ml_trades_from_csv)
         try:
@@ -218,6 +246,12 @@ class V12Bot:
             self._load_ml_trades_from_csv()
         except Exception as e:
             logger.error("Failed to load ML trades from CSV: %s", e)
+
+        # Load ML Attention trades
+        try:
+            self._load_ml_attn_trades_from_csv()
+        except Exception as e:
+            logger.error("Failed to load ML Attention trades from CSV: %s", e)
 
     def _load_trades_from_csv(self) -> None:
         """Load previous trades from CSV into position manager + dashboard."""
@@ -384,6 +418,73 @@ class V12Bot:
             len(ml_trades), ml_total_bps, self._ml_wallet,
         )
 
+    def _load_ml_attn_trades_from_csv(self) -> None:
+        """Load previous ML Attention trades from CSV into dashboard."""
+        if not self._ml_attn_trades_csv.exists():
+            return
+        try:
+            df = pd.read_csv(self._ml_attn_trades_csv)
+        except Exception as e:
+            logger.error("Failed to read ML Attention trades CSV: %s", e)
+            return
+        if df.empty:
+            return
+
+        logger.info("Reloading %d ML Attention trades from %s", len(df), self._ml_attn_trades_csv.name)
+
+        for _, row in df.iterrows():
+            try:
+                trade = TradeRecord(
+                    signal_time=row.get("signal_time", ""),
+                    entry_time=row.get("entry_time", ""),
+                    exit_time=row.get("exit_time", ""),
+                    direction=str(row.get("direction", "LONG")),
+                    signal_type=str(row.get("signal_type", "ML_ATTN_LONG")),
+                    entry_price=float(row.get("entry_price", 0)),
+                    exit_price=float(row.get("exit_price", 0)),
+                    gross_profit_bps=float(row.get("gross_profit_bps", 0)),
+                    net_profit_bps=float(row.get("net_profit_bps", 0)),
+                    mfe_bps=float(row.get("mfe_bps", 0)),
+                    mae_bps=float(row.get("mae_bps", 0)),
+                    exit_bar=int(row.get("exit_bar", 0)),
+                    exit_reason=str(row.get("exit_reason", "")),
+                    is_reentry=str(row.get("is_reentry", "False")).strip().lower() == "true",
+                )
+                self._ml_attn_pm.trades.append(trade)
+
+                if self._dashboard:
+                    ep = float(row.get("entry_price", 0))
+                    d = str(row.get("direction", "LONG"))
+                    q = float(row.get("qty", 0)) if "qty" in row and pd.notna(row.get("qty")) else 0.0
+                    liq = _calc_liq_price(ep, d, self._ml_attn_wallet, q) if q > 0 else 0.0
+                    self._dashboard.add_ml_attn_trade({
+                        "direction": d,
+                        "signal_type": str(row.get("signal_type", "ML_ATTN_LONG")),
+                        "entry_price": ep,
+                        "exit_price": float(row.get("exit_price", 0)),
+                        "net_profit_bps": float(row.get("net_profit_bps", 0)),
+                        "mfe_bps": float(row.get("mfe_bps", 0)),
+                        "mae_bps": float(row.get("mae_bps", 0)),
+                        "exit_bar": int(row.get("exit_bar", 0)),
+                        "exit_reason": str(row.get("exit_reason", "")),
+                        "exit_time": str(row.get("exit_time", "")),
+                        "entry_time": str(row.get("entry_time", "")),
+                        "qty": q,
+                        "liq_price": liq,
+                    })
+            except Exception as e:
+                logger.warning("Failed to load ML Attention trade row: %s", e)
+                continue
+
+        wins = len(df[df["net_profit_bps"] > 0])
+        total_bps = df["net_profit_bps"].sum()
+
+        self._push_ml_attn_to_dashboard()
+        logger.info(
+            "Restored ML Attention dashboard: %d trades, %+.1f bps, wallet=$%.2f",
+            len(df), total_bps, self._ml_attn_wallet,
+        )
+
     def _init_csv(self) -> None:
         """Initialize CSV for trade logging."""
         if not self._trades_csv.exists():
@@ -528,6 +629,104 @@ class V12Bot:
                 ml_has_position=False,
                 ml_model_loaded=True,
             )
+
+    # =================================================================
+    # ML ATTENTION (A/B test) — mirrors ML V1.5 methods above
+    # =================================================================
+
+    def _init_ml_attn_csv(self) -> None:
+        """Initialize CSV for ML Attention trade logging."""
+        if not self._ml_attn_trades_csv.exists():
+            headers = [
+                "signal_time", "entry_time", "exit_time", "direction", "signal_type",
+                "entry_price", "exit_price", "gross_profit_bps", "net_profit_bps",
+                "mfe_bps", "mae_bps", "exit_bar", "exit_reason", "is_reentry",
+                "config_hash", "qty",
+            ]
+            with open(self._ml_attn_trades_csv, "w", newline="") as f:
+                csv.writer(f).writerow(headers)
+            logger.info("Created ML Attention trades CSV: %s", self._ml_attn_trades_csv)
+
+    def _load_ml_attn_risk_state(self) -> None:
+        """Load ML Attention wallet + health state from disk."""
+        if not self._ml_attn_risk_state_path.exists():
+            self._ml_attn_health.update(self._ml_attn_wallet)
+            logger.info("No ML Attention risk state — starting fresh: wallet=$%.2f", self._ml_attn_wallet)
+            return
+        import json
+        try:
+            with open(self._ml_attn_risk_state_path) as f:
+                state = json.load(f)
+            self._ml_attn_wallet = state.get('wallet', DEFAULT_CAPITAL)
+            health_data = state.get('health', {})
+            if health_data:
+                self._ml_attn_health = AccountHealthMonitor.from_dict(health_data)
+                self._ml_attn_risk_calc = RiskCalculator(worst_loss_bps=865, health=self._ml_attn_health)
+            self._ml_attn_health.update(self._ml_attn_wallet)
+            logger.info("Loaded ML Attention risk state: wallet=$%.2f", self._ml_attn_wallet)
+        except Exception as e:
+            logger.warning("Failed to load ML Attention risk state: %s — starting fresh", e)
+            self._ml_attn_health.update(self._ml_attn_wallet)
+
+    def _save_ml_attn_risk_state(self) -> None:
+        """Save ML Attention wallet + health state to disk."""
+        import json
+        state = {
+            'wallet': self._ml_attn_wallet,
+            'health': self._ml_attn_health.to_dict(),
+        }
+        with open(self._ml_attn_risk_state_path, 'w') as f:
+            json.dump(state, f, indent=2)
+
+    def _log_ml_attn_trade(self, trade: TradeRecord) -> None:
+        """Append ML Attention trade to separate CSV."""
+        row = [
+            trade.signal_time, trade.entry_time, trade.exit_time,
+            trade.direction, trade.signal_type,
+            f"{trade.entry_price:.2f}", f"{trade.exit_price:.2f}",
+            f"{trade.gross_profit_bps:.1f}", f"{trade.net_profit_bps:.1f}",
+            f"{trade.mfe_bps:.1f}", f"{trade.mae_bps:.1f}",
+            trade.exit_bar, trade.exit_reason, trade.is_reentry,
+            "ml_attn_v1", f"{self._ml_attn_qty:.4f}",
+        ]
+        with open(self._ml_attn_trades_csv, "a", newline="") as f:
+            csv.writer(f).writerow(row)
+
+    def _update_ml_attn_risk_after_trade(self, trade: TradeRecord) -> None:
+        """Update ML Attention wallet and health after trade close."""
+        if self._ml_attn_qty > 0:
+            pnl_usd = self._ml_attn_qty * trade.entry_price * (trade.net_profit_bps / 10000)
+            self._ml_attn_wallet += pnl_usd
+            self._ml_attn_wallet = max(self._ml_attn_wallet, 0.01)
+            self._ml_attn_health.update(self._ml_attn_wallet, trade.net_profit_bps)
+            self._ml_attn_decision_logger.log_outcome(trade.net_profit_bps, pnl_usd)
+            self._save_ml_attn_risk_state()
+            logger.info(
+                "ML Attn Risk: wallet=$%.2f | pnl=%+.2f | qty=%.3f",
+                self._ml_attn_wallet, pnl_usd, self._ml_attn_qty,
+            )
+            self._push_ml_attn_to_dashboard()
+        self._ml_attn_qty = 0.0
+
+    def _push_ml_attn_to_dashboard(self) -> None:
+        """Push ML Attention state to dashboard."""
+        if not self._dashboard:
+            return
+        attn_trades = self._ml_attn_pm.trades
+        wins = sum(1 for t in attn_trades if t.net_profit_bps > 0)
+        total = len(attn_trades)
+        total_bps = sum(t.net_profit_bps for t in attn_trades)
+        self._dashboard.update_ml_attn(
+            ml_attn_wallet_usd=round(self._ml_attn_wallet, 2),
+            ml_attn_total_trades=total,
+            ml_attn_wins=wins,
+            ml_attn_losses=total - wins,
+            ml_attn_win_rate=round(wins / total, 3) if total > 0 else 0,
+            ml_attn_total_bps=round(total_bps, 1),
+            ml_attn_avg_bps=round(total_bps / total, 1) if total > 0 else 0,
+            ml_attn_has_position=self._ml_attn_pm.is_in_position,
+            ml_attn_model_loaded=self._ml_attn_gen.loaded,
+        )
 
     def _log_trade(self, trade: TradeRecord) -> None:
         """Append trade to CSV."""
@@ -819,7 +1018,7 @@ class V12Bot:
         BinanceConnector = _mod.BinanceConnector
 
         logger.info(
-            "Starting V1.3 Bot | mode=%s | hash=%s | leverage=%dx | size=$%.0f",
+            "Starting ALPHA | mode=%s | hash=%s | leverage=%dx | size=$%.0f",
             self.cfg.execution.mode,
             self.cfg.config_hash(),
             self.cfg.execution.leverage,
@@ -865,7 +1064,7 @@ class V12Bot:
 
     async def stop(self) -> None:
         """Stop the bot gracefully."""
-        logger.info("Stopping V1.3 Bot...")
+        logger.info("Stopping ALPHA...")
         self._running = False
         if self._connector:
             await self._connector.stop()
@@ -1055,6 +1254,7 @@ class V12Bot:
                     )
                     self._push_ml_to_dashboard()
                     # Push fresh position data immediately (not stale from previous trade)
+                    ml_liq = _calc_liq_price(current_price, ml_signal.direction.value, self._ml_wallet, self._ml_qty)
                     self._dashboard.update_ml(
                         ml_has_position=True,
                         ml_position_side=ml_signal.direction.value,
@@ -1066,6 +1266,8 @@ class V12Bot:
                         ml_position_max_bars=self.cfg.exit.max_bars,
                         ml_position_mfe_bps=0.0,
                         ml_position_mae_bps=0.0,
+                        ml_position_liq_price=ml_liq,
+                        ml_last_qty=self._ml_qty,
                     )
                     logger.info(
                         "[ML] ENTRY %s (%s) @ %.2f | prob=%.3f | %s",
@@ -1073,6 +1275,140 @@ class V12Bot:
                         ml_signal.signal_type.value,
                         current_price,
                         ml_signal.rsi,  # prob stored in rsi field
+                        bar_time,
+                    )
+
+        # === ML ATTENTION: If in position, update with new bar ===
+        if self._ml_attn_gen.loaded and self._ml_attn_pm.is_in_position:
+            ml_attn_trade = self._ml_attn_pm.on_bar(
+                high=candle["high"],
+                low=candle["low"],
+                close=candle["close"],
+                bar_time=bar_time,
+                bar_index=self._bar_count,
+            )
+            if ml_attn_trade:
+                self._log_ml_attn_trade(ml_attn_trade)
+                attn_trade_qty = self._ml_attn_qty  # save before reset
+                attn_liq = _calc_liq_price(ml_attn_trade.entry_price, ml_attn_trade.direction, self._ml_attn_wallet, attn_trade_qty)
+                self._update_ml_attn_risk_after_trade(ml_attn_trade)
+                if self._dashboard:
+                    self._dashboard.add_ml_attn_trade({
+                        "direction": ml_attn_trade.direction,
+                        "signal_type": ml_attn_trade.signal_type,
+                        "entry_price": ml_attn_trade.entry_price,
+                        "exit_price": ml_attn_trade.exit_price,
+                        "net_profit_bps": ml_attn_trade.net_profit_bps,
+                        "mfe_bps": ml_attn_trade.mfe_bps,
+                        "mae_bps": ml_attn_trade.mae_bps,
+                        "exit_bar": ml_attn_trade.exit_bar,
+                        "exit_reason": ml_attn_trade.exit_reason,
+                        "is_reentry": ml_attn_trade.is_reentry,
+                        "exit_time": str(ml_attn_trade.exit_time),
+                        "entry_time": str(ml_attn_trade.entry_time),
+                        "qty": attn_trade_qty,
+                        "liq_price": attn_liq,
+                    })
+                    self._dashboard.update_ml_attn(
+                        ml_attn_has_position=False,
+                        ml_attn_position_side=None,
+                        ml_attn_position_pnl_bps=0.0,
+                    )
+                logger.info(
+                    "[ML_ATTN] CLOSED %s (%s) | %s | %+.1f bps | bar %d | %s",
+                    ml_attn_trade.direction,
+                    ml_attn_trade.signal_type,
+                    ml_attn_trade.exit_reason,
+                    ml_attn_trade.net_profit_bps,
+                    ml_attn_trade.exit_bar,
+                    bar_time,
+                )
+            else:
+                # Still in position — push live PnL
+                if self._dashboard and self._ml_attn_pm.position:
+                    pos = self._ml_attn_pm.position
+                    close_price = candle["close"]
+                    if pos.direction == Direction.LONG:
+                        pnl = (close_price - pos.entry_price) / pos.entry_price * 10000
+                    else:
+                        pnl = (pos.entry_price - close_price) / pos.entry_price * 10000
+                    self._dashboard.update_ml_attn(
+                        ml_attn_position_pnl_bps=round(pnl, 1),
+                        ml_attn_position_bars_held=pos.bars_held,
+                        ml_attn_position_mfe_bps=round(pos.mfe_bps, 1),
+                        ml_attn_position_mae_bps=round(pos.mae_bps, 1),
+                    )
+
+        # === ML ATTENTION: If not in position, check for signal ===
+        if self._ml_attn_gen.loaded and not self._ml_attn_pm.is_in_position:
+            try:
+                df_attn = self._ml_attn_gen.compute_features(df.copy())
+            except Exception as e:
+                logger.warning("[ML_ATTN] compute_features failed: %s", e)
+                df_attn = df.copy()
+            # Push prediction to dashboard
+            attn_features = self._ml_attn_gen.get_features_for_bar(df_attn, latest_idx)
+            if attn_features is None:
+                logger.debug("[ML_ATTN] Features unavailable for bar %d (NaN or missing)", latest_idx)
+            if attn_features is not None and self._dashboard:
+                attn_prob = self._ml_attn_gen.predict(attn_features)
+                attn_long_pct = attn_prob * 100
+                attn_short_pct = (1 - attn_prob) * 100
+                if attn_prob > 0.60:
+                    attn_status = ">>> ML_ATTN_LONG SIGNAL <<<"
+                elif attn_prob < 0.40:
+                    attn_status = ">>> ML_ATTN_SHORT SIGNAL <<<"
+                else:
+                    attn_status = "NO TRADE (not confident)"
+                self._dashboard.update_ml_attn(
+                    ml_attn_last_prob=attn_prob,
+                    ml_attn_long_pct=round(attn_long_pct, 1),
+                    ml_attn_short_pct=round(attn_short_pct, 1),
+                    ml_attn_signal_status=attn_status,
+                )
+                logger.info(
+                    "[ML_ATTN] LONG=%.1f%% SHORT=%.1f%% | %s",
+                    attn_long_pct, attn_short_pct, attn_status,
+                )
+            attn_signal = self._ml_attn_gen.predict_bar(df_attn, latest_idx)
+            if attn_signal is not None:
+                attn_decision = self._ml_attn_risk_calc.calculate(self._ml_attn_wallet, current_price)
+                self._ml_attn_decision_logger.log_decision(
+                    attn_decision, self._ml_attn_wallet, current_price,
+                    attn_signal.signal_type.value,
+                )
+                if attn_decision.action != "SKIP":
+                    self._ml_attn_qty = attn_decision.qty
+                    self._ml_attn_pm.reset_reentry()
+                    self._ml_attn_pm.open_position(
+                        direction=attn_signal.direction,
+                        signal_type=attn_signal.signal_type,
+                        entry_price=current_price,
+                        entry_time=bar_time,
+                        signal_time=attn_signal.timestamp,
+                    )
+                    self._push_ml_attn_to_dashboard()
+                    if self._dashboard:
+                        self._dashboard.update_ml_attn(
+                            ml_attn_has_position=True,
+                            ml_attn_position_side=attn_signal.direction.value,
+                            ml_attn_position_pnl_bps=0.0,
+                            ml_attn_position_entry_price=current_price,
+                            ml_attn_position_trailing_stop_bps=20 if attn_signal.direction == Direction.LONG else 30,
+                            ml_attn_position_highest_profit_bps=0.0,
+                            ml_attn_position_bars_held=0,
+                            ml_attn_position_max_bars=self.cfg.exit.max_bars,
+                            ml_attn_position_mfe_bps=0.0,
+                            ml_attn_position_mae_bps=0.0,
+                            ml_attn_position_liq_price=_calc_liq_price(current_price, attn_signal.direction.value, self._ml_attn_wallet, self._ml_attn_qty),
+                            ml_attn_last_qty=self._ml_attn_qty,
+                        )
+                    logger.info(
+                        "[ML_ATTN] ENTRY %s (%s) @ %.2f | prob=%.3f | %s",
+                        attn_signal.direction.value,
+                        attn_signal.signal_type.value,
+                        current_price,
+                        attn_signal.rsi,
                         bar_time,
                     )
 

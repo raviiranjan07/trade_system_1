@@ -16,7 +16,7 @@ import pandas as pd
 from .config.constants import SYMBOL, TIMEFRAME
 from .config.loader import load_config
 from .config.schema import AppConfig
-from .ml_signal import MLSignalGenerator
+from .signals.direction_v15 import DirectionV15 as MLSignalGenerator
 from .position_manager import V12PositionManager, TradeRecord
 from .strategy import V12Strategy, Direction, SignalType
 
