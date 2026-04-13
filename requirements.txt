@@ -18,26 +18,8 @@ psycopg2-binary>=2.9
 python-dotenv>=1.0
 
 # -----------------------------
-# Scientific & stats utilities
+# Machine Learning (inference only)
 # -----------------------------
-scipy>=1.10
-
-# -----------------------------
-# Performance & utilities
-# -----------------------------
-tqdm>=4.66
-pyarrow>=14.0
-
-# -----------------------------
-# Visualization
-# -----------------------------
-matplotlib>=3.7
-seaborn>=0.12
-
-# -----------------------------
-# Machine Learning
-# -----------------------------
-scikit-learn>=1.3
 onnxruntime>=1.17
 
 # -----------------------------
@@ -59,9 +41,18 @@ aiohttp>=3.8
 pytest>=7.0
 
 # -----------------------------
-# Experiment dependencies
+# Research/experiment dependencies (NOT needed in Docker — local only)
+# Install manually:
+#   pip install scipy matplotlib seaborn scikit-learn tqdm pyarrow
+#   pip install xgboost hmmlearn mlflow numba
 # -----------------------------
-xgboost>=2.0
-hmmlearn>=0.3
-mlflow>=2.10
-numba>=0.59
+# scipy>=1.10
+# matplotlib>=3.7
+# seaborn>=0.12
+# scikit-learn>=1.3
+# tqdm>=4.66
+# pyarrow>=14.0
+# xgboost>=2.0
+# hmmlearn>=0.3
+# mlflow>=2.10
+# numba>=0.59
