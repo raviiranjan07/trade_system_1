@@ -20,12 +20,15 @@ COPY src/web/frontend/dist/ src/web/frontend/dist/
 # Copy config
 COPY src/v12/config/ src/v12/config/
 
-# Copy ML model (ONNX + scaler only, no torch)
-COPY src/v12/ml_model/direction_model.onnx src/v12/ml_model/
-COPY src/v12/ml_model/scaler.npz src/v12/ml_model/
+# Copy ML models (ONNX + scaler only, no torch)
+COPY models/direction_v15/direction_model.onnx models/direction_v15/
+COPY models/direction_v15/scaler.npz models/direction_v15/
+COPY models/direction_attention/attention_model.onnx models/direction_attention/
+COPY models/direction_attention/attention_model.onnx.data models/direction_attention/
+COPY models/direction_attention/scaler.npz models/direction_attention/
 
-# Create data directories
-RUN mkdir -p data/v12_trades data/risk_logs/ml
+# Create data directories (persistent volume mounted here)
+RUN mkdir -p data/trades/risk_logs/ml data/trades/risk_logs/ml_attn
 
 # Expose dashboard port
 EXPOSE 8080
