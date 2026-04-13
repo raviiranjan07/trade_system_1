@@ -7,6 +7,7 @@ All signal generators follow this interface:
 4. Generate Signal objects (ML_LONG / ML_SHORT)
 """
 
+import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional
@@ -16,6 +17,8 @@ import pandas as pd
 import onnxruntime as ort
 
 from ..strategy import Signal, Direction, SignalType
+
+logger = logging.getLogger(__name__)
 
 
 class BaseSignalGenerator(ABC):
@@ -32,12 +35,15 @@ class BaseSignalGenerator(ABC):
         self.session = None
         self.loaded = False
 
+        logger.info("Loading model from: %s (exists=%s)", model_path, model_path.exists() if model_path else False)
         if model_path and model_path.exists():
             self.session = ort.InferenceSession(
                 str(model_path),
                 providers=["CPUExecutionProvider"],
             )
             self.loaded = True
+        else:
+            logger.warning("Model NOT found at: %s", model_path)
 
         if scaler_path and scaler_path.exists():
             params = np.load(scaler_path)

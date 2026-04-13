@@ -35,6 +35,9 @@ from .risk.tests.preflight import run_preflight
 
 logger = logging.getLogger(__name__)
 
+# Project root: src/v12/bot.py → parents[2] = src/ → parent = project root
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
 # Need 200+ bars for SMA200 warm-up + margin
 MIN_BUFFER_SIZE = 300
 BUFFER_SIZE = 500
@@ -65,7 +68,8 @@ class V12Bot:
         self._last_signal: Optional[Signal] = None
 
         # Trade logging
-        self._trades_dir = Path("data/trades")
+        logger.info("PROJECT_ROOT resolved to: %s", PROJECT_ROOT)
+        self._trades_dir = PROJECT_ROOT / "data" / "trades"
         self._trades_dir.mkdir(parents=True, exist_ok=True)
         self._trades_csv = self._trades_dir / f"trades_{config.execution.mode}.csv"
         self._init_csv()
@@ -74,29 +78,31 @@ class V12Bot:
         self._wallet = DEFAULT_CAPITAL
         self._health = AccountHealthMonitor()
         self._risk_calc = RiskCalculator(worst_loss_bps=865, health=self._health)
-        self._decision_logger = DecisionLogger()
+        self._decision_logger = DecisionLogger(
+            log_dir=str(PROJECT_ROOT / "data" / "trades" / "risk_logs")
+        )
         self._current_qty = 0.0
         self._current_decision: Optional[RiskDecision] = None
         self._total_skips = 0
-        self._risk_state_path = Path("data/trades/risk_state.json")
+        self._risk_state_path = PROJECT_ROOT / "data" / "trades" / "risk_state.json"
         self._load_risk_state()
 
         # ML signal generator — separate position manager, wallet, and CSV
         self._ml_gen = MLSignalGenerator(
-            model_path=Path("models/direction_v15/direction_model.onnx"),
-            scaler_path=Path("models/direction_v15/scaler.npz"),
+            model_path=PROJECT_ROOT / "models" / "direction_v15" / "direction_model.onnx",
+            scaler_path=PROJECT_ROOT / "models" / "direction_v15" / "scaler.npz",
         )
         self._ml_pm = V12PositionManager(config)
         self._ml_wallet = DEFAULT_CAPITAL
         self._ml_health = AccountHealthMonitor()
         self._ml_risk_calc = RiskCalculator(worst_loss_bps=865, health=self._ml_health)
         self._ml_decision_logger = DecisionLogger(
-            log_dir="data/trades/risk_logs/ml"
+            log_dir=str(PROJECT_ROOT / "data" / "trades" / "risk_logs" / "ml")
         )
         self._ml_qty = 0.0
         self._ml_trades_csv = self._trades_dir / f"trades_ml_{config.execution.mode}.csv"
         self._init_ml_csv()
-        self._ml_risk_state_path = Path("data/trades/risk_state_ml.json")
+        self._ml_risk_state_path = PROJECT_ROOT / "data" / "trades" / "risk_state_ml.json"
         self._load_ml_risk_state()
         if self._ml_gen.loaded:
             logger.info("ML V1.5 model loaded — ML_LONG/ML_SHORT signals enabled")
@@ -105,20 +111,20 @@ class V12Bot:
 
         # ML Attention signal generator — A/B test alongside V1.5
         self._ml_attn_gen = MLAttnSignalGenerator(
-            model_path=Path("models/direction_attention/attention_model.onnx"),
-            scaler_path=Path("models/direction_attention/scaler.npz"),
+            model_path=PROJECT_ROOT / "models" / "direction_attention" / "attention_model.onnx",
+            scaler_path=PROJECT_ROOT / "models" / "direction_attention" / "scaler.npz",
         )
         self._ml_attn_pm = V12PositionManager(config)
         self._ml_attn_wallet = DEFAULT_CAPITAL
         self._ml_attn_health = AccountHealthMonitor()
         self._ml_attn_risk_calc = RiskCalculator(worst_loss_bps=865, health=self._ml_attn_health)
         self._ml_attn_decision_logger = DecisionLogger(
-            log_dir="data/trades/risk_logs/ml_attn"
+            log_dir=str(PROJECT_ROOT / "data" / "trades" / "risk_logs" / "ml_attn")
         )
         self._ml_attn_qty = 0.0
         self._ml_attn_trades_csv = self._trades_dir / f"trades_ml_attn_{config.execution.mode}.csv"
         self._init_ml_attn_csv()
-        self._ml_attn_risk_state_path = Path("data/trades/risk_state_ml_attn.json")
+        self._ml_attn_risk_state_path = PROJECT_ROOT / "data" / "trades" / "risk_state_ml_attn.json"
         self._load_ml_attn_risk_state()
         if self._ml_attn_gen.loaded:
             logger.info("ML Attention model loaded — ML_ATTN_LONG/ML_ATTN_SHORT signals enabled")
