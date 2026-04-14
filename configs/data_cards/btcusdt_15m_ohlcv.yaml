@@ -1,0 +1,64 @@
+# Data Card: BTCUSDT 15-min OHLCV (raw)
+# Source dataset for all 15-min backtests and feature computation
+
+name: btcusdt_15m_ohlcv
+version: 1
+created: 2020-01-01 (initial download)
+last_updated: 2026-03-01
+
+file:
+  path: data/raw/BTCUSDT_15m_ohlcv.parquet
+  size_mb: 9
+  dvc_tracked: false
+  format: parquet (pandas-compatible)
+
+source:
+  exchange: Binance Futures
+  api: REST /fapi/v1/klines
+  asset: BTCUSDT
+  timeframe: 15m
+  contract: perpetual
+
+composition:
+  total_bars: 210069
+  date_range: 2019-12-31 to 2025-12-30
+  columns: [open, high, low, close, volume]
+  dtypes: float64
+  index: datetime (UTC)
+  missing_values: none (continuous bars)
+
+data_split:
+  method: date-based
+  train: 2020-01-01 to 2023-12-31 (140,031 bars)
+  val: 2024-01-01 to 2024-12-31 (35,040 bars)
+  test: 2025-01-01 to 2025-12-30 (34,998 bars)
+
+# What consumes this dataset
+consumers:
+  - name: V1.4 strategy backtest
+    usage: all entry signals (RSI, SMA200, counter-trend)
+  - name: V1.5 ML model training
+    usage: source for feature_cache computation
+  - name: ML V2 (Attention) training
+    usage: source for feature_cache computation
+  - name: All exit strategy experiments
+    usage: bar OHLCV for backtesting exits
+  - name: Layer 1 risk research (L1R-001 to L1R-007)
+    usage: trade outcomes simulation
+
+# Derived datasets (children)
+derived:
+  - configs/data_cards/direction_feature_cache.yaml (1,261 features)
+  - configs/data_cards/direction_labels.yaml (30 labels)
+  - data/features/sr_bounce_break/ (NPZ files)
+
+known_issues:
+  - Binance Futures started BTCUSDT perpetual in September 2019 — no data before that
+  - No gap analysis performed (assumed continuous)
+  - Volume is in BTC (not USD)
+
+tags:
+  type: raw_ohlcv
+  asset: BTCUSDT
+  timeframe: 15m
+  source: binance_futures

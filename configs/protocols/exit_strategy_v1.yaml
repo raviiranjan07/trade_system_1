@@ -1,0 +1,88 @@
+name: exit_strategy_v1
+version: 1
+description: |
+  Evaluate exit rules for 15-min BTCUSDT trades.
+  Entry signals are fixed (V1.4 / ML V1.5 / ML V2) — only exit logic varies.
+  Rule-based strategy, no ML training involved.
+
+test_spec:
+  type: rule_based
+  entry: fixed
+  variable: exit_rules
+
+data_split:
+  train: ["2020-01-01", "2023-12-31"]
+  test: ["2024-01-01", "2025-12-31"]
+  asset: BTCUSDT
+  timeframe: 15m
+  secondary_timeframe: 1m    # if testing real-time monitoring
+
+required_metrics:
+  # Core performance
+  - total_bps
+  - profit_factor
+  - win_rate
+  - max_drawdown_bps
+  - n_trades
+  - avg_bps_per_trade
+  # Exit type breakdown
+  - trailing_stop_count
+  - trailing_stop_bps
+  - tight_ts_count
+  - tight_ts_bps
+  - time_exit_count
+  - time_exit_bps
+  - early_cut_count
+  - early_cut_bps
+  # Winner/loser analysis
+  - avg_winner_bps
+  - avg_loser_bps
+  - avg_hold_bars
+  - avg_mfe_bps
+  - avg_mae_bps
+  # Consistency
+  - per_year_bps
+  - per_signal_type_bps
+
+optional_metrics:
+  - breakeven_lock_count
+  - breakeven_lock_bps
+  - loss_conversion_rate
+  - per_quarter_bps
+  - sharpe_daily
+
+required_artifacts:
+  - trades.csv
+  - metrics.json
+  - comparison.md
+
+baseline:
+  name: exit_v2
+  description: |
+    V2 exit (production): LONG 20bps TS, SHORT 30bps TS,
+    early cut bar3 MFE<3, bar4 MFE<5,
+    tighten to 6bps after bar 4, BE lock MFE>=15 floor 9g,
+    bar 10 time exit.
+    OOS (2024-2025): +33,062 bps, PF 4.66, DD -276
+  historical:
+    exit_v1:
+      description: LONG 20bps TS, SHORT 30bps TS, tighten 8bps after bar 5, bar 10 time exit
+      metrics: {total_bps: 30312, profit_factor: 2.21, max_drawdown_bps: -774}
+
+configurable_params:
+  - trailing_stop_long_bps
+  - trailing_stop_short_bps
+  - tighten_after_bar
+  - tight_trailing_stop_bps
+  - early_cut_bar3_mfe
+  - early_cut_bar4_mfe
+  - breakeven_activation_mfe
+  - breakeven_floor_gross_bps
+  - max_bars
+  - monitoring_resolution      # 15m or 1m
+
+tags:
+  layer: 0
+  category: exit_strategy
+  asset: BTCUSDT
+  timeframe: 15m

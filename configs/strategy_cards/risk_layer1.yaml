@@ -1,0 +1,95 @@
+name: risk_layer1
+version: 1
+status: PRODUCTION
+description: |
+  Position-level risk management. Sits between signal and exchange.
+  Decides how much to trade and whether to trade at all.
+
+# Components
+components:
+  position_sizer:
+    file: src/v12/risk/risk_calculator.py
+    description: Calculates qty from wallet x risk% / worst_loss
+    params:
+      worst_loss_bps: 865          # from train data (L1R-001)
+      base_risk_pct: 0.10          # 10% of wallet per trade
+      safety_pct: 0.60             # safety stop at 60% of liquidation
+  account_health:
+    file: src/v12/risk/account_health.py
+    description: Tracks drawdown, loss streaks, recent win rate
+    formula: risk_multiplier = max(0.20, dd_factor x streak_factor x recent_factor)
+    note: Barely activates with 60%+ win rate strategy
+  decision_logger:
+    file: src/v12/risk/tests/decision_logger.py
+    description: Logs every entry decision (allowed/skipped + reason)
+  safety_stop:
+    file: src/v12/risk/exchange_constants.py
+    description: 80% of liquidation distance (~368 bps at 20x, ~460 bps at 125x)
+    note: Zero trades ever hit this — existing exits always fire first
+
+# Exchange constraints
+exchange:
+  leverage: 125
+  min_qty: 0.001 BTC
+  min_notional: 100 USD           # forces min qty = 0.002 BTC at current prices
+  step_size: 0.001 BTC
+  maint_margin_rate: 0.4%
+  fees_bps: 8                     # round-trip limit orders
+
+# Position sizing at different wallet levels (BTC @ $85,000)
+sizing_table:
+  - {wallet: 5, qty: 0.002, notional: 170, worst_loss_usd: 14.70, risk_pct: 294%, note: "exchange min - over-risked"}
+  - {wallet: 10, qty: 0.002, notional: 170, worst_loss_usd: 14.70, risk_pct: 147%, note: "exchange min - over-risked"}
+  - {wallet: 20, qty: 0.002, notional: 170, worst_loss_usd: 14.70, risk_pct: 73%, note: "exchange min - over-risked"}
+  - {wallet: 50, qty: 0.002, notional: 170, worst_loss_usd: 14.70, risk_pct: 29%, note: "exchange min"}
+  - {wallet: 100, qty: 0.002, notional: 170, worst_loss_usd: 14.70, risk_pct: 14%, note: "exchange min"}
+  - {wallet: 200, qty: 0.002, notional: 170, worst_loss_usd: 14.70, risk_pct: 7%, note: "scaling starts"}
+  - {wallet: 500, qty: 0.006, notional: 510, worst_loss_usd: 44.11, risk_pct: 8%, note: "scaled"}
+
+# Monte Carlo results (from L1R research)
+mc_results:
+  n_simulations: 1000
+  ruin_probability:
+    at_5_usd: 23%
+    at_100_usd: 0%
+  note: MC used min_qty=0.001 but actual exchange min is 0.002 — ruin probability is UNDERSTATED
+
+# Research experiments
+experiments:
+  - L1R-001: Ground truth trade distributions (train + OOS)
+  - L1R-002: Step sweep (position sizing parameter grid)
+  - L1R-003: Signal quality impact on sizing
+  - L1R-004: Edge cases (extreme drawdowns, streaks)
+  - L1R-005: Safety stop distance optimization
+  - L1R-006: Integrated calculator validation
+  - L1R-007: Final validation on OOS
+  - L1-EXP-001: Fixed leverage baseline (125x)
+  - L1-EXP-002: Position sizing approaches (fixed, dynamic, qty-based)
+  - L1-EXP-003: Binance reality constraints (notional, step size)
+  - L1-EXP-004: Kelly criterion (pure, half-Kelly, hybrid)
+  - L1-EXP-005: Cross vs isolated margin + Kelly combinations
+  - L1-EXP-006: Final combined risk system
+  - L1-EXP-007: Validated sizing
+  - L1-EXP-008: Dynamic risk calculator
+
+# Known limitations
+limitations:
+  - Tested with V1 exit rules only — V2 exit not validated with Layer 1
+  - MC simulation used min_qty=0.001 but exchange forces 0.002 (double risk)
+  - Below $200 wallet, sizing is stuck at exchange minimum — risk calculator is irrelevant
+  - worst_loss_bps=865 from train data (V1 exits) — may be different with V2 exits
+  - Health multiplier barely activates with 60%+ win rate — untested under stress
+  - Same risk params for all 3 models (V1.4, ML V1.5, ML V2)
+
+# Tested on
+tested_on:
+  dataset: data/raw/BTCUSDT_15m_ohlcv.parquet
+  timeframe: 15m
+  asset: BTCUSDT
+  train_period: 2020-2023
+  test_period: 2024-2025 (OOS)
+  exit_rules: V1 (NOT V2)
+
+tags:
+  layer: 1
+  status: production

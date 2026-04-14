@@ -6,7 +6,10 @@ version: 1
 created: 2026-03-01
 status: DEPLOYED (production, paper trading since 2026-03-19)
 protocol: direction_prediction_v1
-data_card: l2_003_feature_cache
+data_cards:
+  features: direction_feature_cache
+  labels: direction_labels
+  raw: btcusdt_15m_ohlcv
 
 # ============================================================
 # What the model does

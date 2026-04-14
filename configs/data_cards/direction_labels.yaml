@@ -1,0 +1,172 @@
+# Data Card: Direction Prediction Labels
+# Pre-computed labels from lookahead on raw 15-min OHLCV.
+# MFE, direction (H8 + H96), and auxiliary labels for direction prediction models.
+
+name: direction_labels
+version: 1
+created: 2026-03-01
+last_updated: 2026-03-26
+
+file:
+  path: data/features/direction_prediction/labels.parquet
+  size_mb: 31
+  dvc_tracked: true
+  dvc_hash: 5ab7883630d668e1e96f6ef6e08491f9
+  format: parquet
+
+# Parent dataset
+source:
+  parent_data_card: btcusdt_15m_ohlcv
+  raw_data: data/raw/BTCUSDT_15m_ohlcv.parquet
+  builder_script: experiments/layer2/L2-003/stage_3/L2_003_stage3_labels.py
+
+# ============================================================
+# Composition
+# ============================================================
+composition:
+  total_bars: 209877
+  date_range: 2020-01-01 to 2025-12-29
+  columns: 30
+  index: datetime (UTC)
+
+# ============================================================
+# Label columns (30 total)
+# ============================================================
+label_columns:
+
+  # --- Direction labels (2) ---
+  direction:
+    horizon: H96 (96 bars = 24 hours)
+    description: Which direction hits ±15bps first within 96 bars
+    dtype: int8
+    classes:
+      0: LONG (up hits first)
+      1: SHORT (down hits first)
+      2: BOTH (both hit on same bar)
+      3: SKIP (neither hits within horizon)
+    distribution:
+      LONG: 85455 (40.7%)
+      SHORT: 86859 (41.4%)
+      BOTH: 37562 (17.9%)
+      SKIP: 1 (0.0%)
+    used_by: "V1.5 production (MLP), L2-003 Stage 2 (LightGBM, FAILED)"
+    status: NEAR-RANDOM for most models (too wide horizon, everything hits ±15bps)
+
+  direction_h8:
+    horizon: H8 (8 bars = 2 hours)
+    description: Which direction hits ±15bps first within 8 bars
+    dtype: int8
+    classes:
+      0: LONG
+      1: SHORT
+      2: BOTH
+      3: SKIP
+    distribution:
+      LONG: 83261 (39.7%)
+      SHORT: 84890 (40.5%)
+      BOTH: 37544 (17.9%)
+      SKIP: 4182 (2.0%)
+    used_by: "ML V2 Attention, LSTM/GRU, MLP Curriculum (all research + ML V2 production)"
+    why_chosen: |
+      H96 has only 1 SKIP bar — useless for filtering.
+      H8 has 4,182 SKIP bars (2%) — model can meaningfully say "skip this bar".
+      H8 forces the model to predict SHORT-TERM direction which is more tradeable.
+
+  # --- MFE labels (24) ---
+  mfe_up_N / mfe_down_N:
+    description: Max Favorable Excursion (bps) at N bars after entry
+    dtype: float32
+    horizons: [1, 2, 3, 4, 5, 6, 7, 8, 10, 20, 32, 96]
+    columns_per_horizon: 2 (mfe_up_N, mfe_down_N)
+    total_columns: 24
+    range: "0 to ~5,300 bps (max mfe_up_96)"
+    used_by: "Stage 3 multi-task training (MFE prediction heads)"
+    finding: |
+      MFE prediction accurate (pred_mean ≈ actual_mean) but model predicts
+      mfe_up ≈ mfe_down — cannot distinguish directional asymmetry.
+      Connected MFE heads only in research models (Attention, LSTM).
+
+  # --- Auxiliary labels (4) ---
+  time_to_first_up_hit:
+    description: First bar where high >= entry + 15bps
+    dtype: int16
+    range: [0, 96]
+    note: 0 means never hit within 96 bars
+
+  time_to_first_down_hit:
+    description: First bar where low <= entry - 15bps
+    dtype: int16
+    range: [0, 96]
+    note: 0 means never hit within 96 bars
+
+  vol_expansion:
+    description: ATR at peak bar > ATR at current bar
+    dtype: int8 (0/1)
+    used_by: "Stage 2 multi-task (not used in production)"
+
+  volume_expansion:
+    description: Volume at peak bar > volume MA at current bar
+    dtype: int8 (0/1)
+    used_by: "Stage 2 multi-task (not used in production)"
+
+# ============================================================
+# Pipeline
+# ============================================================
+pipeline:
+  step_1_load_ohlcv:
+    source: data/raw/BTCUSDT_15m_ohlcv.parquet
+
+  step_2_lookahead_computation:
+    description: For each bar t, scan bars t+1 to t+96 to compute MFE and direction
+    entry: open[t+1] (enter at next bar's open)
+    threshold_bps: 15 (±0.15% move from entry)
+    direction_logic:
+      LONG_0: first_up_bar < first_down_bar
+      SHORT_1: first_down_bar < first_up_bar
+      BOTH_2: both hit on same bar
+      SKIP_3: neither hits within horizon
+
+  step_3_write_parquet:
+    columns_written: 30
+
+# ============================================================
+# Consumers
+# ============================================================
+consumers:
+  - model_card: mlp_direction_v15
+    label_used: direction (H96)
+    columns_consumed: 1 of 30
+  - model_card: lstm_attention_direction
+    label_used: direction_h8 + mfe_up_1-8 + mfe_down_1-8
+    columns_consumed: 17 of 30
+  - model_card: lstm_gru_direction
+    label_used: direction_h8 + mfe_up_1-8 + mfe_down_1-8
+    columns_consumed: 17 of 30
+  - model_card: mlp_curriculum_direction
+    label_used: direction_h8 + mfe_up_1-8 + mfe_down_1-8
+    columns_consumed: 17 of 30
+
+# ============================================================
+# Data split
+# ============================================================
+data_split:
+  method: date-based
+  train: 2020-01-01 to 2023-12-31 (140,031 bars)
+  val: 2024-01-01 to 2024-12-31
+  test: 2025-01-01 to 2025-12-29
+
+# ============================================================
+# Known issues
+# ============================================================
+known_issues:
+  - "SKIP mislabeling bug was found and fixed (23K bars affected). Current labels.parquet has the corrected version."
+  - "H96 has only 1 SKIP bar — nearly useless for filtering."
+  - "H96 vs H8 distribution difference: H8 has meaningful SKIP but H96 doesn't."
+  - "MFE labels show directional symmetry (mfe_up ≈ mfe_down) — hard for models to learn asymmetry."
+  - "Labels start at 2020-01-01 (192 bars after feature_cache start) because lookahead requires future bars."
+
+tags:
+  type: labels
+  layer: 2
+  asset: BTCUSDT
+  timeframe: 15m

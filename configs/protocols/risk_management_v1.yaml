@@ -1,0 +1,95 @@
+name: risk_management_v1
+version: 1
+description: |
+  Evaluate position sizing, account health, and ruin probability
+  for 15-min BTCUSDT trading. Tests how much to risk per trade
+  and whether the account survives long-term.
+  Rule-based strategy, no ML involved.
+
+test_spec:
+  type: rule_based
+  depends_on: exit_strategy   # risk metrics depend on which exit rules are used
+  variable: sizing_params     # position sizing and health parameters change
+
+data_split:
+  train: ["2020-01-01", "2023-12-31"]
+  test: ["2024-01-01", "2025-12-31"]
+  asset: BTCUSDT
+  timeframe: 15m
+
+# Source trade distributions (from L1R-001)
+trade_distributions:
+  train:
+    source: experiments/layer1/L1R-001/train_stats.json
+    n_trades: 431
+    win_rate: 65.9%
+    worst_loss_bps: -865
+    avg_win_bps: 62.0
+    avg_loss_bps: -60.6
+    exit_rules: V1 (trailing stop 20/30, tighten 8 after bar 5, bar 10 time exit)
+  oos:
+    source: experiments/layer1/L1R-001/oos_stats.json
+    n_trades: 220
+    win_rate: 60.0%
+    worst_loss_bps: -182
+    avg_win_bps: 56.1
+    avg_loss_bps: -24.3
+    exit_rules: V1 (same)
+
+required_metrics:
+  # Survival
+  - ruin_probability             # % of MC sims that go to zero
+  - survival_rate                # 1 - ruin_probability
+  - median_final_wallet
+  - p5_final_wallet              # 5th percentile (worst case)
+  - p95_final_wallet             # 95th percentile (best case)
+  # Drawdown
+  - max_drawdown_pct
+  - avg_drawdown_pct
+  - max_drawdown_duration_trades
+  # Position sizing
+  - min_qty_btc
+  - min_notional_usd
+  - risk_per_trade_pct           # worst case loss as % of wallet
+  - scaling_threshold_usd        # wallet where sizing starts scaling
+  # Per starting wallet
+  - ruin_at_5_usd
+  - ruin_at_10_usd
+  - ruin_at_20_usd
+  - ruin_at_50_usd
+  - ruin_at_100_usd
+
+optional_metrics:
+  - kelly_fraction
+  - optimal_risk_pct
+  - health_multiplier_activation_rate
+  - n_skipped_trades
+
+required_artifacts:
+  - metrics.json
+  - mc_results.csv               # per-simulation outcomes
+  - sizing_table.csv             # qty/risk at each wallet level
+
+baseline:
+  name: risk_layer1_v1
+  description: |
+    Current production: worst_loss=865 bps, base_risk=10%,
+    safety=60% of liquidation, health monitor active.
+    Tested with V1 exit rules.
+    MC ruin: 23% at $5, 0% at $100+.
+    Known gap: MC used min_qty=0.001 but exchange min is 0.002.
+
+configurable_params:
+  - worst_loss_bps
+  - base_risk_pct
+  - safety_pct
+  - starting_wallet_usd
+  - exit_rules_version           # V1 or V2 (affects trade distribution)
+  - health_monitor_enabled
+  - n_mc_simulations
+
+tags:
+  layer: 1
+  category: risk_management
+  asset: BTCUSDT
+  timeframe: 15m

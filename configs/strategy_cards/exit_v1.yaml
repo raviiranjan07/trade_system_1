@@ -1,0 +1,75 @@
+name: exit_v1
+version: 1
+status: RETIRED (replaced by exit_v2)
+description: |
+  First production exit strategy. Trailing stop + time exit.
+  Established from EXP-005 (RSI layer1). Used in V1.2 through V1.3.1.
+
+# Rules
+rules:
+  trailing_stop:
+    long_bps: 20
+    short_bps: 30
+    description: Exit when price pulls back X bps from peak
+  tightening:
+    after_bar: 5
+    tight_bps: 8
+    description: After bar 5, trailing stop tightens to 8 bps
+  time_exit:
+    max_bars: 10
+    description: Force exit at bar 10 (2.5 hours) regardless of PnL
+
+# What V1 does NOT have
+not_included:
+  - early_cut (no early loser detection)
+  - breakeven_lock (no profit floor)
+
+# Performance (OOS 2024-2025, V1.5 signals — 1,680 trades)
+performance:
+  total_bps: 30312
+  profit_factor: 2.21
+  max_drawdown_bps: -774
+  win_rate: 0.58
+  n_trades: 1680
+  exit_breakdown:
+    trailing_stop: {count: ~950, net_positive: true}
+    tight_ts: {count: ~450, net_positive: true}
+    time_exit: {count: ~280, net_negative: true, note: "61% had MFE=0, never went positive"}
+
+# Performance (OOS 2024-2025, V1.4 signals only — 220 trades)
+performance_v14_only:
+  total_bps: 5267
+  profit_factor: 3.46
+  max_drawdown_bps: -192
+  win_rate: 0.60
+  n_trades: 220
+
+# Key weakness
+weaknesses:
+  - Losers sit until bar 10 bleeding slowly (61% of TIME_EXIT losers never went positive)
+  - Winners give back profit through wide trailing stop before tightening kicks in
+  - No profit protection once trade is profitable
+
+# Experiments that built V1
+experiments:
+  - EXP-005 (layer1/rsi): Trailing stop sizing, LONG=20 SHORT=30 optimal
+  - EXP-009 (layer1/rsi): Remove time exit — REJECTED, catastrophic trades emerge
+  - test_trailing_stop_levels: Extended parameter sweep 15-50 bps
+  - test_activation_threshold: Delayed TS start — informational
+  - test_profit_protected: Only trigger TS if profitable — informational
+  - V1.3.1 tightening: Tighten to 8bps after bar 5 — ACCEPTED
+
+# Data
+tested_on:
+  dataset: data/raw/BTCUSDT_15m_ohlcv.parquet
+  timeframe: 15m
+  asset: BTCUSDT
+  train_period: 2020-2023
+  test_period: 2024-2025 (OOS)
+  resolution: bar_close_only
+  data_card: configs/data_cards/btcusdt_15m_ohlcv.yaml
+
+tags:
+  layer: 0
+  status: retired
+  replaced_by: exit_v2

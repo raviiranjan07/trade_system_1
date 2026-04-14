@@ -1,0 +1,121 @@
+name: exit_v2
+version: 1
+status: PRODUCTION (frozen 2026-03-29)
+description: |
+  Current production exit strategy. Builds on V1 with early loser detection,
+  tighter profit protection, and breakeven lock. Applied identically to
+  V1.4, ML V1.5, and ML V2 (Attention) models.
+
+# Rules (applied in order of priority)
+rules:
+  early_cut:
+    bar3_mfe_threshold: 3
+    bar4_mfe_threshold: 5
+    description: |
+      Bar 3: exit if MFE < 3 bps (trade is dead after 45 min)
+      Bar 4: exit if MFE < 5 bps (trade is dead after 60 min)
+      Cuts losers early instead of waiting for bar 10 time exit
+  trailing_stop:
+    long_bps: 20
+    short_bps: 30
+    description: Exit when price pulls back X bps from peak (bars 1-4)
+  tightening:
+    after_bar: 4
+    tight_bps: 6
+    description: After bar 4, trailing stop tightens to 6 bps
+  breakeven_lock:
+    activation_mfe: 15
+    floor_gross_bps: 9
+    description: |
+      When MFE reaches 15 bps, set floor at 9 bps gross (+1 bps net after fees).
+      Trade can never become a loser after this point.
+  time_exit:
+    max_bars: 10
+    description: Force exit at bar 10 (2.5 hours) regardless of PnL
+
+# Trade flow
+trade_flow: |
+  Bar 1-2:  Wide trailing stop (LONG 20 / SHORT 30 bps)
+  Bar 3:    MFE < 3 bps? -> EARLY CUT
+  Bar 4:    MFE < 5 bps? -> EARLY CUT
+  Bar 4+:   Trailing stop tightens to 6 bps
+  Anytime:  MFE >= 15 bps? -> Lock floor at 9 bps gross
+  Bar 10:   Still open? -> TIME EXIT
+
+# What V2 added over V1
+improvements_over_v1:
+  early_cut: "NEW — detects dead trades at bar 3/4"
+  tighten_bar: "Bar 5 -> bar 4 (earlier)"
+  tighten_bps: "8 bps -> 6 bps (tighter)"
+  breakeven_lock: "NEW — guarantees profit after MFE >= 15"
+
+# Performance (OOS 2024-2025, V1.5 signals — 1,680 trades)
+performance:
+  total_bps: 33062
+  profit_factor: 4.66
+  max_drawdown_bps: -276
+  win_rate: 0.62
+  n_trades: 1680
+  vs_v1:
+    total_bps_delta: +2750
+    pf_improvement: "2.21 -> 4.66 (+111%)"
+    drawdown_reduction: "-774 -> -276 (-64%)"
+
+# Performance (OOS 2024-2025, V1.4 signals only — 220 trades)
+performance_v14_only:
+  total_bps: 5267
+  profit_factor: 3.46
+  max_drawdown_bps: -192
+  win_rate: 0.60
+  n_trades: 220
+
+# Applied to all models (same parameters)
+applied_to:
+  - V1.4 (RSI-based signals)
+  - ML V1.5 (MLP direction model)
+  - ML V2 (LSTM+Attention direction model)
+  note: |
+    Same exit parameters for all models. Not yet optimized per-model.
+    ML models may benefit from different exit tuning (different trade characteristics).
+
+# Experiments that built V2
+experiments:
+  - V2 EXP-5: Early loser exit bar3<5/bar4<8, refined to bar3<3/bar4<5 — ACCEPTED
+  - V2 EXP-5 deep dive: Refined thresholds, analyzed winners sacrificed
+  - V2 EXP-7: Breakeven lock grid (2 floors x 4 activations = 8 configs) — ACCEPTED BE@9g act>=15
+  - V2 EXP-7b: Validated BE on both EXP-5 and EXP-6
+  - V2 EXP-8: Tightening grid (4 bars x 5 bps = 20 configs) — ACCEPTED bar4, 6bps
+  - V2 EXP-9: LONG/SHORT separate early cut thresholds — tested
+  - V2 EXP-10: Combined V2 + 1-min switch — tested
+  - V2 EXP-11: Time exit sensitivity (bar 7-15) — tested
+  - V2 EXP-12: Cooldown after early cut — tested
+
+# Known limitations
+limitations:
+  - Exits checked at 15-min bar close only (not real-time)
+  - 1-min monitoring tested (EXP-1 through EXP-4) but LOST to 15-min baseline
+  - 1-min tests used same parameters (20/30 bps TS) — not re-optimized for 1-min noise
+  - Same exit params for all 3 models — may not be optimal per-model
+  - Breakeven lock only activates if 15-min bar closes above MFE >= 15 (can miss mid-bar peaks)
+
+# Implementation
+implementation:
+  config_file: src/v12/config/settings.yaml
+  logic_file: src/v12/position_manager.py
+  schema: src/v12/config/schema.py (ExitConfig class, lines 58-71)
+
+# Data
+tested_on:
+  dataset: data/raw/BTCUSDT_15m_ohlcv.parquet
+  timeframe: 15m
+  asset: BTCUSDT
+  train_period: 2020-2023
+  test_period: 2024-2025 (OOS)
+  resolution: bar_close_only
+  n_parameter_combos: 80+
+  data_card: configs/data_cards/btcusdt_15m_ohlcv.yaml
+
+tags:
+  layer: 0
+  status: production
+  frozen: 2026-03-29

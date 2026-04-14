@@ -1,0 +1,63 @@
+# Data Card: BTCUSDT 1-min OHLCV (raw)
+# High-resolution source for real-time exit monitoring experiments
+
+name: btcusdt_1m_ohlcv
+version: 1
+created: 2020-01-01 (initial download)
+last_updated: 2026-03-01
+
+file:
+  path: data/raw/BTCUSDT_1m_ohlcv.parquet
+  size_mb: 110
+  dvc_tracked: false
+  format: parquet (pandas-compatible)
+
+source:
+  exchange: Binance Futures
+  api: REST /fapi/v1/klines
+  asset: BTCUSDT
+  timeframe: 1m
+  contract: perpetual
+
+composition:
+  total_bars: 3150249
+  date_range: 2019-12-31 18:30 to 2025-12-30 18:29
+  columns: [open, high, low, close, volume]
+  dtypes: float64
+  index: datetime (UTC)
+  missing_values: none (continuous bars)
+
+data_split:
+  method: date-based (same as 15m)
+  train: 2020-01-01 to 2023-12-31 (~2.1M bars)
+  val: 2024-01-01 to 2024-12-31 (~525K bars)
+  test: 2025-01-01 to 2025-12-30 (~525K bars)
+
+# What consumes this dataset
+consumers:
+  - name: Exit strategy V2 experiments (EXP-1 to EXP-4, EXP-10)
+    usage: 1-min exit monitoring while trading 15-min signals
+    status: Tested but lost to 15-min-only baseline (parameters not re-optimized for 1-min)
+  - name: Future real-time exit tests
+    usage: planned
+
+# Relationship to 15m
+relationship_to_15m:
+  description: |
+    Same raw data at higher resolution. A 15-min bar aggregates 15 1-min bars.
+    1-min high/low can be used to detect intra-bar exits that 15-min close misses.
+  caution: |
+    Trailing stops tuned for 15-min bar noise (20/30 bps) are too tight for 1-min
+    noise. Using 15-min parameters on 1-min data destroys performance
+    (see EXP-1 through EXP-4).
+
+known_issues:
+  - 15x larger than 15m file (~110MB vs ~9MB)
+  - Memory-intensive for full backtests (use chunking)
+  - No tick data — still misses intra-minute moves
+
+tags:
+  type: raw_ohlcv
+  asset: BTCUSDT
+  timeframe: 1m
+  source: binance_futures

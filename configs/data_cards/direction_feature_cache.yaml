@@ -1,0 +1,128 @@
+# Data Card: Direction Prediction Feature Cache
+# Pre-computed features from raw 15-min OHLCV. Used by all direction ML models.
+
+name: direction_feature_cache
+version: 1
+created: 2026-03-01
+last_updated: 2026-04-12
+
+file:
+  path: data/features/direction_prediction/feature_cache.parquet
+  size_mb: 40
+  dvc_tracked: true
+  dvc_hash: e395c57f0eb678807d4d22cf08ea6eec
+  format: parquet
+
+# Parent dataset
+source:
+  parent_data_card: btcusdt_15m_ohlcv
+  raw_data: data/raw/BTCUSDT_15m_ohlcv.parquet
+  builder_script: experiments/layer2/L2-003/stage_3/L2_003_stage3_labels.py
+
+# ============================================================
+# Composition
+# ============================================================
+composition:
+  total_bars: 210069
+  date_range: 2019-12-31 to 2025-12-30
+  columns: 23
+  dtypes: float64
+  missing_values: some (NaN in early bars for lookback-dependent features)
+
+feature_categories:
+  ohlcv:
+    count: 5
+    columns: [open, high, low, close, volume]
+  direction:
+    count: 6
+    columns: [rsi7, range_position, sma200_dist_pct, roc5, momentum10, rsi]
+  magnitude:
+    count: 8
+    columns: [atr_pct, atr_percentile, ema_separation, range_bps, body_bps, dist_from_high20_pct, hour_utc, volume_ratio]
+  analysis:
+    count: 4
+    columns: [ema20_slope, ema50_dist_pct, sma200_slope, range_position_50]
+
+# ============================================================
+# History
+# ============================================================
+cleanup_history:
+  - date: "2026-04-12"
+    action: "Reduced from 1,266 to 23 columns (1 GB → 40 MB)"
+    rationale: |
+      Dropped 1,200 derivative features (slope, acceleration, zscore, percentile_rank,
+      dist_from_max, dist_from_min × 8 lookbacks) that were NEVER used by any successful
+      model. Only Stage 2 LightGBM used them and it failed (50.5% accuracy).
+      All successful models compute their own features from close/rsi7/range_position/
+      sma200_dist_pct at training time.
+    old_version_preserved: "DVC cache hash 863db21d (1,266-column version)"
+
+# ============================================================
+# Consumers
+# ============================================================
+consumers:
+  - model_card: mlp_direction_v15
+    features_used: [roc1, roc2, roc3, roc4, roc5, roc6, roc7, roc8, range_position, rsi7]
+    note: "Only 10 of 23 columns used"
+  - model_card: lstm_attention_direction
+    features_used: [roc, rsi, range_position, sma200_dist_pct diffs × 8 lookbacks]
+    note: "Computes 32 diff features from 4 base columns"
+  - model_card: lstm_gru_direction
+    features_used: "same as attention"
+  - model_card: mlp_curriculum_direction
+    features_used: "same as attention"
+
+# ============================================================
+# Pipeline
+# ============================================================
+pipeline:
+  step_1_load_ohlcv:
+    source: data/raw/BTCUSDT_15m_ohlcv.parquet
+    output: 210,069 bars
+
+  step_2_compute_features:
+    description: Per-bar feature computation from OHLCV
+    output: 23 columns (see feature_categories above)
+    note: Early bars (before lookback=96 warm-up) have NaN values
+
+  step_3_snapshot_assembly:
+    description: At TRAINING time, 9 snapshots assembled per bar (NOT stored in parquet)
+    snapshots: [t-96, t-32, t-20, t-10, t-5, t-3, t-2, t-1, t]
+    input_shape_per_bar: [9, 23]
+    note: feature_cache stores per-bar features; snapshots created at train time
+
+# ============================================================
+# Data split
+# ============================================================
+data_split:
+  method: date-based
+  train: 2020-01-01 to 2023-12-31 (140,031 bars)
+  val: 2024-01-01 to 2024-12-31 (used for early stopping)
+  test: 2025-01-01 to 2025-12-31
+
+# ============================================================
+# Validated features (from L2-001 research)
+# ============================================================
+validated_features:
+  magnitude_5of5:
+    description: Features that predict move SIZE (used as gate)
+    features: [atr_pct, atr_percentile, ema_separation, range_bps, body_bps, dist_from_high20_pct, hour_utc, volume_ratio]
+    note: 7 distinct after removing 95%+ correlated duplicates
+  direction_3of5:
+    description: Features that predict DIRECTION (used as signal)
+    features: [rsi, rsi7, rsi21, roc5, roc10, roc20, momentum5, momentum10, ema_dist variants, bb_position, range_position, sma200_dist_pct]
+    note: pass direction + PnL tests but fail Case1 + raw MFE
+
+# ============================================================
+# Known issues
+# ============================================================
+known_issues:
+  - "V1.5 uses only 10 of 23 features. 57% of feature_cache is unused by production."
+  - "Early bars (before lookback=96 warm-up) have NaN values in derivative features."
+  - "95.7% of bars have an opposite-direction twin (same features, opposite outcome) — fundamental ceiling on prediction accuracy."
+
+tags:
+  type: features
+  layer: 2
+  asset: BTCUSDT
+  timeframe: 15m
