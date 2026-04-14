@@ -57,17 +57,20 @@ required_artifacts:
   - comparison.md
 
 baseline:
-  name: exit_v2
+  name: exit_v3
   description: |
-    V2 exit (production): LONG 20bps TS, SHORT 30bps TS,
-    early cut bar3 MFE<3, bar4 MFE<5,
-    tighten to 6bps after bar 4, BE lock MFE>=15 floor 9g,
-    bar 10 time exit.
-    OOS (2024-2025): +33,062 bps, PF 4.66, DD -276
+    V3 exit (proposed): PT_TARGET at 80, PT_LOCK at 60 (stop order),
+    MID_TRAIL arm 25 trail 10 (stop order), LOCKED_PROFIT 15 static,
+    bar 6 TIME_EXIT/NO_ZONE split.
+    OOS (2024-2025, V1.5 MLP): +4,026 bps, PF 1.14, DD -1,731 (honest tick)
   historical:
     exit_v1:
       description: LONG 20bps TS, SHORT 30bps TS, tighten 8bps after bar 5, bar 10 time exit
-      metrics: {total_bps: 30312, profit_factor: 2.21, max_drawdown_bps: -774}
+      metrics: {total_bps: -3901, profit_factor: 0.88, max_drawdown_bps: -4474, note: "honest tick backtest"}
+    exit_v2:
+      description: Early cut bar3/4, tighten bar4 6bps, BE lock MFE>=15 floor 9g, bar 10 exit
+      metrics: {total_bps: 33062, profit_factor: 4.66, max_drawdown_bps: -276, note: "theoretical backtest (buggy exit pricing)"}
+      honest_metrics: {total_bps: -4822, profit_factor: 0.86, note: "with honest bar-close pricing"}
 
 configurable_params:
   - trailing_stop_long_bps

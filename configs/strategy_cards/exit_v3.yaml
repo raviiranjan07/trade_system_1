@@ -1,0 +1,140 @@
+name: exit_v3
+version: 1
+status: PROPOSED (not yet in production, V2 still live)
+description: |
+  Third-generation exit strategy. Replaces V2's early cut + BE lock with
+  a tiered profit ladder: PROFIT_TARGET (60→80) + MID_TRAIL (25→peak-10)
+  + LOCKED_PROFIT (15 static) + bar-6 TIME_EXIT.
+
+  Uses IDEALIZED stop-order simulation — assumes stop-limit orders on
+  Binance fill at the designated level (not whatever tick price).
+
+  Tested only on V1.5 ML signals. ML V2 (Attention) loses with V3
+  because of too many bad signals that bleed to TIME_EXIT.
+
+# Rules (priority order per tick)
+rules:
+  pt_target:
+    description: Take profit at 80 when price ran from 60
+    activation: peak_mfe >= 60 AND bars_held <= 5
+    trigger: tick_pnl >= 80
+    exit_at: current tick price (can gap above 80)
+    purpose: Lock big winners above 80 bps
+
+  pt_lock:
+    description: Stop order at 60 bps once peak touched 60
+    activation: peak_mfe >= 60 AND bars_held <= 5
+    trigger: tick_pnl <= 60
+    exit_at: IDEALIZED back-calculated 60 bps (simulates stop-limit order)
+    purpose: Lock profit at 60 if price doesn't reach 80
+
+  mid_trail:
+    description: Dynamic trailing stop for mid-range winners
+    activation: peak_mfe >= 25 AND NOT pt_armed
+    trigger: drawdown (peak - tick_pnl) >= 10
+    exit_at: IDEALIZED back-calculated peak - 10 bps
+    purpose: Capture winners in 25-59 peak range with tight trail
+
+  locked_profit:
+    description: Static profit lock for small winners
+    activation: peak_mfe >= 15
+    trigger: tick_pnl <= 15
+    exit_at: current tick price
+    purpose: Protect marginal trades (peak 15-24 range)
+
+  no_zone:
+    description: Bar-6 exit when pnl is above entry but below LP trigger
+    activation: bars_held >= 6
+    trigger: bar_close_pnl >= 0
+    exit_at: bar close
+    purpose: Clean exit for "no-zone" trades at end of time window
+
+  time_exit:
+    description: Bar-6 exit when pnl below entry (loser cut)
+    activation: bars_held >= 6
+    trigger: bar_close_pnl < 0
+    exit_at: bar close
+    purpose: Cut losers at bar 6 (2 hours max hold)
+
+# Parameters
+parameters:
+  pt_arm_bps: 60
+  pt_target_bps: 80
+  pt_lock_bps: 60
+  pt_max_bar: 5
+  mid_trail_arm_bps: 25
+  mid_trail_width_bps: 10
+  lock_arm_bps: 15
+  lock_trigger_bps: 15
+  max_bars: 6
+
+# What V3 REMOVES from V2
+removed:
+  - early_cut_bar3_mfe    # V2: cut if MFE < 3 at bar 3
+  - early_cut_bar4_mfe    # V2: cut if MFE < 5 at bar 4
+  - breakeven_activation  # V2: BE lock at MFE >= 15
+  - breakeven_floor       # V2: floor 9 bps gross
+  - tighten_after_bar     # V2: tighten to 6 bps at bar 4+
+  - tight_trailing_stop   # V2: 6 bps trailing
+  - wide_trailing_stop    # V1/V2: 20/30 bps trailing
+
+# Performance (OOS 2024-2025, V1.5 MLP signals, tick monitored)
+performance:
+  v15_ml_only:
+    n_trades: 1530
+    win_rate: 0.731
+    total_bps: 4026
+    profit_factor: 1.14
+    max_drawdown_bps: -1731
+    avg_per_month: 168
+  vs_original_v1:
+    net_improvement_bps: 7927   # from -3,901 to +4,026
+    pf_improvement: 0.26        # from 0.88 to 1.14
+    dd_improvement_bps: 2743    # from -4,474 to -1,731
+
+# Performance on ML V2 (Attention) — FAILS
+performance_attention:
+  note: ML V2 loses with V3 exits due to too many bad signals
+  attn_0.40: {n_trades: 5260, total_bps: -23648, pf: 0.77}
+  attn_0.35: {n_trades: 3172, total_bps: -13123, pf: 0.81}
+  recommendation: Use V3 with V1.5 MLP signals only, NOT Attention
+
+# Exit distribution breakdown (V1.5 + V3)
+exit_breakdown:
+  pt_target: {n: 131, win_rate: 1.00, total_bps: 12331, avg_bps: 94}
+  pt_lock: {n: 119, win_rate: 1.00, total_bps: 6188, avg_bps: 52}
+  mid_trail: {n: 572, win_rate: 1.00, total_bps: 12876, avg_bps: 22}
+  locked_profit: {n: 400, win_rate: 0.72, total_bps: 641, avg_bps: 2}
+  no_zone: {n: 25, win_rate: 0.32, total_bps: 26, avg_bps: 1}
+  time_exit: {n: 283, win_rate: 0.00, total_bps: -28036, avg_bps: -99}
+
+# Implementation dependencies
+implementation:
+  requires:
+    - Real-time tick monitoring (1-min or better) for PT_LOCK and MID_TRAIL to fire at designated levels
+    - Stop-limit order support on exchange (Binance Futures STOP_MARKET or STOP_LIMIT)
+    - Position manager with on_tick() method
+  not_in_code: true
+  reference_script: experiments/exit_strategy/dyn_trail/run_experiment.py
+
+# Known limitations
+limitations:
+  - Only validated on V1.5 MLP signals (H96 label)
+  - ML V2 (Attention) LOSES with V3 — too many bleeding signals
+  - PT_LOCK and MID_TRAIL assume perfect stop-order fills (no slippage)
+  - Real fills on Binance may have 1-5 bps slippage, reducing edge
+  - No re-entry rules in V3 yet (V2 had re-entry cooldown)
+
+# Tested on
+tested_on:
+  dataset: data/raw/BTCUSDT_15m_ohlcv.parquet + data/raw/BTCUSDT_1m_ohlcv.parquet
+  timeframe: 15m signals + 1m exit monitoring
+  asset: BTCUSDT
+  train_period: 2020-2023 (model training)
+  test_period: 2024-2025 (OOS)
+  data_card: configs/data_cards/btcusdt_15m_ohlcv.yaml
+
+tags:
+  layer: 0
+  status: proposed
+  next_step: merge_to_v1_after_live_validation

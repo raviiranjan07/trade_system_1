@@ -56,18 +56,34 @@ class BullShortFilters(BaseModel):
 
 
 class ExitConfig(BaseModel):
-    """Exit mechanics. Source: EXP-5 V2 (frozen 2026-03-29)."""
+    """Exit mechanics. V2 (frozen 2026-03-29) + V3 (proposed) params.
+
+    V2 params used by V1.4 RSI and ML V2 Attention.
+    V3 params used by ML V1.5 MLP.
+    """
     model_config = ConfigDict(frozen=True)
 
+    # --- V2 params (existing) ---
     long_trailing_stop_bps: float = Field(ge=5, le=100)
     short_trailing_stop_bps: float = Field(ge=5, le=100)
     max_bars: int = Field(ge=1, le=50)
     tighten_after_bar: int = Field(ge=1, le=50)
     tight_trailing_stop_bps: float = Field(ge=1, le=100)
-    early_cut_bar3_mfe: float = Field(ge=0, le=50)         # bar 3: exit if MFE < this
-    early_cut_bar4_mfe: float = Field(ge=0, le=50)         # bar 4: exit if MFE < this
-    breakeven_activation_mfe: float = Field(ge=0, le=200)   # activate BE lock when MFE >= this
-    breakeven_floor_gross_bps: float = Field(ge=0, le=100)  # BE floor: minimum exit gross bps
+    early_cut_bar3_mfe: float = Field(ge=0, le=50)
+    early_cut_bar4_mfe: float = Field(ge=0, le=50)
+    breakeven_activation_mfe: float = Field(ge=0, le=200)
+    breakeven_floor_gross_bps: float = Field(ge=0, le=100)
+
+    # --- V3 params (new — for ML V1.5 only) ---
+    v3_max_bars: int = Field(default=6, ge=1, le=50)
+    v3_pt_arm_bps: float = Field(default=60, ge=10, le=500)
+    v3_pt_target_bps: float = Field(default=80, ge=10, le=500)
+    v3_pt_lock_bps: float = Field(default=60, ge=10, le=500)
+    v3_pt_max_bar: int = Field(default=5, ge=1, le=50)
+    v3_mid_trail_arm_bps: float = Field(default=25, ge=5, le=200)
+    v3_mid_trail_width_bps: float = Field(default=10, ge=1, le=50)
+    v3_lock_arm_bps: float = Field(default=15, ge=1, le=100)
+    v3_lock_trigger_bps: float = Field(default=15, ge=1, le=100)
 
 
 class ReentryConfig(BaseModel):

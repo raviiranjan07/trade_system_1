@@ -12,11 +12,18 @@ const SIGNAL_COLORS = {
 }
 
 const REASON_STYLES = {
+  // V2 exits
   TRAILING_STOP: { bg: 'rgba(0, 217, 126, 0.12)', color: '#00d97e', label: 'TS' },
   TIGHT_TS: { bg: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6', label: 'TIGHT' },
   TIME_EXIT: { bg: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b', label: 'TIME' },
   BE_LOCK: { bg: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6', label: 'BE' },
   EARLY_CUT: { bg: 'rgba(230, 55, 87, 0.12)', color: '#e63757', label: 'EARLY' },
+  // V3 exits (ML V1.5)
+  PT_TARGET: { bg: 'rgba(0, 217, 126, 0.20)', color: '#00c97e', label: 'PT80' },
+  PT_LOCK: { bg: 'rgba(0, 217, 126, 0.12)', color: '#00a86b', label: 'PT60' },
+  MID_TRAIL: { bg: 'rgba(14, 165, 233, 0.12)', color: '#0ea5e9', label: 'MTRAIL' },
+  LOCKED_PROFIT: { bg: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6', label: 'LP' },
+  NO_ZONE: { bg: 'rgba(156, 163, 175, 0.12)', color: '#9ca3af', label: 'NOZONE' },
 }
 
 function TradesList({ trades, mlTrades, mlAttnTrades }) {

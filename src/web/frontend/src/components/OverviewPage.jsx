@@ -122,7 +122,7 @@ function PnlBar({ bps, maxBps = 500 }) {
   )
 }
 
-function BotCard({ title, active, wallet, growth, totalBps, trades, winRate, drawdown, lastTrade, accentColor, tradeHistory, prediction }) {
+function BotCard({ title, active, wallet, growth, totalBps, trades, winRate, drawdown, lastTrade, accentColor, tradeHistory, prediction, exitVersion }) {
   const growthNum = Number(growth)
   const ddPct = (drawdown * 100)
   const ddColor = ddPct > 15 ? '#e63757' : ddPct > 5 ? '#f59e0b' : '#00d97e'
@@ -136,7 +136,14 @@ function BotCard({ title, active, wallet, growth, totalBps, trades, winRate, dra
     <div className="db-bot-card" style={{ borderTop: `3px solid ${accentColor}` }}>
       {/* Header */}
       <div className="db-bot-header">
-        <div className="db-bot-title">{title}</div>
+        <div className="db-bot-title">
+          {title}
+          {exitVersion ? (
+            <span className={`db-exit-badge db-exit-${exitVersion.toLowerCase()}`}>
+              Exit {exitVersion}
+            </span>
+          ) : null}
+        </div>
         <div className="db-bot-status">
           <span className={`db-dot ${active ? 'db-dot-green' : 'db-dot-red'}`} />
           <span className="db-status-label">{active ? 'Running' : 'Inactive'}</span>
@@ -399,6 +406,7 @@ function OverviewPage({ stats, risk, ml, mlAttn, trades, mlTrades, mlAttnTrades,
           lastTrade={v14LastTrade}
           accentColor="#3b82f6"
           tradeHistory={trades}
+          exitVersion="V2"
         />
         <BotCard
           title="ML Strategy"
@@ -412,6 +420,7 @@ function OverviewPage({ stats, risk, ml, mlAttn, trades, mlTrades, mlAttnTrades,
           lastTrade={mlLastTrade}
           accentColor="#8b5cf6"
           tradeHistory={mlTrades}
+          exitVersion="V3"
           prediction={{
             longPct: ml?.ml_long_pct ?? 50,
             shortPct: ml?.ml_short_pct ?? 50,
@@ -430,6 +439,7 @@ function OverviewPage({ stats, risk, ml, mlAttn, trades, mlTrades, mlAttnTrades,
           lastTrade={mlAttnTrades && mlAttnTrades.length > 0 ? mlAttnTrades[0] : null}
           accentColor="#f59e0b"
           tradeHistory={mlAttnTrades}
+          exitVersion="V2"
           prediction={{
             longPct: mlAttn?.ml_attn_long_pct ?? 50,
             shortPct: mlAttn?.ml_attn_short_pct ?? 50,

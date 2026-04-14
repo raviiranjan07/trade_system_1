@@ -92,7 +92,7 @@ class V12Bot:
             model_path=PROJECT_ROOT / "models" / "direction_v15" / "direction_model.onnx",
             scaler_path=PROJECT_ROOT / "models" / "direction_v15" / "scaler.npz",
         )
-        self._ml_pm = V12PositionManager(config)
+        self._ml_pm = V12PositionManager(config, exit_version="v3")   # ML V1.5 uses V3 exits
         self._ml_wallet = DEFAULT_CAPITAL
         self._ml_health = AccountHealthMonitor()
         self._ml_risk_calc = RiskCalculator(worst_loss_bps=865, health=self._ml_health)
@@ -105,7 +105,8 @@ class V12Bot:
         self._ml_risk_state_path = PROJECT_ROOT / "data" / "trades" / "risk_state_ml.json"
         self._load_ml_risk_state()
         if self._ml_gen.loaded:
-            logger.info("ML V1.5 model loaded — ML_LONG/ML_SHORT signals enabled")
+            logger.info("ML V1.5 model loaded — ML_LONG/ML_SHORT signals enabled | exit_version=%s",
+                        self._ml_pm.exit_version.upper())
         else:
             logger.warning("ML V1.5 model not found — ML signals disabled")
 
@@ -127,7 +128,8 @@ class V12Bot:
         self._ml_attn_risk_state_path = PROJECT_ROOT / "data" / "trades" / "risk_state_ml_attn.json"
         self._load_ml_attn_risk_state()
         if self._ml_attn_gen.loaded:
-            logger.info("ML Attention model loaded — ML_ATTN_LONG/ML_ATTN_SHORT signals enabled")
+            logger.info("ML Attention model loaded — ML_ATTN_LONG/ML_ATTN_SHORT signals enabled | exit_version=%s",
+                        self._ml_attn_pm.exit_version.upper())
         else:
             logger.warning("ML Attention model not found — ML_ATTN signals disabled")
 
@@ -1124,15 +1126,81 @@ class V12Bot:
             return
 
         # Subsequent ticks: update price + live candle
-        self._dashboard.update_status(price=candle["close"])
+        current_price = candle["close"]
+        tick_time = candle.get("close_time") or candle.get("open_time") or datetime.now(timezone.utc)
+
+        self._dashboard.update_status(price=current_price)
         self._dashboard.update_current_candle({
             "time": int(candle["open_time"].timestamp()),
             "open": round(candle["open"], 2),
             "high": round(candle["high"], 2),
             "low": round(candle["low"], 2),
-            "close": round(candle["close"], 2),
+            "close": round(current_price, 2),
             "volume": round(candle.get("volume", 0), 2),
         })
+
+        # Real-time exit monitoring for all 3 position managers
+        await self._check_tick_exits(current_price, tick_time)
+
+    async def _check_tick_exits(self, price: float, tick_time) -> None:
+        """Check price-based exits on every tick for all 3 position managers."""
+        # V1.4 position
+        if self.pm.is_in_position:
+            trade = self.pm.on_tick(price, tick_time)
+            if trade is not None:
+                logger.info("[%s] V1.4 TICK-EXIT %s @ %.2f | %s | %+.1f bps",
+                            self.cfg.execution.mode.upper(), trade.exit_reason,
+                            trade.exit_price, trade.direction, trade.net_profit_bps)
+                self._log_trade(trade)
+                self._update_risk_after_trade(trade)   # uses self._current_qty
+                if self._dashboard:
+                    self._push_trade_to_dashboard(trade)
+                self._current_qty = 0.0
+
+        # ML V1.5 position
+        if self._ml_gen.loaded and self._ml_pm.is_in_position:
+            trade = self._ml_pm.on_tick(price, tick_time)
+            if trade is not None:
+                logger.info("[%s] ML V1.5 TICK-EXIT %s @ %.2f | %s | %+.1f bps",
+                            self.cfg.execution.mode.upper(), trade.exit_reason,
+                            trade.exit_price, trade.direction, trade.net_profit_bps)
+                self._log_ml_trade(trade)
+                self._update_ml_risk_after_trade(trade)  # uses self._ml_qty
+                if self._dashboard:
+                    self._push_ml_trade_to_dashboard(trade)
+                self._ml_qty = 0.0
+            elif self._dashboard and self._ml_pm.is_in_position:
+                # Push live position update (PnL, peak, MFE/MAE) every tick
+                self._push_ml_position_to_dashboard(price)
+
+        # ML V2 Attention position
+        if self._ml_attn_gen.loaded and self._ml_attn_pm.is_in_position:
+            trade = self._ml_attn_pm.on_tick(price, tick_time)
+            if trade is not None:
+                logger.info("[%s] ML V2 TICK-EXIT %s @ %.2f | %s | %+.1f bps",
+                            self.cfg.execution.mode.upper(), trade.exit_reason,
+                            trade.exit_price, trade.direction, trade.net_profit_bps)
+                self._log_ml_attn_trade(trade)
+                attn_trade_qty = self._ml_attn_qty
+                self._update_ml_attn_risk_after_trade(trade)  # uses self._ml_attn_qty
+                if self._dashboard:
+                    attn_liq = _calc_liq_price(trade.entry_price, trade.direction, self._ml_attn_wallet, attn_trade_qty)
+                    self._dashboard.add_ml_attn_trade({
+                        "direction": trade.direction,
+                        "signal_type": trade.signal_type,
+                        "entry_price": trade.entry_price,
+                        "exit_price": trade.exit_price,
+                        "net_profit_bps": trade.net_profit_bps,
+                        "mfe_bps": trade.mfe_bps,
+                        "mae_bps": trade.mae_bps,
+                        "exit_bar": trade.exit_bar,
+                        "exit_reason": trade.exit_reason,
+                        "exit_time": str(trade.exit_time),
+                        "entry_time": str(trade.entry_time),
+                        "qty": attn_trade_qty,
+                        "liq_price": attn_liq,
+                    })
+                self._ml_attn_qty = 0.0
 
     async def _on_candle_close(self, candle: dict) -> None:
         """Called on each 15m candle close. Core bot logic."""

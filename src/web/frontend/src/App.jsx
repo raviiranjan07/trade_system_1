@@ -430,6 +430,12 @@ function App() {
 
         <div className="header-right">
           <AlertManager trades={trades} signals={signals} position={position} />
+          <div className="header-price-box">
+            <span className="header-price-label">₿</span>
+            <span className="header-price-value">
+              {status?.price ? `$${Number(status.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '---'}
+            </span>
+          </div>
           <span className="uptime">{formatUptime(status?.uptime_seconds)}</span>
           <span className="mode-badge">{config?.mode?.toUpperCase() || 'PAPER'}</span>
           <div className="connection-status">

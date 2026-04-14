@@ -33,17 +33,31 @@ bull_short_filters:
   atr_percentile_min: 60     # only in high volatility (60th+ percentile)
   ema_separation_min: 1.0    # only when EMAs separated by 1%+
 
-# --- Exit Mechanics (EXP-5 V2: early cut + BE lock + tighter tightening) ---
+# --- Exit Mechanics ---
+# V2 params (used by V1.4 RSI and ML V2 Attention)
+# V3 params (used by ML V1.5 MLP only) — proposed, see exit_v3.yaml
 exit:
-  long_trailing_stop_bps: 20   # 20 bps trailing stop for LONG
-  short_trailing_stop_bps: 30  # 30 bps trailing stop for SHORT
-  max_bars: 10                 # bar 10 time exit
-  tighten_after_bar: 4         # tighten after bar 4 (was 5)
-  tight_trailing_stop_bps: 6   # 6 bps after bar 4 (was 8)
-  early_cut_bar3_mfe: 3        # bar 3: exit if MFE < 3 bps
-  early_cut_bar4_mfe: 5        # bar 4: exit if MFE < 5 bps
-  breakeven_activation_mfe: 15 # BE lock when MFE >= 15 bps
-  breakeven_floor_gross_bps: 9 # BE floor: 9 bps gross (+1 net)
+  # V2 params
+  long_trailing_stop_bps: 20
+  short_trailing_stop_bps: 30
+  max_bars: 10
+  tighten_after_bar: 4
+  tight_trailing_stop_bps: 6
+  early_cut_bar3_mfe: 3
+  early_cut_bar4_mfe: 5
+  breakeven_activation_mfe: 15
+  breakeven_floor_gross_bps: 9
+
+  # V3 params (ML V1.5)
+  v3_max_bars: 6
+  v3_pt_arm_bps: 60
+  v3_pt_target_bps: 80
+  v3_pt_lock_bps: 60
+  v3_pt_max_bar: 5
+  v3_mid_trail_arm_bps: 25
+  v3_mid_trail_width_bps: 10
+  v3_lock_arm_bps: 15
+  v3_lock_trigger_bps: 15
 
 # --- Re-entry (EXP-012: Config A+RE validated) ---
 reentry:
