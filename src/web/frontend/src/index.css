@@ -759,6 +759,72 @@ body {
   }
 }
 
+/* BPS Distribution Bar Chart */
+.bps-dist {
+  margin-top: 10px;
+}
+.bps-dist-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.bps-dist-total {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.bps-dist-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bps-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.bps-bar-label {
+  width: 44px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: right;
+  flex-shrink: 0;
+}
+.bps-bar-track {
+  flex: 1;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.bps-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+  min-width: 2px;
+}
+.bps-bar-count {
+  width: 30px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: right;
+  flex-shrink: 0;
+}
+.bps-bar-pct {
+  width: 40px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.bps-dist-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 4px 0;
+}
+
 /* Trades List */
 .trades-section {
   margin-top: 10px;

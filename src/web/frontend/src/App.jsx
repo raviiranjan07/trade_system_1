@@ -22,6 +22,7 @@ import PnLCalendar from './components/PnLCalendar'
 import PortfolioPage from './components/PortfolioPage'
 import OverviewPage from './components/OverviewPage'
 import RiskPage from './components/RiskPage'
+import BpsDistribution from './components/BpsDistribution'
 
 // IST = UTC + 5:30 = 19800 seconds
 const IST_OFFSET = 19800
@@ -568,6 +569,8 @@ function App() {
       {activePage === 'trades' && (
         <div className="page-content page-trades">
           <StatsSection stats={stats} risk={data?.risk} ml={data?.ml} trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} />
+
+          <BpsDistribution trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} />
 
           <TradesList trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} />
 
