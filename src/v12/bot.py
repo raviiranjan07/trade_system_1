@@ -115,7 +115,7 @@ class V12Bot:
             model_path=PROJECT_ROOT / "models" / "direction_attention" / "attention_model.onnx",
             scaler_path=PROJECT_ROOT / "models" / "direction_attention" / "scaler.npz",
         )
-        self._ml_attn_pm = V12PositionManager(config)
+        self._ml_attn_pm = V12PositionManager(config, exit_version="v3")   # ML V2 Attention uses V3 exits
         self._ml_attn_wallet = DEFAULT_CAPITAL
         self._ml_attn_health = AccountHealthMonitor()
         self._ml_attn_risk_calc = RiskCalculator(worst_loss_bps=865, health=self._ml_attn_health)
