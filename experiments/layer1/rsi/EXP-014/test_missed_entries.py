@@ -25,11 +25,11 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
-from v12.config.constants import FEES_BPS
-from v12.config.loader import load_config
-from v12.config.schema import AppConfig
-from v12.position_manager import V12PositionManager, TradeRecord
-from v12.strategy import V12Strategy, Direction, Signal, SignalType
+from engine.config.constants import FEES_BPS
+from engine.config.loader import load_config
+from engine.config.schema import AppConfig
+from engine.position_manager import V12PositionManager, TradeRecord
+from engine.strategy import V12Strategy, Direction, Signal, SignalType
 
 DATA_PATH = Path(__file__).resolve().parents[3] / "data" / "ohlcv" / "BTCUSDT_15m_ohlcv.parquet"
 START = "2024-01-01"

@@ -9,11 +9,11 @@ stages:
       - data/features/direction_prediction/labels.parquet
 
   train_mlp_v15:
-    cmd: PYTHONPATH=src python -m v12.ml_train
+    cmd: PYTHONPATH=src python -m engine.ml_train
     deps:
       - data/features/direction_prediction/feature_cache.parquet
       - data/features/direction_prediction/labels.parquet
-      - src/v12/ml_train.py
+      - src/engine/ml_train.py
     outs:
       - models/direction_v15:
           cache: false

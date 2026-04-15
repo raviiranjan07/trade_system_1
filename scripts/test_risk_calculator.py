@@ -9,10 +9,10 @@ Runs trades sequentially (not shuffled) to see real equity curves.
 import sys
 sys.path.insert(0, "src")
 
-from v12.risk.trade_loader import load_enriched_trades
-from v12.risk.risk_calculator import RiskCalculator, RiskConfig
-from v12.risk.account_health import AccountHealthMonitor, HealthConfig
-from v12.risk.exchange_constants import DEFAULT_CAPITAL, LEVERAGE, MAINT_MARGIN_RATE
+from engine.risk.trade_loader import load_enriched_trades
+from engine.risk.risk_calculator import RiskCalculator, RiskConfig
+from engine.risk.account_health import AccountHealthMonitor, HealthConfig
+from engine.risk.exchange_constants import DEFAULT_CAPITAL, LEVERAGE, MAINT_MARGIN_RATE
 
 
 def simulate_adaptive(trades, capital, worst_loss_bps):

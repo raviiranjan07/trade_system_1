@@ -18,7 +18,7 @@ stages:
       md5: 5ab7883630d668e1e96f6ef6e08491f9
       size: 32887969
   train_mlp_v15:
-    cmd: PYTHONPATH=src python -m v12.ml_train
+    cmd: PYTHONPATH=src python -m engine.ml_train
     deps:
     - path: data/features/direction_prediction/feature_cache.parquet
       hash: md5
@@ -28,10 +28,10 @@ stages:
       hash: md5
       md5: 5ab7883630d668e1e96f6ef6e08491f9
       size: 32887969
-    - path: src/v12/ml_train.py
+    - path: src/engine/ml_train.py
       hash: md5
-      md5: af448d36257e92707bcc451c9290df79
-      size: 6997
+      md5: 6f6aaba7eca91237c1e9325ad47c0932
+      size: 7200
     outs:
     - path: models/direction_v15
       hash: md5

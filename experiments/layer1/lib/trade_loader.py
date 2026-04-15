@@ -20,8 +20,8 @@ sys.path.insert(0, "src")
 def _get_indicator_df():
     """Load OHLCV data and compute V1.3.2 indicators (cached)."""
     if not hasattr(_get_indicator_df, '_cache'):
-        from v12.config.loader import load_config
-        from v12.strategy import V12Strategy
+        from engine.config.loader import load_config
+        from engine.strategy import V12Strategy
 
         config = load_config()
         df = pd.read_parquet(Path(DATA_PATH))
@@ -36,7 +36,7 @@ def _get_indicator_df():
 def _get_config():
     """Load V1.3.2 config (cached)."""
     if not hasattr(_get_config, '_cache'):
-        from v12.config.loader import load_config
+        from engine.config.loader import load_config
         _get_config._cache = load_config()
     return _get_config._cache
 
@@ -47,7 +47,7 @@ def load_raw_trades(period: str = "train"):
     Args:
         period: "train" (2020-2023) or "oos" (2024-2025)
     """
-    from v12.backtest import run_backtest
+    from engine.backtest import run_backtest
 
     config = _get_config()
     if period == "train":

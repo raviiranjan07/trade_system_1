@@ -9,8 +9,8 @@ import pyarrow.parquet as pq
 import gc
 import sys
 sys.path.insert(0, "src")
-from v12.backtest import run_backtest
-from v12.config.loader import load_config
+from engine.backtest import run_backtest
+from engine.config.loader import load_config
 
 FEES = 8
 

@@ -33,9 +33,9 @@ from dataclasses import asdict
 
 import numpy as np
 import pandas as pd
-from v12.backtest import run_backtest
-from v12.config.loader import load_config
-from v12.strategy import V12Strategy
+from engine.backtest import run_backtest
+from engine.config.loader import load_config
+from engine.strategy import V12Strategy
 
 # ============================================================
 # CONSTANTS

@@ -32,7 +32,7 @@ CONF_LONG = 0.60
 CONF_SHORT = 0.35
 
 
-# Model definition (same as src/v12/ml_train.py)
+# Model definition (same as src/engine/ml_train.py)
 class MLPBinaryDir(nn.Module):
     def __init__(self, input_size=10, hidden=128, dropout=0.0):
         super().__init__()
@@ -146,7 +146,7 @@ def main():
     with run_experiment(
         experiment_name="direction_prediction",
         protocol_name="direction_prediction_v1",
-        config_path="src/v12/ml_train.py",
+        config_path="src/engine/ml_train.py",
         params={
             "model_type": "MLP",
             "architecture": "10-128-128-1",

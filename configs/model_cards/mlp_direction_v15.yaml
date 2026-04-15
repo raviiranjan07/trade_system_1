@@ -40,7 +40,7 @@ prediction:
 architecture:
   type: MLP (Multi-Layer Perceptron)
   class_name: MLPBinaryDir
-  source_file: src/v12/ml_train.py
+  source_file: src/engine/ml_train.py
 
   layers:
     - name: fc1

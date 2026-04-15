@@ -29,9 +29,9 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from v12.config.loader import load_config
-from v12.config.constants import FEES_BPS
-from v12.strategy import V12Strategy, Direction, SignalType
+from engine.config.loader import load_config
+from engine.config.constants import FEES_BPS
+from engine.strategy import V12Strategy, Direction, SignalType
 
 DATA_15M = Path("data/raw/BTCUSDT_15m_ohlcv.parquet")
 DATA_1M = Path("data/raw/BTCUSDT_1m_ohlcv.parquet")

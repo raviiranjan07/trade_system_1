@@ -6,8 +6,8 @@ import gc
 import sys
 sys.path.insert(0, "src")
 
-from v12.config.loader import load_config
-from v12.strategy import V12Strategy, Direction, SignalType
+from engine.config.loader import load_config
+from engine.strategy import V12Strategy, Direction, SignalType
 
 FEES = 8
 

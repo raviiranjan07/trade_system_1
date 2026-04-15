@@ -11,9 +11,9 @@ import pandas as pd
 import numpy as np
 import sys
 sys.path.insert(0, "src")
-from v12.backtest import run_backtest
-from v12.config.loader import load_config
-from v12.strategy import Direction, SignalType
+from engine.backtest import run_backtest
+from engine.config.loader import load_config
+from engine.strategy import Direction, SignalType
 
 FEES = 8
 
@@ -26,8 +26,8 @@ def main():
     df_15m = pd.read_parquet("data/raw/BTCUSDT_15m_ohlcv.parquet")
     df_15m.index = pd.to_datetime(df_15m.index).tz_localize(None)
 
-    from v12.strategy import V12Strategy
-    from v12.signals.direction_v15 import DirectionV15 as MLSignalGenerator
+    from engine.strategy import V12Strategy
+    from engine.signals.direction_v15 import DirectionV15 as MLSignalGenerator
     from pathlib import Path
 
     strategy = V12Strategy(config)

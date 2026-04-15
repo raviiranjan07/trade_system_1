@@ -99,7 +99,7 @@ system_1/
 │       └── mlp_curriculum_direction.yaml
 │
 ├── src/
-│   ├── v12/                               # Trading bot + backtest
+│   ├── engine/                               # Trading bot + backtest
 │   ├── brain/                             # ML pipeline (zone detection, features)
 │   ├── mlops/                             # Experiment tracking
 │   │   ├── git.py

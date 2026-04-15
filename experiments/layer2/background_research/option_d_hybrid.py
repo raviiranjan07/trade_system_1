@@ -29,9 +29,9 @@ from sklearn.cluster import KMeans
 from hmmlearn.hmm import GaussianHMM
 
 sys.path.insert(0, str(Path(__file__).parents[2] / "src"))
-from v12.config.loader import load_config
-from v12.backtest import run_backtest
-from v12.strategy import V12Strategy
+from engine.config.loader import load_config
+from engine.backtest import run_backtest
+from engine.strategy import V12Strategy
 
 logging.basicConfig(level=logging.WARNING)
 

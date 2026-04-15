@@ -20,8 +20,8 @@ sys.path.insert(0, "src")
 
 import math
 import numpy as np
-from v12.backtest import run_backtest
-from v12.config.loader import load_config
+from engine.backtest import run_backtest
+from engine.config.loader import load_config
 
 STARTING_CAPITAL = 10.0
 MAX_LEVERAGE_SETTING = 125

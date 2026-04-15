@@ -8,22 +8,22 @@ description: |
 # Components
 components:
   position_sizer:
-    file: src/v12/risk/risk_calculator.py
+    file: src/engine/risk/risk_calculator.py
     description: Calculates qty from wallet x risk% / worst_loss
     params:
       worst_loss_bps: 865          # from train data (L1R-001)
       base_risk_pct: 0.10          # 10% of wallet per trade
       safety_pct: 0.60             # safety stop at 60% of liquidation
   account_health:
-    file: src/v12/risk/account_health.py
+    file: src/engine/risk/account_health.py
     description: Tracks drawdown, loss streaks, recent win rate
     formula: risk_multiplier = max(0.20, dd_factor x streak_factor x recent_factor)
     note: Barely activates with 60%+ win rate strategy
   decision_logger:
-    file: src/v12/risk/tests/decision_logger.py
+    file: src/engine/risk/tests/decision_logger.py
     description: Logs every entry decision (allowed/skipped + reason)
   safety_stop:
-    file: src/v12/risk/exchange_constants.py
+    file: src/engine/risk/exchange_constants.py
     description: 80% of liquidation distance (~368 bps at 20x, ~460 bps at 125x)
     note: Zero trades ever hit this — existing exits always fire first
 

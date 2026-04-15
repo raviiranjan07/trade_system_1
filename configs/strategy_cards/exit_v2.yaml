@@ -100,9 +100,9 @@ limitations:
 
 # Implementation
 implementation:
-  config_file: src/v12/config/settings.yaml
-  logic_file: src/v12/position_manager.py
-  schema: src/v12/config/schema.py (ExitConfig class, lines 58-71)
+  config_file: src/engine/config/settings.yaml
+  logic_file: src/engine/position_manager.py
+  schema: src/engine/config/schema.py (ExitConfig class, lines 58-71)
 
 # Data
 tested_on:

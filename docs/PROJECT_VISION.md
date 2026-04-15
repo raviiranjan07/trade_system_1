@@ -603,7 +603,7 @@ These findings are proven and should not be re-tested:
 | Strategy V1 setup | `experiments/rsi/TRADING_SETUP_V1.md` |
 | V1 backtest | `experiments/rsi/backtest_v1.py` |
 | V1.2 backtest | `experiments/rsi/EXP-006/backtest_v12.py` |
-| V1.3.2 bot code | `src/v12/` (config/, strategy.py, position_manager.py, backtest.py, bot.py) |
+| V1.3.2 bot code | `src/engine/` (config/, strategy.py, position_manager.py, backtest.py, bot.py) |
 | Web dashboard | `src/web/` (server.py, state.py, frontend/) |
 | WHAT analysis | `docs/WHAT_analysis.md` |
 | WHEN analysis | `docs/WHEN_analysis.md` |
