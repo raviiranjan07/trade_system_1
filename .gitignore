@@ -15,10 +15,18 @@ node_modules/
 .env
 
 # Data files (standard MLOps structure)
-data/raw/
-data/features/
+# Ignore large data files but keep the directories + DVC pointers tracked
+data/raw/*
+!data/raw/*.dvc
+!data/raw/.gitignore
+data/features/**/*.parquet
+data/features/**/*.csv
 data/archive/
 data/trades/
+
+# DVC pointer metadata (must be in git)
+!data/**/*.dvc
+!data/**/.gitignore
 
 # Model artifacts — tracked in git (needed on server)
 # models/
