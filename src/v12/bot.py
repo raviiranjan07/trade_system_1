@@ -1013,6 +1013,39 @@ class V12Bot:
             ml_position_liq_price=liq_price,
         )
 
+    def _push_ml_attn_position_to_dashboard(self, close_price: float) -> None:
+        """Push ML V2 Attention position state to dashboard."""
+        if not self._dashboard or not self._ml_attn_pm.position:
+            return
+
+        pos = self._ml_attn_pm.position
+        if pos.direction == Direction.LONG:
+            current_pnl = (close_price - pos.entry_price) / pos.entry_price * 10000
+        else:
+            current_pnl = (pos.entry_price - close_price) / pos.entry_price * 10000
+
+        tighten_bar = self.cfg.exit.tighten_after_bar
+        if pos.bars_held > tighten_bar:
+            active_ts = self.cfg.exit.tight_trailing_stop_bps
+        else:
+            active_ts = pos.trailing_stop_bps
+
+        liq_price = _calc_liq_price(pos.entry_price, pos.direction.value, self._ml_attn_wallet, self._ml_attn_qty)
+
+        self._dashboard.update_ml_attn(
+            ml_attn_has_position=True,
+            ml_attn_position_side=pos.direction.value,
+            ml_attn_position_pnl_bps=round(current_pnl, 1),
+            ml_attn_position_entry_price=pos.entry_price,
+            ml_attn_position_trailing_stop_bps=active_ts,
+            ml_attn_position_highest_profit_bps=round(pos.highest_profit_bps, 1),
+            ml_attn_position_bars_held=pos.bars_held,
+            ml_attn_position_max_bars=pos.max_bars,
+            ml_attn_position_mfe_bps=round(pos.mfe_bps, 1),
+            ml_attn_position_mae_bps=round(pos.mae_bps, 1),
+            ml_attn_position_liq_price=liq_price,
+        )
+
     async def start(self) -> None:
         """Start the bot with Binance WebSocket."""
         # Load connector directly — bypass live/__init__.py (old orchestrator imports)
@@ -1152,10 +1185,20 @@ class V12Bot:
                             self.cfg.execution.mode.upper(), trade.exit_reason,
                             trade.exit_price, trade.direction, trade.net_profit_bps)
                 self._log_trade(trade)
-                self._update_risk_after_trade(trade)   # uses self._current_qty
+                self._update_risk_after_trade(trade)
                 if self._dashboard:
                     self._push_trade_to_dashboard(trade)
+                    # Clear V1.4 position fields from dashboard
+                    self._dashboard.update_position(
+                        has_position=False, side=None, pnl_bps=0.0,
+                        entry_price=0.0, trailing_stop_bps=0.0,
+                        highest_profit_bps=0.0, bars_held=0, max_bars=10,
+                        mfe_bps=0.0, mae_bps=0.0, liq_price=0.0,
+                    )
                 self._current_qty = 0.0
+            elif self._dashboard and self.pm.is_in_position:
+                # Push live position update every tick
+                self._push_position_to_dashboard(price)
 
         # ML V1.5 position
         if self._ml_gen.loaded and self._ml_pm.is_in_position:
@@ -1165,12 +1208,19 @@ class V12Bot:
                             self.cfg.execution.mode.upper(), trade.exit_reason,
                             trade.exit_price, trade.direction, trade.net_profit_bps)
                 self._log_ml_trade(trade)
-                self._update_ml_risk_after_trade(trade)  # uses self._ml_qty
+                self._update_ml_risk_after_trade(trade)
                 if self._dashboard:
                     self._push_ml_trade_to_dashboard(trade)
+                    # Clear ML V1.5 position fields
+                    self._dashboard.update_ml(
+                        ml_has_position=False, ml_position_side=None,
+                        ml_position_pnl_bps=0.0, ml_position_entry_price=0.0,
+                        ml_position_trailing_stop_bps=0.0, ml_position_highest_profit_bps=0.0,
+                        ml_position_bars_held=0, ml_position_max_bars=6,
+                        ml_position_mfe_bps=0.0, ml_position_mae_bps=0.0,
+                    )
                 self._ml_qty = 0.0
             elif self._dashboard and self._ml_pm.is_in_position:
-                # Push live position update (PnL, peak, MFE/MAE) every tick
                 self._push_ml_position_to_dashboard(price)
 
         # ML V2 Attention position
@@ -1182,7 +1232,7 @@ class V12Bot:
                             trade.exit_price, trade.direction, trade.net_profit_bps)
                 self._log_ml_attn_trade(trade)
                 attn_trade_qty = self._ml_attn_qty
-                self._update_ml_attn_risk_after_trade(trade)  # uses self._ml_attn_qty
+                self._update_ml_attn_risk_after_trade(trade)
                 if self._dashboard:
                     attn_liq = _calc_liq_price(trade.entry_price, trade.direction, self._ml_attn_wallet, attn_trade_qty)
                     self._dashboard.add_ml_attn_trade({
@@ -1200,7 +1250,23 @@ class V12Bot:
                         "qty": attn_trade_qty,
                         "liq_price": attn_liq,
                     })
+                    # Clear ML V2 Attn position fields
+                    self._dashboard.update_ml_attn(
+                        ml_attn_has_position=False,
+                        ml_attn_position_side=None,
+                        ml_attn_position_pnl_bps=0.0,
+                        ml_attn_position_entry_price=0.0,
+                        ml_attn_position_trailing_stop_bps=0.0,
+                        ml_attn_position_highest_profit_bps=0.0,
+                        ml_attn_position_bars_held=0,
+                        ml_attn_position_max_bars=10,
+                        ml_attn_position_mfe_bps=0.0,
+                        ml_attn_position_mae_bps=0.0,
+                    )
                 self._ml_attn_qty = 0.0
+            elif self._dashboard and self._ml_attn_pm.is_in_position:
+                # Live ML V2 position push
+                self._push_ml_attn_position_to_dashboard(price)
 
     async def _on_candle_close(self, candle: dict) -> None:
         """Called on each 15m candle close. Core bot logic."""
