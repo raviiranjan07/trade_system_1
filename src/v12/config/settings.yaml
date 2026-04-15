@@ -58,6 +58,7 @@ exit:
   v3_mid_trail_width_bps: 10
   v3_lock_arm_bps: 15
   v3_lock_trigger_bps: 15
+  v3_stop_loss_bps: -10
 
 # --- Re-entry (EXP-012: Config A+RE validated) ---
 reentry:

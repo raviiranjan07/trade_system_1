@@ -84,6 +84,7 @@ class ExitConfig(BaseModel):
     v3_mid_trail_width_bps: float = Field(default=10, ge=1, le=50)
     v3_lock_arm_bps: float = Field(default=15, ge=1, le=100)
     v3_lock_trigger_bps: float = Field(default=15, ge=1, le=100)
+    v3_stop_loss_bps: float = Field(default=-10, ge=-200, le=0)
 
 
 class ReentryConfig(BaseModel):

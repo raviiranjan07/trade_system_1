@@ -24,6 +24,7 @@ const REASON_STYLES = {
   MID_TRAIL: { bg: 'rgba(14, 165, 233, 0.12)', color: '#0ea5e9', label: 'MTRAIL' },
   LOCKED_PROFIT: { bg: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6', label: 'LP' },
   NO_ZONE: { bg: 'rgba(156, 163, 175, 0.12)', color: '#9ca3af', label: 'NOZONE' },
+  STOP_LOSS: { bg: 'rgba(220, 38, 38, 0.15)', color: '#dc2626', label: 'STOP' },
 }
 
 function TradesList({ trades, mlTrades, mlAttnTrades }) {

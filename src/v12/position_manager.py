@@ -158,7 +158,7 @@ class V12PositionManager:
         return None
 
     def _on_tick_v3(self, pos, price, tick_pnl, tick_time) -> Optional[TradeRecord]:
-        """V3 tick logic: PT (60/80) + MID_TRAIL (25/10) + LOCKED_PROFIT (15)."""
+        """V3 tick logic: PT (60/80) + MID_TRAIL (25/10) + LOCKED_PROFIT (15) + STOP_LOSS (-10)."""
         e = self.cfg.exit
 
         # Arm PT once peak touches pt_arm within max bar
@@ -183,6 +183,10 @@ class V12PositionManager:
         # 3. LOCKED_PROFIT (static)
         if pos.highest_profit_bps >= e.v3_lock_arm_bps and tick_pnl <= e.v3_lock_trigger_bps:
             return self._close_position(tick_pnl, tick_time, pos.bars_held, "LOCKED_PROFIT")
+
+        # 4. STOP_LOSS: hard cap — exit at IDEALIZED -10 bps (stop-market simulation)
+        if tick_pnl <= e.v3_stop_loss_bps:
+            return self._close_position(e.v3_stop_loss_bps, tick_time, pos.bars_held, "STOP_LOSS")
 
         return None
 
