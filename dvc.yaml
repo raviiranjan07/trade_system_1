@@ -1,0 +1,31 @@
+stages:
+
+  build_labels:
+    cmd: PYTHONPATH=src python experiments/layer2/L2-003/stage_3/L2_003_stage3_labels.py
+    deps:
+      - data/features/direction_prediction/feature_cache.parquet
+      - experiments/layer2/L2-003/stage_3/L2_003_stage3_labels.py
+    outs:
+      - data/features/direction_prediction/labels.parquet
+
+  train_mlp_v15:
+    cmd: PYTHONPATH=src python -m v12.ml_train
+    deps:
+      - data/features/direction_prediction/feature_cache.parquet
+      - data/features/direction_prediction/labels.parquet
+      - src/v12/ml_train.py
+    outs:
+      - models/direction_v15:
+          cache: false
+
+  train_attention:
+    # Trained on Colab T4 GPU — see scripts/colab/train_attention_production.py
+    # This stage is frozen: dvc repro will not re-run it.
+    cmd: echo "Trained externally on Colab. Files placed manually in models/direction_attention/"
+    deps:
+      - data/features/direction_prediction/feature_cache.parquet
+      - data/features/direction_prediction/labels.parquet
+    outs:
+      - models/direction_attention:
+          cache: false
+    frozen: true
