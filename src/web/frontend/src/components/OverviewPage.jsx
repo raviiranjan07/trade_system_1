@@ -37,6 +37,13 @@ function formatBps(bps) {
   return `${sign}${Number(bps).toFixed(1)}`
 }
 
+function formatElapsed(days) {
+  if (days == null || days < 0) return '0m'
+  if (days < 1 / 24) return `${Math.round(days * 24 * 60)}m`
+  if (days < 1) return `${(days * 24).toFixed(1)}h`
+  return `${days.toFixed(1)}d`
+}
+
 function ProgressBar({ value, max, color, bg }) {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0
   return (
@@ -241,7 +248,7 @@ function BotCard({ title, active, wallet, growth, totalBps, trades, winRate, dra
       {monitoring && (
         <div className="db-monitoring">
           <div className="db-monitoring-title">
-            Expected vs Actual <span className="db-monitoring-sub">({monitoring.daysElapsed.toFixed(1)}d elapsed · {formatBps(monitoring.dailyExpected)} bps/day expected)</span>
+            Expected vs Actual <span className="db-monitoring-sub">({formatElapsed(monitoring.daysElapsed)} elapsed · {formatBps(monitoring.dailyExpected)} bps/day expected)</span>
           </div>
           <MonitoringRow
             label="Last 7d"
