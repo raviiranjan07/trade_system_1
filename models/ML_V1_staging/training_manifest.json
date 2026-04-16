@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "model_name": "ML_V1",
+  "trained_at": "2026-04-16T15:59:13",
+  "git_commit": "66a5d8809e7cbec0b786e8408a6ca8de828ee6a9",
+  "data": {
+    "feature_cache_path": "data\\features\\direction_prediction\\feature_cache.parquet",
+    "feature_cache_md5": "e78134d5a94a39dfc609b9f18b03cc4d",
+    "labels_path": "data\\features\\direction_prediction\\labels.parquet",
+    "labels_md5": "2b95e64e723b960ddc59a9bf9ce5d468"
+  },
+  "split": {
+    "method": "date_based",
+    "train": [
+      "2020-01-01",
+      "2023-12-31"
+    ],
+    "val": [
+      "2024-01-01",
+      "2024-12-31"
+    ],
+    "test": [
+      "2025-01-01",
+      "2025-12-31"
+    ]
+  },
+  "scaler": {
+    "fit_on": "train_only"
+  },
+  "feature_recipe": {
+    "compute_fn": "engine.ml_train.compute_features",
+    "source_parquet": "data\\features\\direction_prediction\\feature_cache.parquet"
+  },
+  "features": [
+    "roc1",
+    "roc2",
+    "roc3",
+    "roc4",
+    "roc5",
+    "roc6",
+    "roc7",
+    "roc8",
+    "range_position_50_mlp",
+    "rsi7_mlp"
+  ],
+  "label": "direction (H96)",
+  "metrics": {
+    "train_accuracy": 0.5343,
+    "train_confident_accuracy": 0.6854,
+    "val_accuracy": 0.5171,
+    "val_confident_accuracy": 0.6117,
+    "test_accuracy": 0.5105,
+    "test_confident_accuracy": 0.5829
+  },
+  "mlflow": {
+    "run_id": "c80f6f99b0fc420ca06b525cf4008244",
+    "registered_version": 12,
+    "alias": "staging"
+  }
+}
