@@ -2,8 +2,8 @@
 
 Features: 4 diffs (roc, rsi, rp, sma200) × 8 lookbacks = [8, 4] sequence
 Label: direction H8
-Model: models/direction_attention/attention_model.onnx
-Thresholds: LONG > 0.60, SHORT < 0.40
+Model: models/ML_V2_ATTENTION_staging/attention_model.onnx
+Thresholds: read from configs/params.yaml ml_v2_attention.inference.{conf_long,conf_short}
 """
 
 from pathlib import Path
@@ -11,9 +11,26 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+import yaml
 
 from ..strategy import SignalType
 from .base import BaseSignalGenerator
+
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _load_inference_thresholds() -> tuple[float, float]:
+    """Read attention inference thresholds from configs/params.yaml (single source of truth).
+
+    Same semantics as MLV1:
+      LONG if P(LONG) > conf_long
+      SHORT if P(SHORT) > conf_short  (i.e. P(LONG) < 1 - conf_short)
+    """
+    with open(REPO_ROOT / "configs/params.yaml") as f:
+        p = yaml.safe_load(f)
+    infer = p["ml_v2_attention"]["inference"]
+    return float(infer["conf_long"]), float(infer["conf_short"])
 
 
 class DirectionAttention(BaseSignalGenerator):
@@ -26,11 +43,12 @@ class DirectionAttention(BaseSignalGenerator):
         model_path: Path = Path("models/direction_attention/attention_model.onnx"),
         scaler_path: Path = Path("models/direction_attention/scaler.npz"),
     ):
+        conf_long, conf_short = _load_inference_thresholds()
         super().__init__(
             model_path=model_path,
             scaler_path=scaler_path,
-            conf_long=0.60,
-            conf_short=0.60,  # prob < (1-0.60) = 0.40
+            conf_long=conf_long,
+            conf_short=conf_short,
             signal_type_long=SignalType.ML_ATTN_LONG,
             signal_type_short=SignalType.ML_ATTN_SHORT,
         )
@@ -109,3 +127,18 @@ class DirectionAttention(BaseSignalGenerator):
             return None
 
         return features
+
+    # Backward-compatible aliases (used by backtest.py)
+    def compute_features_from_df(self, df: pd.DataFrame) -> pd.DataFrame:
+        return self.compute_features(df)
+
+    def generate_signals(self, df: pd.DataFrame) -> list:
+        """Generate signals for all bars. Uses per-bar predict_bar (onnx inference per bar).
+        Slower than ML_V1's batched path but produces same output shape.
+        """
+        signals = []
+        for i in range(len(df)):
+            s = self.predict_bar(df, i)
+            if s is not None:
+                signals.append(s)
+        return signals

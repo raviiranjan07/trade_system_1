@@ -16,9 +16,19 @@ import pandas as pd
 from .config.constants import SYMBOL, TIMEFRAME
 from .config.loader import load_config
 from .config.schema import AppConfig
-from .signals.ml_v1 import MLV1 as MLSignalGenerator
+from .signals.ml_v1 import MLV1
+from .signals.direction_attention import DirectionAttention
+from .signals.base import BaseSignalGenerator
 from .position_manager import V12PositionManager, TradeRecord
 from .strategy import V12Strategy, Direction, SignalType
+
+
+# Registry of available ML signal generators, indexed by model name.
+# Backtest resolves which class to instantiate based on the `model` arg.
+ML_GENERATORS: dict[str, tuple[type[BaseSignalGenerator], Path]] = {
+    "ml_v1": (MLV1, Path("models/ML_V1")),
+    "ml_v2_attention": (DirectionAttention, Path("models/ML_V2_ATTENTION_staging")),
+}
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +43,10 @@ def run_backtest(
     start: str = "2024-01-01",
     end: str = "2025-12-31",
     ml_model_dir: Path = Path("models/ML_V1"),
+    ml_generator_class: type[BaseSignalGenerator] = MLV1,
+    ml_onnx_filename: str = "direction_model.onnx",
+    ml_scaler_filename: str = "scaler.npz",
+    exit_version: str | None = None,
 ) -> list[TradeRecord]:
     """Run backtest using the same modules as the live bot.
 
@@ -79,10 +93,10 @@ def run_backtest(
     signals = strategy.generate_signals(test)
     logger.info("V1.4 signals: %d", len(signals))
 
-    # Generate ML signals — model directory overridable for A/B comparison
-    ml_model_path = ml_model_dir / "direction_model.onnx"
-    ml_scaler_path = ml_model_dir / "scaler.npz"
-    ml_gen = MLSignalGenerator(model_path=ml_model_path, scaler_path=ml_scaler_path)
+    # Generate ML signals — which model class + its onnx/scaler filenames.
+    ml_model_path = ml_model_dir / ml_onnx_filename
+    ml_scaler_path = ml_model_dir / ml_scaler_filename
+    ml_gen = ml_generator_class(model_path=ml_model_path, scaler_path=ml_scaler_path)
 
     if ml_gen.loaded:
         test_with_ml = ml_gen.compute_features_from_df(test.copy())
@@ -104,11 +118,12 @@ def run_backtest(
                 signal_map[s.bar_index] = s  # replace ML with V1.4
 
     # Walk through bars, managing positions.
-    # Exit version from configs/params.yaml (DVC tracks changes).
-    import yaml as _yaml
-    with open(Path(__file__).resolve().parents[2] / "configs/params.yaml") as _f:
-        _exit_version = _yaml.safe_load(_f)["exit"]["version"]
-    pm = V12PositionManager(config, exit_version=_exit_version)
+    # Exit version: caller can override via `exit_version` arg; else read from params.yaml.
+    if exit_version is None:
+        import yaml as _yaml
+        with open(Path(__file__).resolve().parents[2] / "configs/params.yaml") as _f:
+            exit_version = _yaml.safe_load(_f)["exit"]["version"]
+    pm = V12PositionManager(config, exit_version=exit_version)
     n = len(test)
 
     i = 0
