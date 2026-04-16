@@ -1,159 +1,252 @@
-# Retrain Pipeline Build Plan
+# Retrain Pipeline — Plan & Implementation Record
 
-**Goal:** Replace the current ad-hoc training process with a proper MLOps pipeline runnable via a single `dvc repro` command.
+**Goal:** Replace the ad-hoc training process with a proper MLOps pipeline
+runnable via a single command. Honest evaluation, no data leakage, mechanical
+verification of every retrain.
 
-**Why:**
-- Current `feature_cache.parquet` builder is missing → cannot retrain on new data
-- Current training scripts have data leakage (random split across all years, scaler fit on full dataset) → reported OOS metrics are not honest
-- Need a reproducible, versioned pipeline before any future retrain
-
-**Outcome:**
-- `dvc repro` rebuilds features → labels → trains model with honest split → registers in MLflow → runs comparison backtest
-- Human gate before promotion to `@production` (correct for trading $$$)
-
----
-
-## Phase 1 — Build features stage (the keystone)
-
-**Deliverable:** `src/engine/build_features.py` + DVC stage `build_features`
-
-**Scope:**
-- Reads `data/raw/BTCUSDT_15m_ohlcv.parquet`
-- Computes 23 columns matching `configs/data_cards/direction_feature_cache.yaml` spec:
-  - OHLCV (5): open, high, low, close, volume
-  - Direction (6): rsi7, range_position, sma200_dist_pct, roc5, momentum10, rsi
-  - Magnitude (8): atr_pct, atr_percentile, ema_separation, range_bps, body_bps, dist_from_high20_pct, hour_utc, volume_ratio
-  - Analysis (4): ema20_slope, ema50_dist_pct, sma200_slope, range_position_50
-- Writes `data/features/direction_prediction/feature_cache.parquet`
-
-**Validation:**
-- Shape: ~210k rows, 23 columns
-- No NaN in core indicators after warm-up (first 200 bars expected NaN)
-- Distribution sanity check vs current parquet (means/std of each column close)
-
-**Wired as:** DVC stage `build_features` in `dvc.yaml`
-
-**Estimated time:** 2-3 hours
+**Why we needed this:**
+- Old `feature_cache.parquet` builder was lost → couldn't retrain on new data
+- Old training had data leakage (random split, scaler fit on full dataset) →
+  reported +18,207 bps OOS was inflated ~9×; honest OOS is +1,283 bps
+- No reproducibility, versioning, or safety checks before promotion
 
 ---
 
-## Phase 2 — Honest training stage (fix the leakage)
+## Current architecture (as of 2026-04-16)
 
-**Deliverable:** Refactored `src/engine/ml_train.py`
+### Commands
 
-**Scope:**
-- **Date-based split** (replaces random 90/10):
-  - Train: 2020-2023
-  - Val: 2024 (early stopping)
-  - Test: 2025 (true OOS, never touched during training)
-- **Scaler fit on train only** (replaces fit on full dataset)
-- Auto-logs to MLflow run with:
-  - Params (architecture, features, hyperparams)
-  - Honest OOS metrics (test_accuracy, confident_accuracy, distribution)
-  - Tags (git commit, data hash from .dvc, train date)
-- Auto-registers as `direction_v15` v2 with `@staging` alias
-- Existing v1 stays as `@production` (no swap until human approves)
+```bash
+# List available pipelines
+python scripts/mlops/run_pipeline.py --list
 
-**Replaces:** Current leaky `ml_train.py` (keeps `retrain_mlp_v15_honest.py` as reference, then delete)
+# End-to-end test (full pipeline, cleans up MLflow versions it created)
+python scripts/mlops/run_pipeline.py ml_v1 --test
 
-**Wired as:** Updated DVC stage `train_mlp_v15`
+# Production retraining (runs only stale stages)
+python scripts/mlops/run_pipeline.py ml_v1
 
-**Estimated time:** 1.5 hours
-
----
-
-## Phase 3 — Backtest comparison stage
-
-**Deliverable:** `scripts/mlops/compare_models.py` + DVC stage `backtest_compare`
-
-**Scope:**
-- Loads `direction_v15@staging` and `direction_v15@production` from MLflow registry
-- Runs identical OOS backtest on both (2025 data, V3 exit rules)
-- Outputs `data/reports/model_comparison.json`:
-  ```json
-  {
-    "production": {"version": 1, "trades": 1767, "win_pct": 53.3, "total_bps": 18207, "pf": 1.5},
-    "staging":    {"version": 2, "trades": ?,    "win_pct": ?,    "total_bps": ?,     "pf": ?},
-    "diff":       {"trades_pct": ?, "bps_pct": ?, "pf_diff": ?},
-    "recommendation": "PROMOTE | KEEP_PRODUCTION | INCONCLUSIVE"
-  }
-  ```
-- Prints clear summary to console for human review
-
-**Wired as:** DVC stage `backtest_compare` (final stage)
-
-**Estimated time:** 1-1.5 hours
-
----
-
-## Phase 4 — Wire dvc.yaml end-to-end
-
-**Deliverable:** Updated `dvc.yaml` with full 4-stage pipeline
-
-```
-build_features    → feature_cache.parquet
-build_labels      → labels.parquet
-train_mlp_v15     → models/direction_v15/ + MLflow @staging
-backtest_compare  → data/reports/model_comparison.json
-
-train_attention   (frozen, Colab — unchanged)
+# Force full rebuild, keeps the new version (rare)
+python scripts/mlops/run_pipeline.py ml_v1 --force
 ```
 
-**Validation:** Run `dvc repro` end-to-end on a clean clone, confirm all stages execute and outputs match expected.
+### Pipeline (6 DVC stages)
 
-**Estimated time:** 30 min
+```
+1. build_features     raw 15m OHLCV -> feature_cache.parquet  (23 cols)
+2. build_labels       features     -> labels.parquet  (30 cols)
+3. train_mlp_v15      features+labels -> ML_V1_staging/ + MLflow @staging
+                      also writes training_manifest.json
+4. verify_ml_v1       reads manifest, runs 11 generic checks
+                      (split disjoint, scaler train-only, hashes, registry...)
+5. backtest_staging   ML_V1_staging + 1m ticks -> metrics.json + trades.parquet
+                      V1 exits fire via pm.on_tick() (not just on_bar)
+6. verify_backtest    invariant checks on every trade
+                      (STOP_LOSS net ~-18, PT_TARGET mfe>=80, etc.)
+```
+
+Any stage fails → DVC halts → downstream doesn't run → no bad model promoted.
+
+### Namespaces
+
+- Trading engine: `src/engine/` (was `src/v12/`)
+- MLflow registered model: `ML_V1` (was `direction_v15`)
+- Signal generator class: `MLV1` (was `DirectionV15`)
+
+### Files (what the pipeline reads/writes)
+
+| Role | File |
+|---|---|
+| Pipeline manifest | `configs/pipelines.yaml` |
+| Tunable params | `configs/params.yaml` (single source of truth) |
+| Pipeline DAG | `dvc.yaml` |
+| Feature builder | `src/engine/build_features.py` |
+| Label builder | `experiments/layer2/L2-003/stage_3/L2_003_stage3_labels.py` |
+| Trainer | `src/engine/ml_train.py` |
+| Signal generator (inference) | `src/engine/signals/ml_v1.py` |
+| Backtest engine | `src/engine/backtest.py` |
+| Training verifier | `src/mlops/verify.py` (generic, manifest-driven) |
+| Backtest verifier | `scripts/mlops/verify_backtest.py` (V1 invariants) |
+| Pipeline wrapper | `scripts/mlops/run_pipeline.py` |
 
 ---
 
-## Phase 5 — Document the workflow
+## Implementation phases — DONE
 
-**Deliverable:** `docs/RETRAIN.md`
+### Phase 1 — build_features (DONE, commit 6e696b9)
+- 23-column feature builder from raw 15m OHLCV
+- Cross-platform (no PYTHONPATH prefix)
+- DVC stage wired
 
-**Scope:**
-- "How to retrain on new data" 5-step guide
-- Manual promotion command for swapping `@staging` → `@production`
-- Rollback procedure (alias swap)
-- What to check in `model_comparison.json` before promoting
+### Phase 2 — honest training (DONE, commit 66a5d88)
+- Date-based split: train 2020-23 / val 2024 / test 2025
+- Scaler fit on train only
+- Auto-registers as `ML_V1` @staging
+- Writes `models/ML_V1_staging/` (NOT `models/ML_V1/` — staging doesn't touch live)
 
-**Estimated time:** 30 min
+### Phase 3 — honest backtest (refactored)
+- Replaces old `compare_models.py` with `backtest_staging.py`
+- Single-model focus (no unfair comparison to leaky v1)
+- **Critical fix:** V1 exits require 1m tick feed via `pm.on_tick()`, not just
+  `pm.on_bar()`. Original backtest had `exit_version="v3"` set but V1 logic never
+  fired. Fixed by loading 1m data and walking ticks within each 15m bar.
+
+### Phase 4 — parameterization (params.yaml)
+- Structure: global (exit, backtest) + per-model (ml_v1.*)
+- DVC `params:` key per stage tracks relevant sections only
+- Changing `exit.version` marks backtest stale; changing `ml_v1.training.lr`
+  marks training stale
+- **Threshold fix:** inference thresholds were duplicated (hardcoded in signal
+  generator, different values in params.yaml). Now single source of truth in
+  `params.yaml -> ml_v1.inference`.
+
+### Phase 5 — generic verification framework
+- **Training verifier** (`src/mlops/verify.py`) — manifest-based, model-agnostic.
+  Training scripts write `training_manifest.json` declaring split method,
+  scaler policy, data hashes, MLflow registration. Verifier reads manifest and
+  runs generic checks. Any future model adds a manifest writer; verifier stays
+  unchanged.
+- **Backtest verifier** (`scripts/mlops/verify_backtest.py`) — per-trade
+  invariant checks against V1 exit rules. Each exit_reason has mathematical
+  properties that must hold (e.g., STOP_LOSS trades must have net in [-30..-10]).
+  All 242 trades of 2025 OOS backtest currently pass.
+
+### Phase 6 — multi-model pipeline wrapper
+- `configs/pipelines.yaml` declares each model's stage list
+- `scripts/mlops/run_pipeline.py` runs a named pipeline
+- `--test` mode runs full pipeline, then restores MLflow registry to pre-test
+  state (no version pollution from testing)
+
+### Phase 7 — namespace cleanup
+- `src/v12/` -> `src/engine/` (267 subs across 85 files)
+- `direction_v15` -> `ML_V1`, `DirectionV15` -> `MLV1` (116 subs across 37 files)
+- Signal type strings (`V12_LONG`, etc.) preserved as internal vocabulary
 
 ---
 
-## Total estimate: ~6 hours
+## Bugs caught during implementation
+
+| Bug | How found | Fix |
+|---|---|---|
+| Leaky training (random split, scaler on full) | User audit | Date-based split, scaler fit on train only |
+| V1 exits configured but never firing | Exit-reason distribution showed only NO_ZONE/TIME_EXIT | Load 1m ticks, feed via on_tick in backtest |
+| Inference thresholds hardcoded, diverged from params | Code inspection | Single source of truth in params.yaml |
+| Ghost files in git (models deleted from disk, still tracked) | `git mv` failure | `git rm` the stale tracking entries |
+| `PYTHONPATH=src` syntax doesn't work on Windows cmd | DVC subprocess failed | Use `sys.path.insert(0, src_dir)` in scripts |
+| UTF-8 emojis crash cp1252-encoded subprocess output | torch.onnx emoji caused UnicodeEncodeError | Set `PYTHONIOENCODING=utf-8` in subprocess env |
 
 ---
 
-## Approval gates
+## Honest backtest numbers (ML_V1 @staging, 2025 OOS, V1 exits)
 
-After each phase, pause and show:
-- What was built
-- Smoke test result
-- Any deviations from this plan
+| Metric | Value |
+|---|---|
+| Trades | 242 |
+| Win % | 42.6 |
+| Total bps | +1,283 |
+| PF | 1.56 |
+| Max DD | -312 bps |
 
-User approves before next phase begins.
+Per exit reason (all V1 invariants verified):
+- PT_TARGET: 22 trades, all wins, +94 bps avg
+- MID_TRAIL: 47 trades, all wins, +22 bps avg
+- PT_LOCK: 7 trades, all wins, +52 bps avg
+- LOCKED_PROFIT: 40 trades, mixed, +2 bps avg
+- STOP_LOSS: 125 trades, all losses, -18 bps avg (exactly as declared)
+- TIME_EXIT: 1 trade, -11 bps
+
+Compare to leaky v1's reported +18,207 bps — honest is 9× smaller. Audit was correct.
 
 ---
 
-## Out of scope (Stage 3 / Stage 4 work — not in this plan)
+## Multi-model pipeline strategy
+
+| Shop size | Pattern |
+|---|---|
+| Small (<10 eng) | One `dvc.yaml`, frozen flags, wrapper script — **what we have** |
+| Mid (10-100 eng) | One `dvc.yaml` per model + shared `data/dvc.yaml` |
+| Large (100+) | Orchestrator (Airflow/Kubeflow) + feature store (Feast/Tecton) |
+
+### Phase A — now (1-2 models): wrapper script — DONE
+- `configs/pipelines.yaml` declares each model's stage list
+- `scripts/mlops/run_pipeline.py` runs by name
+- Adding a model = 5 lines of yaml + its own DVC stages
+
+### Phase B — when hitting 3+ models: split dvc.yaml per model
+```
+pipelines/
+  data/dvc.yaml          # shared build_features + build_labels
+  ml_v1/dvc.yaml
+  ml_v2_attention/dvc.yaml
+  ml_v3_xgboost/dvc.yaml
+```
+Migration effort: ~2 hours when triggered. **Do not build preemptively.**
+
+### Phase C — never (unless scaling to a team platform)
+
+---
+
+## Out of scope (deferred to Stage 3 / Stage 4)
 
 - Live model monitoring / drift detection
-- Auto-promotion (always manual gate here)
+- Auto-promotion (always manual gate here — correct for trading real money)
 - A/B testing / shadow mode
 - Feature store
-- CI/CD integration of pipeline
-- Attention model retraining pipeline (still Colab-only)
-
-These are deliberately deferred to keep scope manageable. Add later when needed.
+- CI/CD integration of pipeline into GitHub Actions
+- Attention model (ML V2) retraining pipeline — still Colab-only
 
 ---
 
-## Risks / known gaps
+## How to add a new model (checklist)
 
-1. **build_features output may not match existing parquet exactly.** Acceptable — we're building v2 features. Old model (v1) stays in production untouched until human approves v2 promotion.
-2. **Honest split may produce worse-looking metrics.** Expected. The leaky metrics were inflated. Honest baseline = real baseline.
-3. **Attention model retains its leakage.** Out of scope for this plan; tracked separately.
+1. Write the training script (e.g. `src/engine/train_xgboost.py`) that:
+   - Reads features + labels
+   - Uses date-based split from `params.yaml`
+   - Fits scaler/preprocessor on train only
+   - Writes artifacts to `models/<MODEL_NAME>_staging/`
+   - Writes `training_manifest.json` (same schema as ML_V1)
+   - Auto-registers to MLflow as `<MODEL_NAME>` @staging
+
+2. Add to `configs/params.yaml` a per-model section with inference + training
+   + split.
+
+3. Add DVC stages to `dvc.yaml`:
+   - `train_<model>` with `params:` tracking per-model section
+   - `verify_<model>` running `python src/mlops/verify.py models/<NAME>_staging`
+   - `backtest_<model>` (if needed — may share logic with backtest_staging)
+
+4. Declare the pipeline in `configs/pipelines.yaml`:
+   ```yaml
+   my_new_model:
+     description: What it does
+     stages: [build_features, build_labels, train_<name>, verify_<name>, ...]
+   ```
+
+5. Run `python scripts/mlops/run_pipeline.py my_new_model --test` to validate
+   end-to-end without polluting the registry.
+
+**What you do NOT need to change:**
+- `src/mlops/verify.py` (generic, reads the manifest)
+- `scripts/mlops/verify_backtest.py` (if the model uses V1 exits)
+- `scripts/mlops/run_pipeline.py` (driven by the yaml manifest)
 
 ---
 
-_Plan written: 2026-04-16_
-_Status: awaiting approval to start Phase 1_
+## Known gaps / future work
+
+1. **Backtest reports overwritten on each retrain.** Only latest on disk. MLflow
+   has all model versions but not corresponding backtest JSONs. Should log
+   backtest metrics back to the MLflow run, or archive per-run JSONs.
+2. **Attention model still has leakage.** Same split bug in
+   `scripts/colab/train_attention_production.py`. Needs same honest retrain.
+3. **No automated promotion.** Human must manually copy staging files to
+   production and swap MLflow alias. Correct for live money but could be a
+   one-liner helper.
+4. **V12 signal performance.** V12_SHORT loses -357 bps in 2025. Not a pipeline
+   gap — a strategy signal gap. Worth investigating separately.
+
+---
+
+_Last updated: 2026-04-16_
+_Current status: Phases 1-7 complete, end-to-end tested via `--test` mode,
+awaiting commit._
