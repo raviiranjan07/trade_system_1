@@ -1,0 +1,54 @@
+# Pipeline parameters. DVC tracks changes and re-runs affected stages.
+# Edit a value here, run `dvc repro`, and the pipeline rebuilds only what's stale.
+#
+# Structure:
+#   Global sections (exit, backtest) apply to the whole pipeline.
+#   Per-model sections (ml_v1, etc.) apply only to that model's stages.
+
+# ---------- global ----------
+
+exit:
+  # Which exit ruleset to use in backtests and live bot.
+  #   v2 = legacy (tight trails, no stop loss)
+  #   v1 = current production (PT_TARGET/PT_LOCK/MID_TRAIL/LOCKED_PROFIT/STOP_LOSS)
+  version: v1
+
+backtest:
+  # OOS window for backtest_staging stage
+  start: "2025-01-01"
+  end: "2025-12-31"
+
+# ---------- per-model ----------
+
+ml_v1:
+  # Inference thresholds — symmetric convention matching BaseSignalGenerator:
+  #   LONG  fires when P(LONG)  > conf_long
+  #   SHORT fires when P(SHORT) > conf_short   (i.e., P(LONG) < 1 - conf_short)
+  # Example: conf_short=0.65 -> SHORT when P(LONG) < 0.35.
+  # Single source of truth — used by both the live bot AND backtests.
+  inference:
+    conf_long: 0.60     # need >= 60% confidence to go LONG
+    conf_short: 0.65    # need >= 65% confidence to go SHORT (i.e. P(LONG) < 0.35)
+
+  # Training hyperparameters — used by engine/ml_train.py
+  training:
+    lr: 0.001
+    weight_decay: 0.0001
+    batch_size: 512
+    max_epochs: 100
+    patience: 10
+    hidden: 128
+    seed: 42
+    # Thresholds used ONLY for training-time confident_accuracy metric.
+    # At inference time, use ml_v1.inference thresholds above (not these).
+    conf_long: 0.60
+    conf_short: 0.40
+
+  # Date-based split (honest eval — no leakage)
+  split:
+    train_start: "2020-01-01"
+    train_end: "2023-12-31"
+    val_start: "2024-01-01"
+    val_end: "2024-12-31"
+    test_start: "2025-01-01"
+    test_end: "2025-12-31"

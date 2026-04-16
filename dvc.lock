@@ -29,14 +29,33 @@ stages:
       size: 32889487
     - path: src/engine/ml_train.py
       hash: md5
-      md5: fb30ffab31d21deb2e0f9358dbb5b97f
-      size: 13061
+      md5: 471a98fad329b0f38a9d7b13405c2341
+      size: 15953
+    params:
+      configs/params.yaml:
+        ml_v1.split:
+          train_start: '2020-01-01'
+          train_end: '2023-12-31'
+          val_start: '2024-01-01'
+          val_end: '2024-12-31'
+          test_start: '2025-01-01'
+          test_end: '2025-12-31'
+        ml_v1.training:
+          lr: 0.001
+          weight_decay: 0.0001
+          batch_size: 512
+          max_epochs: 100
+          patience: 10
+          hidden: 128
+          seed: 42
+          conf_long: 0.6
+          conf_short: 0.4
     outs:
-    - path: models/direction_v15_staging
+    - path: models/ML_V1_staging
       hash: md5
-      md5: c07db51f887a78a7643ee43a4a60badc.dir
-      size: 155078
-      nfiles: 4
+      md5: 7af6770a1ed6a2c4e192b72532dd49b0.dir
+      size: 156553
+      nfiles: 5
   train_attention:
     cmd: echo "Trained externally on Colab. Files placed manually in 
       models/direction_attention/"
@@ -64,10 +83,86 @@ stages:
       size: 9061640
     - path: src/engine/build_features.py
       hash: md5
-      md5: ed6af768168e333306dafac7c19775a9
-      size: 5167
+      md5: 1d5cf7b36ff5b55593253fccba48122c
+      size: 5312
     outs:
     - path: data/features/direction_prediction/feature_cache.parquet
       hash: md5
       md5: e78134d5a94a39dfc609b9f18b03cc4d
       size: 39641806
+  backtest_staging:
+    cmd: python scripts/mlops/backtest_staging.py
+    deps:
+    - path: data/reports/verification_ML_V1_staging.json
+      hash: md5
+      md5: d3250be89553cbdc3f04dcb1fd8b103c
+      size: 2055
+    - path: models/ML_V1_staging
+      hash: md5
+      md5: 7af6770a1ed6a2c4e192b72532dd49b0.dir
+      size: 156553
+      nfiles: 5
+    - path: scripts/mlops/backtest_staging.py
+      hash: md5
+      md5: b531efe48a527cd797dcb2b9f592bbc7
+      size: 5125
+    - path: src/engine/backtest.py
+      hash: md5
+      md5: 91098aaf8cfb03d394d84a24909a15e9
+      size: 10565
+    - path: src/engine/signals/ml_v1.py
+      hash: md5
+      md5: 2ce660d58aa2fc5f87ea3499fb47ca8f
+      size: 5278
+    params:
+      configs/params.yaml:
+        backtest:
+          start: '2025-01-01'
+          end: '2025-12-31'
+        exit:
+          version: v1
+        ml_v1.inference:
+          conf_long: 0.6
+          conf_short: 0.65
+    outs:
+    - path: data/reports/backtest_staging.json
+      hash: md5
+      md5: 3f9940094562bab92319b2c04f00b9d5
+      size: 1800
+    - path: data/reports/backtest_staging_trades.parquet
+      hash: md5
+      md5: 35a3efad61ff774d5c701ddead27c3b5
+      size: 25105
+  verify_ml_v1:
+    cmd: python src/mlops/verify.py models/ML_V1_staging
+    deps:
+    - path: models/ML_V1_staging
+      hash: md5
+      md5: 7af6770a1ed6a2c4e192b72532dd49b0.dir
+      size: 156553
+      nfiles: 5
+    - path: src/mlops/verify.py
+      hash: md5
+      md5: 2f017497434418a67dc15dad0b174e31
+      size: 10536
+    outs:
+    - path: data/reports/verification_ML_V1_staging.json
+      hash: md5
+      md5: d3250be89553cbdc3f04dcb1fd8b103c
+      size: 2055
+  verify_backtest:
+    cmd: python scripts/mlops/verify_backtest.py
+    deps:
+    - path: data/reports/backtest_staging_trades.parquet
+      hash: md5
+      md5: 35a3efad61ff774d5c701ddead27c3b5
+      size: 25105
+    - path: scripts/mlops/verify_backtest.py
+      hash: md5
+      md5: f8be2d71c0ae6728e8f3119345fd9e2e
+      size: 5973
+    outs:
+    - path: data/reports/verify_backtest.json
+      hash: md5
+      md5: 0bc5694c69f4fc653a163396001f420e
+      size: 1263

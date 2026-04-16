@@ -17,15 +17,67 @@ stages:
       - data/features/direction_prediction/labels.parquet
 
   train_mlp_v15:
-    # Outputs go to models/direction_v15_staging/ — the live bot reads from
-    # models/direction_v15/ and is unaffected until manual promotion.
+    # Outputs go to models/ML_V1_staging/ — the live bot reads from
+    # models/ML_V1/ and is unaffected until manual promotion.
     cmd: python src/engine/ml_train.py
     deps:
       - data/features/direction_prediction/feature_cache.parquet
       - data/features/direction_prediction/labels.parquet
       - src/engine/ml_train.py
+    params:
+      - configs/params.yaml:
+          - ml_v1.training
+          - ml_v1.split
     outs:
-      - models/direction_v15_staging:
+      - models/ML_V1_staging:
+          cache: false
+
+  verify_ml_v1:
+    # Generic training-manifest verifier (src/mlops/verify.py) reads the
+    # manifest the trainer wrote and runs checks: no split overlap, scaler
+    # fit on train only, data hashes match, MLflow registration correct.
+    # If any check fails, verify exits nonzero — DVC halts the pipeline,
+    # backtest never runs on a bad model.
+    cmd: python src/mlops/verify.py models/ML_V1_staging
+    deps:
+      - models/ML_V1_staging
+      - src/mlops/verify.py
+    outs:
+      - data/reports/verification_ML_V1_staging.json:
+          cache: false
+
+  backtest_staging:
+    # Backtests ML_V1 @staging on OOS window from params.yaml.
+    # Depends on verification report → only runs if verify passed.
+    cmd: python scripts/mlops/backtest_staging.py
+    deps:
+      - models/ML_V1_staging
+      - data/reports/verification_ML_V1_staging.json
+      - scripts/mlops/backtest_staging.py
+      - src/engine/backtest.py
+      - src/engine/signals/ml_v1.py
+    params:
+      - configs/params.yaml:
+          - backtest
+          - exit
+          - ml_v1.inference
+    outs:
+      - data/reports/backtest_staging.json:
+          cache: false
+      - data/reports/backtest_staging_trades.parquet:
+          cache: false
+
+  verify_backtest:
+    # Invariant checks on every trade — STOP_LOSS trades must be near -10,
+    # PT_TARGET trades must have MFE >= 80, etc. Fails loudly if any trade
+    # violates the rule that closed it. Catches the class of bug where V3
+    # config is set but V3 logic doesn't actually run.
+    cmd: python scripts/mlops/verify_backtest.py
+    deps:
+      - data/reports/backtest_staging_trades.parquet
+      - scripts/mlops/verify_backtest.py
+    outs:
+      - data/reports/verify_backtest.json:
           cache: false
 
   train_attention:

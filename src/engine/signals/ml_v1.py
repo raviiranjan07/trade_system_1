@@ -2,8 +2,8 @@
 
 Features: roc1-8 + range_position_50 + rsi7 (10 flat features)
 Label: direction H96
-Model: models/direction_v15/direction_model.onnx
-Thresholds: LONG > 0.60, SHORT < 0.35
+Model: models/ML_V1/direction_model.onnx
+Thresholds: configs/params.yaml ml_v1.inference.{conf_long, conf_short}
 """
 
 from pathlib import Path
@@ -11,12 +11,29 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+import yaml
 
 from ..strategy import SignalType
 from .base import BaseSignalGenerator
 
 
-class DirectionV15(BaseSignalGenerator):
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _load_inference_thresholds() -> tuple[float, float]:
+    """Read ml_v1 inference thresholds from configs/params.yaml (single source of truth).
+
+    Semantics (matches BaseSignalGenerator):
+      LONG  if P(LONG)  > conf_long
+      SHORT if P(SHORT) > conf_short  (i.e. P(LONG) < 1 - conf_short)
+    """
+    with open(REPO_ROOT / "configs/params.yaml") as f:
+        p = yaml.safe_load(f)
+    infer = p["ml_v1"]["inference"]
+    return float(infer["conf_long"]), float(infer["conf_short"])
+
+
+class MLV1(BaseSignalGenerator):
     """V1.5 production MLP — 10 flat features, H96 label."""
 
     RSI_PERIOD = 7
@@ -25,14 +42,15 @@ class DirectionV15(BaseSignalGenerator):
 
     def __init__(
         self,
-        model_path: Path = Path("models/direction_v15/direction_model.onnx"),
-        scaler_path: Path = Path("models/direction_v15/scaler.npz"),
+        model_path: Path = Path("models/ML_V1/direction_model.onnx"),
+        scaler_path: Path = Path("models/ML_V1/scaler.npz"),
     ):
+        conf_long, conf_short = _load_inference_thresholds()
         super().__init__(
             model_path=model_path,
             scaler_path=scaler_path,
-            conf_long=0.60,
-            conf_short=0.65,  # prob < (1-0.65) = 0.35
+            conf_long=conf_long,
+            conf_short=conf_short,
             signal_type_long=SignalType.ML_LONG,
             signal_type_short=SignalType.ML_SHORT,
         )

@@ -16,26 +16,32 @@ import pandas as pd
 from .config.constants import SYMBOL, TIMEFRAME
 from .config.loader import load_config
 from .config.schema import AppConfig
-from .signals.direction_v15 import DirectionV15 as MLSignalGenerator
+from .signals.ml_v1 import MLV1 as MLSignalGenerator
 from .position_manager import V12PositionManager, TradeRecord
 from .strategy import V12Strategy, Direction, SignalType
 
 logger = logging.getLogger(__name__)
 
 DATA_PATH = Path("data/raw/BTCUSDT_15m_ohlcv.parquet")
+DATA_PATH_1M = Path("data/raw/BTCUSDT_1m_ohlcv.parquet")
 
 
 def run_backtest(
     config: AppConfig,
     data_path: Path = DATA_PATH,
+    data_path_1m: Path = DATA_PATH_1M,
     start: str = "2024-01-01",
     end: str = "2025-12-31",
+    ml_model_dir: Path = Path("models/ML_V1"),
 ) -> list[TradeRecord]:
-    """Run V1.3 backtest using the same modules as the live bot.
+    """Run backtest using the same modules as the live bot.
 
-    This is the ground truth. If live bot matches this, we're good.
+    When V3 exits are active, 1-minute ticks within each 15-minute bar
+    are fed through pm.on_tick() so tick-level exits (PT_TARGET, PT_LOCK,
+    MID_TRAIL, LOCKED_PROFIT, STOP_LOSS) can fire — matching how the live
+    bot receives WebSocket ticks.
     """
-    # Load data
+    # Load 15m bars (strategy signals + bar-close time exits)
     df = pd.read_parquet(data_path)
     df.index = pd.to_datetime(df.index).tz_localize(None)
 
@@ -50,7 +56,17 @@ def run_backtest(
         start, end, len(test), config.config_hash(),
     )
 
-    # Pre-extract arrays for position manager
+    # Load 1m ticks for V3 intrabar exits (sliced + sorted once)
+    import numpy as np
+    df_1m = pd.read_parquet(data_path_1m)
+    df_1m.index = pd.to_datetime(df_1m.index).tz_localize(None)
+    df_1m = df_1m.sort_index()
+    df_1m = df_1m[start:end]
+    idx_1m = df_1m.index.values
+    prices_1m = df_1m["close"].values
+    logger.info("1m ticks loaded: %d", len(df_1m))
+
+    # Pre-extract 15m arrays for position manager
     highs = test["high"].values
     lows = test["low"].values
     closes = test["close"].values
@@ -63,9 +79,9 @@ def run_backtest(
     signals = strategy.generate_signals(test)
     logger.info("V1.4 signals: %d", len(signals))
 
-    # Generate ML signals
-    ml_model_path = Path("models/direction_v15/direction_model.onnx")
-    ml_scaler_path = Path("models/direction_v15/scaler.npz")
+    # Generate ML signals — model directory overridable for A/B comparison
+    ml_model_path = ml_model_dir / "direction_model.onnx"
+    ml_scaler_path = ml_model_dir / "scaler.npz"
     ml_gen = MLSignalGenerator(model_path=ml_model_path, scaler_path=ml_scaler_path)
 
     if ml_gen.loaded:
@@ -87,17 +103,37 @@ def run_backtest(
             if existing.signal_type.value.startswith("ML") and not s.signal_type.value.startswith("ML"):
                 signal_map[s.bar_index] = s  # replace ML with V1.4
 
-    # Walk through bars, managing positions
-    pm = V12PositionManager(config)
+    # Walk through bars, managing positions.
+    # Exit version from configs/params.yaml (DVC tracks changes).
+    import yaml as _yaml
+    with open(Path(__file__).resolve().parents[2] / "configs/params.yaml") as _f:
+        _exit_version = _yaml.safe_load(_f)["exit"]["version"]
+    pm = V12PositionManager(config, exit_version=_exit_version)
     n = len(test)
 
     i = 0
     while i < n:
-        # If in position, feed bars until exit
+        # If in position, feed ticks first (V3 intrabar exits), then bar close
         if pm.is_in_position:
-            trade = pm.on_bar(highs[i], lows[i], closes[i], times[i], i)
+            # Walk through 1m ticks inside this 15m bar — tick-level exits
+            # (PT_TARGET/PT_LOCK/MID_TRAIL/LOCKED_PROFIT/STOP_LOSS) may fire.
+            bar_start = np.datetime64(times[i])
+            bar_end = bar_start + np.timedelta64(15, "m")
+            s_idx = np.searchsorted(idx_1m, bar_start, side="left")
+            e_idx = np.searchsorted(idx_1m, bar_end, side="left")
+
+            trade = None
+            for t_idx in range(s_idx, e_idx):
+                trade = pm.on_tick(float(prices_1m[t_idx]), idx_1m[t_idx])
+                if trade is not None:
+                    break
+
+            # If no tick exit fired, check bar-level (handles bars_held increment
+            # and NO_ZONE/TIME_EXIT at max_bars).
+            if trade is None:
+                trade = pm.on_bar(highs[i], lows[i], closes[i], times[i], i)
+
             if trade is not None:
-                # Position closed — check re-entry on next iteration
                 i += 1
                 continue
             i += 1

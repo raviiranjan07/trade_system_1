@@ -1,18 +1,18 @@
-"""Train direction_v15 MLP with honest date-based split and auto-register in MLflow.
+"""Train ML_V1 MLP with honest date-based split and auto-register in MLflow.
 
 - Train:  2020-2023
 - Val:    2024  (early stopping)
 - Test:   2025  (true OOS — never seen during training)
 - Scaler fit on train only (no leakage)
 
-Artifacts written to models/direction_v15_staging/ so the live bot
-(which reads models/direction_v15/) is unaffected. Promotion is manual:
+Artifacts written to models/ML_V1_staging/ so the live bot
+(which reads models/ML_V1/) is unaffected. Promotion is manual:
 a separate script copies staging files over production + swaps the
 MLflow alias.
 
 MLflow:
 - Logs run into experiment "direction_prediction" with honest metrics
-- Registers model as direction_v15 with alias @staging
+- Registers model as ML_V1 with alias @staging
 - Tags capture git commit, data hash (from .dvc), train date
 
 Run:
@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 
 import numpy as np
@@ -43,25 +44,33 @@ from mlops import tracking
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CACHE_PATH = REPO_ROOT / "data/features/direction_prediction/feature_cache.parquet"
 LABELS_PATH = REPO_ROOT / "data/features/direction_prediction/labels.parquet"
-OUT_DIR = REPO_ROOT / "models/direction_v15_staging"
+OUT_DIR = REPO_ROOT / "models/ML_V1_staging"
 EXPERIMENT = "direction_prediction"
-MODEL_NAME = "direction_v15"
+MODEL_NAME = "ML_V1"
 
-# Split boundaries
-TRAIN_RANGE = ("2020-01-01", "2023-12-31")
-VAL_RANGE = ("2024-01-01", "2024-12-31")
-TEST_RANGE = ("2025-01-01", "2025-12-31")
+# Load tunable parameters from configs/params.yaml — DVC tracks changes here.
+with open(REPO_ROOT / "configs/params.yaml") as _f:
+    _params = yaml.safe_load(_f)
 
-# Hyperparameters
-LR = 0.001
-WEIGHT_DECAY = 1e-4
-BATCH_SIZE = 512
-MAX_EPOCHS = 100
-PATIENCE = 10
-HIDDEN = 128
-SEED = 42
-CONF_LONG = 0.60
-CONF_SHORT = 0.40
+_model_cfg = _params["ml_v1"]
+
+_split = _model_cfg["split"]
+TRAIN_RANGE = (_split["train_start"], _split["train_end"])
+VAL_RANGE = (_split["val_start"], _split["val_end"])
+TEST_RANGE = (_split["test_start"], _split["test_end"])
+
+_t = _model_cfg["training"]
+LR = _t["lr"]
+WEIGHT_DECAY = _t["weight_decay"]
+BATCH_SIZE = _t["batch_size"]
+MAX_EPOCHS = _t["max_epochs"]
+PATIENCE = _t["patience"]
+HIDDEN = _t["hidden"]
+SEED = _t["seed"]
+# Thresholds for the training-time confident_accuracy metric only.
+# The live bot + backtest use ml_v1.inference.* (read by the signal generator).
+CONF_LONG = _t["conf_long"]
+CONF_SHORT = _t["conf_short"]
 
 
 class MLPBinaryDir(nn.Module):
@@ -314,7 +323,7 @@ def main() -> None:
 
     print("\nLogging to MLflow...")
     tracking.init()
-    run_id = tracking.start_run(EXPERIMENT, run_name="direction_v15_honest_v2")
+    run_id = tracking.start_run(EXPERIMENT, run_name=f"retrain_{date.today().isoformat()}")
     try:
         tracking.log_params(
             {
@@ -368,7 +377,60 @@ def main() -> None:
     version = register_staging(run_id, "model")
     print(f"\nRegistered {MODEL_NAME} v{version} @staging.")
     print(f"MLflow run: {run_id}")
-    print(f"\nTo promote: copy models/{OUT_DIR.name}/* to models/direction_v15/ and swap alias @staging -> @production")
+
+    # Training manifest — contract read by src/mlops/verify.py
+    import hashlib, json
+    from datetime import datetime as _dt
+
+    def _md5_of(path: Path) -> str:
+        h = hashlib.md5()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1 << 20), b""):
+                h.update(chunk)
+        return h.hexdigest()
+
+    manifest = {
+        "schema_version": 1,
+        "model_name": MODEL_NAME,
+        "trained_at": _dt.now().isoformat(timespec="seconds"),
+        "git_commit": git_commit(),
+        "data": {
+            "feature_cache_path": str(CACHE_PATH.relative_to(REPO_ROOT)),
+            "feature_cache_md5": _md5_of(CACHE_PATH),
+            "labels_path": str(LABELS_PATH.relative_to(REPO_ROOT)),
+            "labels_md5": _md5_of(LABELS_PATH),
+        },
+        "split": {
+            "method": "date_based",
+            "train": list(TRAIN_RANGE),
+            "val": list(VAL_RANGE),
+            "test": list(TEST_RANGE),
+        },
+        "scaler": {"fit_on": "train_only"},
+        "feature_recipe": {
+            "compute_fn": "engine.ml_train.compute_features",
+            "source_parquet": str(CACHE_PATH.relative_to(REPO_ROOT)),
+        },
+        "features": feat_cols,
+        "label": "direction (H96)",
+        "metrics": {
+            "train_accuracy": m_train["accuracy"],
+            "train_confident_accuracy": m_train["confident_accuracy"],
+            "val_accuracy": m_val["accuracy"],
+            "val_confident_accuracy": m_val["confident_accuracy"],
+            "test_accuracy": m_test["accuracy"],
+            "test_confident_accuracy": m_test["confident_accuracy"],
+        },
+        "mlflow": {
+            "run_id": run_id,
+            "registered_version": int(version),
+            "alias": "staging",
+        },
+    }
+    (OUT_DIR / "training_manifest.json").write_text(json.dumps(manifest, indent=2))
+    print(f"Manifest: {(OUT_DIR / 'training_manifest.json').relative_to(REPO_ROOT)}")
+
+    print(f"\nTo promote: copy models/{OUT_DIR.name}/* to models/ML_V1/ and swap alias @staging -> @production")
 
 
 if __name__ == "__main__":

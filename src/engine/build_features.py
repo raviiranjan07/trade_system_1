@@ -7,7 +7,7 @@ Run: python -m engine.build_features  (from repo root, after pip install -e .)
 Or:  python src/engine/build_features.py
 
 This is a "v2" build — formulas are documented here and will not match
-the existing feature_cache.parquet bit-for-bit. The old model (direction_v15
+the existing feature_cache.parquet bit-for-bit. The old model (ML_V1
 v1) stays in production until v2 is validated and promoted.
 """
 
