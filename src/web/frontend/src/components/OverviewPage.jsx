@@ -122,7 +122,56 @@ function PnlBar({ bps, maxBps = 500 }) {
   )
 }
 
-function BotCard({ title, active, wallet, growth, totalBps, trades, winRate, drawdown, lastTrade, accentColor, tradeHistory, prediction, exitVersion }) {
+const STATUS_META = {
+  on_track: { color: '#00d97e', label: 'On Track' },
+  drift:    { color: '#f59e0b', label: 'Drift' },
+  diverged: { color: '#e63757', label: 'Diverged' },
+  pending:  { color: '#8892a0', label: 'Pending' },
+}
+
+function StatusDot({ status }) {
+  const meta = STATUS_META[status] || STATUS_META.pending
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <span style={{
+        width: 8, height: 8, borderRadius: '50%', background: meta.color,
+        boxShadow: `0 0 6px ${meta.color}80`,
+      }} />
+      <span style={{ fontSize: 11, color: meta.color, fontWeight: 600 }}>{meta.label}</span>
+    </span>
+  )
+}
+
+function MonitoringRow({ label, actual, expected, delta, status }) {
+  const meta = STATUS_META[status] || STATUS_META.pending
+  const isPending = status === 'pending'
+  return (
+    <div className="db-monitoring-row">
+      <div className="db-monitoring-row-label">{label}</div>
+      <div className="db-monitoring-row-body">
+        <span className={`db-monitoring-num ${actual >= 0 ? 'positive' : 'negative'}`}>
+          {formatBps(actual)}
+        </span>
+        <span className="db-monitoring-slash">/</span>
+        <span className="db-monitoring-num-exp">{formatBps(expected)} <span className="db-monitoring-unit">bps exp</span></span>
+        <span className="db-monitoring-spacer" />
+        {isPending ? (
+          <span className="db-monitoring-delta db-monitoring-pending">---</span>
+        ) : (
+          <span className={`db-monitoring-delta ${delta >= 0 ? 'positive' : 'negative'}`}>
+            {delta >= 0 ? '+' : ''}{delta.toFixed(1)}%
+          </span>
+        )}
+        <span style={{ marginLeft: 8 }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: meta.color,
+            boxShadow: `0 0 5px ${meta.color}80`, display: 'inline-block' }} />
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function BotCard({ title, active, wallet, growth, totalBps, trades, winRate, drawdown, lastTrade, accentColor, tradeHistory, prediction, exitVersion, monitoring }) {
   const growthNum = Number(growth)
   const ddPct = (drawdown * 100)
   const ddColor = ddPct > 15 ? '#e63757' : ddPct > 5 ? '#f59e0b' : '#00d97e'
@@ -145,6 +194,7 @@ function BotCard({ title, active, wallet, growth, totalBps, trades, winRate, dra
           ) : null}
         </div>
         <div className="db-bot-status">
+          {monitoring ? <StatusDot status={monitoring.cum.status} /> : null}
           <span className={`db-dot ${active ? 'db-dot-green' : 'db-dot-red'}`} />
           <span className="db-status-label">{active ? 'Running' : 'Inactive'}</span>
         </div>
@@ -186,6 +236,29 @@ function BotCard({ title, active, wallet, growth, totalBps, trades, winRate, dra
           <ProgressBar value={ddPct} max={20} color={ddColor} />
         </div>
       </div>
+
+      {/* Expected vs Actual Monitoring */}
+      {monitoring && (
+        <div className="db-monitoring">
+          <div className="db-monitoring-title">
+            Expected vs Actual <span className="db-monitoring-sub">({monitoring.daysElapsed.toFixed(1)}d elapsed · {formatBps(monitoring.dailyExpected)} bps/day expected)</span>
+          </div>
+          <MonitoringRow
+            label="Last 7d"
+            actual={monitoring.window7d.actual}
+            expected={monitoring.window7d.expected}
+            delta={monitoring.window7d.delta}
+            status={monitoring.window7d.status}
+          />
+          <MonitoringRow
+            label="Cumulative"
+            actual={monitoring.cum.actual}
+            expected={monitoring.cum.expected}
+            delta={monitoring.cum.delta}
+            status={monitoring.cum.status}
+          />
+        </div>
+      )}
 
       {/* Last Trade */}
       <div className="db-last-trade">
@@ -426,6 +499,22 @@ function OverviewPage({ stats, risk, ml, mlAttn, trades, mlTrades, mlAttnTrades,
             shortPct: ml?.ml_short_pct ?? 50,
             status: ml?.ml_signal_status ?? '',
           }}
+          monitoring={{
+            dailyExpected: ml?.ml_daily_expected_bps ?? 0,
+            daysElapsed: ml?.ml_days_elapsed ?? 0,
+            window7d: {
+              actual: ml?.ml_7d_actual_bps ?? 0,
+              expected: ml?.ml_7d_expected_bps ?? 0,
+              delta: ml?.ml_7d_delta_pct ?? 0,
+              status: ml?.ml_7d_status ?? 'pending',
+            },
+            cum: {
+              actual: ml?.ml_cum_actual_bps ?? 0,
+              expected: ml?.ml_cum_expected_bps ?? 0,
+              delta: ml?.ml_cum_delta_pct ?? 0,
+              status: ml?.ml_cum_status ?? 'pending',
+            },
+          }}
         />
         <BotCard
           title="ML V2"
@@ -444,6 +533,22 @@ function OverviewPage({ stats, risk, ml, mlAttn, trades, mlTrades, mlAttnTrades,
             longPct: mlAttn?.ml_attn_long_pct ?? 50,
             shortPct: mlAttn?.ml_attn_short_pct ?? 50,
             status: mlAttn?.ml_attn_signal_status ?? '',
+          }}
+          monitoring={{
+            dailyExpected: mlAttn?.ml_attn_daily_expected_bps ?? 0,
+            daysElapsed: mlAttn?.ml_attn_days_elapsed ?? 0,
+            window7d: {
+              actual: mlAttn?.ml_attn_7d_actual_bps ?? 0,
+              expected: mlAttn?.ml_attn_7d_expected_bps ?? 0,
+              delta: mlAttn?.ml_attn_7d_delta_pct ?? 0,
+              status: mlAttn?.ml_attn_7d_status ?? 'pending',
+            },
+            cum: {
+              actual: mlAttn?.ml_attn_cum_actual_bps ?? 0,
+              expected: mlAttn?.ml_attn_cum_expected_bps ?? 0,
+              delta: mlAttn?.ml_attn_cum_delta_pct ?? 0,
+              status: mlAttn?.ml_attn_cum_status ?? 'pending',
+            },
           }}
         />
       </div>

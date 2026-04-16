@@ -3249,6 +3249,69 @@ body {
 .db-last-value { font-weight: 700; }
 .db-last-time { color: #8892a0; font-size: 11px; }
 
+/* Expected vs Actual monitoring block */
+.db-monitoring {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 6px;
+}
+.db-monitoring-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #8892a0;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+.db-monitoring-sub {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  color: #6b7280;
+  font-size: 9px;
+}
+.db-monitoring-row {
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+  gap: 12px;
+  border-top: 1px solid rgba(255,255,255,0.03);
+}
+.db-monitoring-row:first-of-type {
+  border-top: none;
+}
+.db-monitoring-row-label {
+  font-size: 11px;
+  color: #8892a0;
+  font-weight: 600;
+  min-width: 70px;
+}
+.db-monitoring-row-body {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.db-monitoring-num { font-weight: 700; }
+.db-monitoring-num.positive { color: #00d97e; }
+.db-monitoring-num.negative { color: #e63757; }
+.db-monitoring-num-exp { color: #8892a0; }
+.db-monitoring-slash { color: #4b5563; font-weight: 400; }
+.db-monitoring-spacer { flex: 1; }
+.db-monitoring-delta { font-weight: 700; }
+.db-monitoring-delta.positive { color: #00d97e; }
+.db-monitoring-delta.negative { color: #e63757; }
+.db-monitoring-pending { color: #8892a0; }
+.db-monitoring-unit {
+  font-size: 10px;
+  font-weight: 500;
+  color: #6b7280;
+}
+
 /* ML Prediction */
 .db-prediction {
   margin-top: 12px;

@@ -32,6 +32,7 @@ from .risk.exchange_constants import DEFAULT_CAPITAL
 from .risk.exchange_math import calc_liq_distance_bps
 from .risk.tests.decision_logger import DecisionLogger
 from .risk.tests.preflight import run_preflight
+from . import monitoring as _monitoring
 
 logger = logging.getLogger(__name__)
 
@@ -603,6 +604,34 @@ class V12Bot:
             ml_total_skips=0,
         )
 
+    def _snapshot_monitoring(self, model: str) -> None:
+        """Write/update today's daily monitoring row for `model`."""
+        if not self._dashboard:
+            return
+        try:
+            if model == "ML_V1":
+                trades = [asdict(t) for t in self._ml_pm.trades]
+                daily_exp = self._dashboard._ml.ml_daily_expected_bps
+                wallet = self._ml_wallet
+                dd = self._ml_health.get_drawdown_pct(self._ml_wallet)
+            elif model == "ML_V2_ATTENTION":
+                trades = [asdict(t) for t in self._ml_attn_pm.trades]
+                daily_exp = self._dashboard._ml_attn.ml_attn_daily_expected_bps
+                wallet = self._ml_attn_wallet
+                dd = self._ml_attn_health.get_drawdown_pct(self._ml_attn_wallet)
+            else:
+                return
+            _monitoring.snapshot(
+                model=model,
+                trades=trades,
+                daily_expected_bps=daily_exp,
+                wallet_usd=wallet,
+                drawdown_pct=dd,
+                session_start=self._dashboard.get_session_start(),
+            )
+        except Exception as e:
+            logger.warning("Monitoring snapshot failed for %s: %s", model, e)
+
     def _push_ml_trade_to_dashboard(self, trade: TradeRecord) -> None:
         """Push completed ML trade to dashboard."""
         if not self._dashboard:
@@ -641,6 +670,7 @@ class V12Bot:
                 ml_has_position=False,
                 ml_model_loaded=True,
             )
+        self._snapshot_monitoring("ML_V1")
 
     # =================================================================
     # ML ATTENTION (A/B test) — mirrors ML V1.5 methods above
@@ -1267,6 +1297,7 @@ class V12Bot:
                         ml_attn_position_mfe_bps=0.0,
                         ml_attn_position_mae_bps=0.0,
                     )
+                    self._snapshot_monitoring("ML_V2_ATTENTION")
                 self._ml_attn_qty = 0.0
             elif self._dashboard and self._ml_attn_pm.is_in_position:
                 # Live ML V2 position push
@@ -1458,6 +1489,7 @@ class V12Bot:
                         ml_attn_position_side=None,
                         ml_attn_position_pnl_bps=0.0,
                     )
+                self._snapshot_monitoring("ML_V2_ATTENTION")
                 logger.info(
                     "[ML_ATTN] CLOSED %s (%s) | %s | %+.1f bps | bar %d | %s",
                     ml_attn_trade.direction,

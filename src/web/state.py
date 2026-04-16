@@ -7,7 +7,7 @@ with the web API endpoints. Updated by bot, read by API.
 
 import asyncio
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, List, Any
 from dataclasses import dataclass, field, asdict
 import threading
@@ -143,6 +143,20 @@ class MLData:
     ml_last_pnl_usd: float = 0.0
     ml_last_qty: float = 0.0
     ml_total_skips: int = 0
+    # Expected vs Actual monitoring (backtest baseline: daily avg bps)
+    # ML V1 staging 2025: 571t, +2693 bps over 365 days = 7.38 bps/day
+    ml_daily_expected_bps: float = 7.38
+    # 7-day rolling window
+    ml_7d_actual_bps: float = 0.0
+    ml_7d_expected_bps: float = 0.0
+    ml_7d_delta_pct: float = 0.0
+    ml_7d_status: str = "pending"
+    # Cumulative since bot start
+    ml_cum_actual_bps: float = 0.0
+    ml_cum_expected_bps: float = 0.0
+    ml_cum_delta_pct: float = 0.0
+    ml_cum_status: str = "pending"
+    ml_days_elapsed: float = 0.0
 
 
 @dataclass
@@ -174,6 +188,18 @@ class MLAttnData:
     ml_attn_long_pct: float = 50.0
     ml_attn_short_pct: float = 50.0
     ml_attn_signal_status: str = ""
+    # Expected vs Actual monitoring (backtest baseline: daily avg bps)
+    # ML V2 Attention staging 2025: 450t, +3657.6 bps over 365 days = 10.02 bps/day
+    ml_attn_daily_expected_bps: float = 10.02
+    ml_attn_7d_actual_bps: float = 0.0
+    ml_attn_7d_expected_bps: float = 0.0
+    ml_attn_7d_delta_pct: float = 0.0
+    ml_attn_7d_status: str = "pending"
+    ml_attn_cum_actual_bps: float = 0.0
+    ml_attn_cum_expected_bps: float = 0.0
+    ml_attn_cum_delta_pct: float = 0.0
+    ml_attn_cum_status: str = "pending"
+    ml_attn_days_elapsed: float = 0.0
 
 
 @dataclass
@@ -547,9 +573,129 @@ class DashboardState:
             )
         self._broadcast_update()
 
+    def get_session_start(self) -> Optional[datetime]:
+        """UTC datetime when the dashboard session started (or None)."""
+        return self._start_time
+
     def get_risk(self) -> Dict[str, Any]:
         with self._lock:
             return asdict(self._risk)
+
+    def _status_from_delta(self, delta_pct: float, pending: bool) -> str:
+        if pending:
+            return "pending"
+        abs_p = abs(delta_pct)
+        if abs_p <= 30:
+            return "on_track"
+        if abs_p <= 60:
+            return "drift"
+        return "diverged"
+
+    def _sum_bps_since(self, trades: List[TradeData], cutoff: datetime) -> float:
+        total = 0.0
+        for t in trades:
+            if not t.exit_time:
+                continue
+            try:
+                ts = datetime.fromisoformat(t.exit_time.replace("Z", "+00:00"))
+            except (ValueError, AttributeError):
+                continue
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            if ts >= cutoff:
+                total += t.net_profit_bps or 0.0
+        return total
+
+    def _earliest_trade_time(self, trades: List[TradeData]) -> Optional[datetime]:
+        """Earliest exit_time across trades (anchor for cumulative elapsed days)."""
+        earliest: Optional[datetime] = None
+        for t in trades:
+            if not t.exit_time:
+                continue
+            try:
+                ts = datetime.fromisoformat(t.exit_time.replace("Z", "+00:00"))
+            except (ValueError, AttributeError):
+                continue
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            if earliest is None or ts < earliest:
+                earliest = ts
+        return earliest
+
+    def _refresh_ml_monitoring(self) -> None:
+        """Recompute 7-day window and cumulative drift vs backtest baseline.
+
+        Days elapsed is anchored to the earliest trade timestamp (survives bot
+        restarts), falling back to session start if no trades exist yet.
+        """
+        now = datetime.now(timezone.utc)
+        anchor = self._earliest_trade_time(self._ml_trades) or self._start_time
+        days_elapsed = ((now - anchor).total_seconds() / 86400.0) if anchor else 0.0
+        days_elapsed = max(days_elapsed, 0.0)
+        self._ml.ml_days_elapsed = round(days_elapsed, 2)
+        daily_exp = self._ml.ml_daily_expected_bps
+
+        # 7-day window
+        cutoff_7d = now - timedelta(days=7)
+        actual_7d = self._sum_bps_since(self._ml_trades, cutoff_7d)
+        window_days = min(days_elapsed, 7.0)
+        expected_7d = window_days * daily_exp
+        self._ml.ml_7d_actual_bps = round(actual_7d, 1)
+        self._ml.ml_7d_expected_bps = round(expected_7d, 1)
+        if expected_7d <= 0 or days_elapsed < 1.0:
+            self._ml.ml_7d_delta_pct = 0.0
+            self._ml.ml_7d_status = "pending"
+        else:
+            delta_7d = (actual_7d - expected_7d) / abs(expected_7d) * 100.0
+            self._ml.ml_7d_delta_pct = round(delta_7d, 1)
+            self._ml.ml_7d_status = self._status_from_delta(delta_7d, pending=False)
+
+        # Cumulative since bot start
+        actual_cum = self._ml.ml_total_bps
+        expected_cum = days_elapsed * daily_exp
+        self._ml.ml_cum_actual_bps = round(actual_cum, 1)
+        self._ml.ml_cum_expected_bps = round(expected_cum, 1)
+        if expected_cum <= 0 or days_elapsed < 1.0:
+            self._ml.ml_cum_delta_pct = 0.0
+            self._ml.ml_cum_status = "pending"
+        else:
+            delta_cum = (actual_cum - expected_cum) / abs(expected_cum) * 100.0
+            self._ml.ml_cum_delta_pct = round(delta_cum, 1)
+            self._ml.ml_cum_status = self._status_from_delta(delta_cum, pending=False)
+
+    def _refresh_ml_attn_monitoring(self) -> None:
+        now = datetime.now(timezone.utc)
+        anchor = self._earliest_trade_time(self._ml_attn_trades) or self._start_time
+        days_elapsed = ((now - anchor).total_seconds() / 86400.0) if anchor else 0.0
+        days_elapsed = max(days_elapsed, 0.0)
+        self._ml_attn.ml_attn_days_elapsed = round(days_elapsed, 2)
+        daily_exp = self._ml_attn.ml_attn_daily_expected_bps
+
+        cutoff_7d = now - timedelta(days=7)
+        actual_7d = self._sum_bps_since(self._ml_attn_trades, cutoff_7d)
+        window_days = min(days_elapsed, 7.0)
+        expected_7d = window_days * daily_exp
+        self._ml_attn.ml_attn_7d_actual_bps = round(actual_7d, 1)
+        self._ml_attn.ml_attn_7d_expected_bps = round(expected_7d, 1)
+        if expected_7d <= 0 or days_elapsed < 1.0:
+            self._ml_attn.ml_attn_7d_delta_pct = 0.0
+            self._ml_attn.ml_attn_7d_status = "pending"
+        else:
+            delta_7d = (actual_7d - expected_7d) / abs(expected_7d) * 100.0
+            self._ml_attn.ml_attn_7d_delta_pct = round(delta_7d, 1)
+            self._ml_attn.ml_attn_7d_status = self._status_from_delta(delta_7d, pending=False)
+
+        actual_cum = self._ml_attn.ml_attn_total_bps
+        expected_cum = days_elapsed * daily_exp
+        self._ml_attn.ml_attn_cum_actual_bps = round(actual_cum, 1)
+        self._ml_attn.ml_attn_cum_expected_bps = round(expected_cum, 1)
+        if expected_cum <= 0 or days_elapsed < 1.0:
+            self._ml_attn.ml_attn_cum_delta_pct = 0.0
+            self._ml_attn.ml_attn_cum_status = "pending"
+        else:
+            delta_cum = (actual_cum - expected_cum) / abs(expected_cum) * 100.0
+            self._ml_attn.ml_attn_cum_delta_pct = round(delta_cum, 1)
+            self._ml_attn.ml_attn_cum_status = self._status_from_delta(delta_cum, pending=False)
 
     def update_ml(self, **kwargs) -> None:
         """Update ML model state."""
@@ -557,6 +703,7 @@ class DashboardState:
             for k, v in kwargs.items():
                 if hasattr(self._ml, k):
                     setattr(self._ml, k, v)
+            self._refresh_ml_monitoring()
         self._broadcast_update()
 
     def get_ml(self) -> Dict[str, Any]:
@@ -584,6 +731,7 @@ class DashboardState:
                 liq_price=trade_dict.get("liq_price", 0.0),
             )
             self._ml_trades.insert(0, td)
+            self._refresh_ml_monitoring()
         self._broadcast_update()
 
     # ML Attention state (A/B test)
@@ -593,6 +741,7 @@ class DashboardState:
             for k, v in kwargs.items():
                 if hasattr(self._ml_attn, k):
                     setattr(self._ml_attn, k, v)
+            self._refresh_ml_attn_monitoring()
         self._broadcast_update()
 
     def get_ml_attn(self) -> Dict[str, Any]:
@@ -620,6 +769,7 @@ class DashboardState:
                 liq_price=trade_dict.get("liq_price", 0.0),
             )
             self._ml_attn_trades.insert(0, td)
+            self._refresh_ml_attn_monitoring()
         self._broadcast_update()
 
     def get_ml_attn_trades(self, limit: int = 10) -> List[Dict[str, Any]]:
