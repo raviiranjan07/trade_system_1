@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "model_name": "ML_V2_ATTENTION",
-  "trained_at": "2026-04-16T17:59:44",
-  "git_commit": "1fdb5de196a70db3f907038174c246f9c6fd314d",
+  "trained_at": "2026-04-16T22:57:49",
+  "git_commit": "c685555494157a81fe37fae8c3ab5e580bc04060",
   "data": {
     "feature_cache_path": "data\\features\\direction_prediction\\feature_cache.parquet",
     "feature_cache_md5": "e78134d5a94a39dfc609b9f18b03cc4d",
@@ -36,11 +36,14 @@
     "train_accuracy": 0.5288,
     "val_accuracy": 0.514,
     "test_accuracy": 0.5079,
-    "test_confident_accuracy": 0.552
+    "test_confident_accuracy": 0.5591,
+    "test_f1": 0.4937,
+    "test_precision_long": 0.512,
+    "test_recall_long": 0.3403
   },
   "mlflow": {
-    "run_id": "0c3b59549ed446bda23c5f56ec96db9e",
-    "registered_version": 2,
+    "run_id": "6d9dbededf814a30a977944550309eed",
+    "registered_version": 1,
     "alias": "staging"
   }
 }

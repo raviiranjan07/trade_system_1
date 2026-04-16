@@ -40,6 +40,8 @@ if str(SRC_DIR) not in sys.path:
 import mlflow
 
 from mlops import tracking
+from mlops.runner import run_experiment
+from mlops.evaluation import evaluate_direction_prediction
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CACHE_PATH = REPO_ROOT / "data/features/direction_prediction/feature_cache.parquet"
@@ -67,10 +69,13 @@ MAX_EPOCHS = _t["max_epochs"]
 PATIENCE = _t["patience"]
 HIDDEN = _t["hidden"]
 SEED = _t["seed"]
-# Thresholds for the training-time confident_accuracy metric only.
-# The live bot + backtest use ml_v1.inference.* (read by the signal generator).
-CONF_LONG = _t["conf_long"]
-CONF_SHORT = _t["conf_short"]
+# Thresholds for confident_accuracy metric — read from inference section so
+# the reported metric matches what the live bot sees at runtime (single source
+# of truth). Semantics: conf_long = required P(LONG), conf_short = required
+# P(SHORT); so SHORT fires when P(LONG) < 1 - conf_short.
+_i = _model_cfg["inference"]
+CONF_LONG = _i["conf_long"]
+CONF_SHORT = _i["conf_short"]
 
 
 class MLPBinaryDir(nn.Module):
@@ -310,70 +315,81 @@ def main() -> None:
         probs_val   = torch.sigmoid(model(torch.from_numpy(X_val))).numpy()
         probs_test  = torch.sigmoid(model(torch.from_numpy(X_test))).numpy()
 
-    m_train = compute_metrics(probs_train, y_train, CONF_LONG, CONF_SHORT)
-    m_val   = compute_metrics(probs_val,   y_val,   CONF_LONG, CONF_SHORT)
-    m_test  = compute_metrics(probs_test,  y_test,  CONF_LONG, CONF_SHORT)
-
-    print(f"  train acc {m_train['accuracy']:.4f} conf_acc {m_train['confident_accuracy']:.4f} (n={m_train['n_confident']})")
-    print(f"  val   acc {m_val['accuracy']:.4f} conf_acc {m_val['confident_accuracy']:.4f} (n={m_val['n_confident']})")
-    print(f"  TEST  acc {m_test['accuracy']:.4f} conf_acc {m_test['confident_accuracy']:.4f} (n={m_test['n_confident']})")
+    # MFE arrays for test-period magnitude metrics (used by evaluate_direction_prediction)
+    mfe_up_test = lb["mfe_up_96"].values[splits["test"]]
+    mfe_down_test = lb["mfe_down_96"].values[splits["test"]]
 
     print(f"\nExporting to {OUT_DIR.relative_to(REPO_ROOT)}...")
     export(model, scaler_mean, scaler_std, OUT_DIR)
 
-    print("\nLogging to MLflow...")
+    # Protocol-enforced run: runner validates all required metrics present on exit
+    print("\nLogging to MLflow via protocol-enforced runner...")
     tracking.init()
-    run_id = tracking.start_run(EXPERIMENT, run_name=f"retrain_{date.today().isoformat()}")
-    try:
-        tracking.log_params(
-            {
-                "model_type": "MLP",
-                "architecture": "10-128-128-1",
-                "features": ",".join(feat_cols),
-                "label": "direction (H96)",
-                "split": "date_based",
-                "train": f"{TRAIN_RANGE[0]}..{TRAIN_RANGE[1]}",
-                "val":   f"{VAL_RANGE[0]}..{VAL_RANGE[1]}",
-                "test":  f"{TEST_RANGE[0]}..{TEST_RANGE[1]}",
-                "scaler_fit": "train_only",
-                "lr": LR,
-                "weight_decay": WEIGHT_DECAY,
-                "batch_size": BATCH_SIZE,
-                "patience": PATIENCE,
-                "hidden": HIDDEN,
-                "conf_long": CONF_LONG,
-                "conf_short": CONF_SHORT,
-                "seed": SEED,
-                "epochs_used": epochs_used,
-            }
-        )
-        tracking.log_metrics(
-            {
-                "train_accuracy": m_train["accuracy"],
-                "train_confident_accuracy": m_train["confident_accuracy"],
-                "train_n_confident": m_train["n_confident"],
-                "val_accuracy": m_val["accuracy"],
-                "val_confident_accuracy": m_val["confident_accuracy"],
-                "val_n_confident": m_val["n_confident"],
-                "test_accuracy": m_test["accuracy"],
-                "test_confident_accuracy": m_test["confident_accuracy"],
-                "test_n_confident": m_test["n_confident"],
-                "best_val_loss": round(best_val_loss, 6),
-            }
-        )
-        tracking.set_tags(
-            {
-                "git_commit": git_commit(),
-                "data_15m_md5": dvc_hash(REPO_ROOT / "data/raw/BTCUSDT_15m_ohlcv.parquet.dvc"),
-                "source": "honest_retrain",
-                "notes": "Date-based split (2020-23/2024/2025), scaler fit on train only. No leakage.",
-            }
-        )
-        for f in sorted(OUT_DIR.glob("*")):
-            tracking.log_artifact(f, artifact_path="model")
-    finally:
-        tracking.end_run("FINISHED")
+    run_id = None
+    with run_experiment(
+        experiment_name=EXPERIMENT,
+        protocol_name="direction_prediction_v1",
+        params={
+            "model_type": "MLP",
+            "architecture": "10-128-128-1",
+            "features": ",".join(feat_cols),
+            "label": "direction (H96)",
+            "split_method": "date_based",
+            "train_range": f"{TRAIN_RANGE[0]}..{TRAIN_RANGE[1]}",
+            "val_range": f"{VAL_RANGE[0]}..{VAL_RANGE[1]}",
+            "test_range": f"{TEST_RANGE[0]}..{TEST_RANGE[1]}",
+            "scaler_fit": "train_only",
+            "lr": LR, "weight_decay": WEIGHT_DECAY, "batch_size": BATCH_SIZE,
+            "patience": PATIENCE, "hidden": HIDDEN,
+            "conf_long": CONF_LONG, "conf_short": CONF_SHORT,
+            "seed": SEED, "epochs_used": epochs_used,
+        },
+        primary_metric="test_confident_accuracy",
+        model_type="MLP",
+        dataset_version="feature_cache_v2",
+        notes=f"Honest retrain {date.today().isoformat()} — date-split, train-only scaler, V1 exits ready.",
+    ) as run:
+        run_id = run.mlflow_run_id
 
+        # Protocol uses conf_threshold_short = "prob below this = SHORT".
+        # Our CONF_SHORT is symmetric with CONF_LONG (required conf for SHORT class),
+        # so the eval's conf_threshold_short = 1 - CONF_SHORT.
+        conf_threshold_short_for_eval = 1 - CONF_SHORT
+
+        m_train = evaluate_direction_prediction(
+            probs_train, y_train.astype(int),
+            conf_threshold_long=CONF_LONG,
+            conf_threshold_short=conf_threshold_short_for_eval,
+            split_name="train",
+        )
+        m_val = evaluate_direction_prediction(
+            probs_val, y_val.astype(int),
+            conf_threshold_long=CONF_LONG,
+            conf_threshold_short=conf_threshold_short_for_eval,
+            split_name="val",
+        )
+        m_test = evaluate_direction_prediction(
+            probs_test, y_test.astype(int),
+            mfe_up_bps=mfe_up_test, mfe_down_bps=mfe_down_test,
+            conf_threshold_long=CONF_LONG,
+            conf_threshold_short=conf_threshold_short_for_eval,
+            split_name="test",
+        )
+        run.log_metrics({**m_train, **m_val, **m_test})
+        run.log_metric("best_val_loss", round(best_val_loss, 6))
+
+        run.set_tag("git_commit", git_commit())
+        run.set_tag("data_15m_md5", dvc_hash(REPO_ROOT / "data/raw/BTCUSDT_15m_ohlcv.parquet.dvc"),)
+        run.set_tag("source", "honest_retrain")
+
+        for f in sorted(OUT_DIR.glob("*")):
+            run.log_artifact(str(f), artifact_subdir="model")
+
+        print(f"  train acc {m_train['train_accuracy']:.4f} conf_acc {m_train['train_confident_accuracy']:.4f}")
+        print(f"  val   acc {m_val['val_accuracy']:.4f} conf_acc {m_val['val_confident_accuracy']:.4f}")
+        print(f"  TEST  acc {m_test['test_accuracy']:.4f} conf_acc {m_test['test_confident_accuracy']:.4f}")
+
+    # Runner validated against protocol. Now register the MLflow model version.
     version = register_staging(run_id, "model")
     print(f"\nRegistered {MODEL_NAME} v{version} @staging.")
     print(f"MLflow run: {run_id}")
@@ -414,12 +430,15 @@ def main() -> None:
         "features": feat_cols,
         "label": "direction (H96)",
         "metrics": {
-            "train_accuracy": m_train["accuracy"],
-            "train_confident_accuracy": m_train["confident_accuracy"],
-            "val_accuracy": m_val["accuracy"],
-            "val_confident_accuracy": m_val["confident_accuracy"],
-            "test_accuracy": m_test["accuracy"],
-            "test_confident_accuracy": m_test["confident_accuracy"],
+            "train_accuracy": m_train.get("train_accuracy"),
+            "train_confident_accuracy": m_train.get("train_confident_accuracy"),
+            "val_accuracy": m_val.get("val_accuracy"),
+            "val_confident_accuracy": m_val.get("val_confident_accuracy"),
+            "test_accuracy": m_test.get("test_accuracy"),
+            "test_confident_accuracy": m_test.get("test_confident_accuracy"),
+            "test_f1": m_test.get("test_f1"),
+            "test_precision_long": m_test.get("test_precision_long"),
+            "test_recall_long": m_test.get("test_recall_long"),
         },
         "mlflow": {
             "run_id": run_id,

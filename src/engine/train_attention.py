@@ -30,6 +30,8 @@ if str(SRC_DIR) not in sys.path:
 
 import mlflow
 from mlops import tracking
+from mlops.runner import run_experiment
+from mlops.evaluation import evaluate_direction_prediction
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CACHE_PATH = REPO_ROOT / "data/features/direction_prediction/feature_cache.parquet"
@@ -57,8 +59,12 @@ HIDDEN = _t.get("hidden", 128)
 DROPOUT = _t.get("dropout", 0.5)
 TEMPERATURE = _t.get("temperature", 0.5)
 SEED = _t.get("seed", 42)
-CONF_LONG = _t.get("conf_long", 0.60)
-CONF_SHORT = _t.get("conf_short", 0.60)
+# Confident-accuracy thresholds — read from INFERENCE section (single source
+# of truth with the signal generator + live bot). Consistent semantics:
+# conf_long = required P(LONG), conf_short = required P(SHORT).
+_i = _cfg.get("inference", {})
+CONF_LONG = _i.get("conf_long", 0.60)
+CONF_SHORT = _i.get("conf_short", 0.60)
 
 LOOKBACKS = [1, 2, 3, 4, 5, 6, 7, 8]
 MFE_HORIZONS = [1, 2, 3, 4, 5, 6, 7, 8]
@@ -320,53 +326,76 @@ def main():
     probs_va = torch.sigmoid(logits_va).numpy()
     probs_te = torch.sigmoid(logits_te).numpy()
 
-    m_tr = compute_metrics(probs_tr, ydir_tr, CONF_LONG, CONF_SHORT)
-    m_va = compute_metrics(probs_va, ydir_va, CONF_LONG, CONF_SHORT)
-    m_te = compute_metrics(probs_te, ydir_te, CONF_LONG, CONF_SHORT)
-
-    print(f"  train acc {m_tr['accuracy']:.4f} conf_acc {m_tr['confident_accuracy']:.4f} (n={m_tr['n_confident']})")
-    print(f"  val   acc {m_va['accuracy']:.4f} conf_acc {m_va['confident_accuracy']:.4f} (n={m_va['n_confident']})")
-    print(f"  TEST  acc {m_te['accuracy']:.4f} conf_acc {m_te['confident_accuracy']:.4f} (n={m_te['n_confident']})")
+    # MFE arrays for test-period magnitude metrics (protocol requires)
+    # Attention uses H8 labels, so use mfe_up_8 / mfe_down_8 (not H96 like MLP)
+    mfe_up_test = lb["mfe_up_8"].values[splits["test"]]
+    mfe_down_test = lb["mfe_down_8"].values[splits["test"]]
 
     print(f"\nExporting to {OUT_DIR.relative_to(REPO_ROOT)}...")
     export(model, scaler_mean, scaler_std, OUT_DIR)
 
-    print("\nLogging to MLflow...")
+    print("\nLogging to MLflow via protocol-enforced runner...")
     tracking.init()
-    run_id = tracking.start_run(EXPERIMENT, run_name=f"retrain_{date.today().isoformat()}")
-    try:
-        tracking.log_params({
+    run_id = None
+    with run_experiment(
+        experiment_name=EXPERIMENT,
+        protocol_name="direction_prediction_v1",
+        params={
             "model_type": "LSTMAttention",
             "architecture": f"LSTM({HIDDEN}) + attention(temp={TEMPERATURE}) + MFE heads + dir head",
             "features": "32 diffs (roc/rsi/rp/sma200) x 8 lookbacks",
             "label": "direction_h8 (H8)",
-            "split": "date_based",
-            "train": f"{TRAIN_RANGE[0]}..{TRAIN_RANGE[1]}",
-            "val": f"{VAL_RANGE[0]}..{VAL_RANGE[1]}",
-            "test": f"{TEST_RANGE[0]}..{TEST_RANGE[1]}",
+            "split_method": "date_based",
+            "train_range": f"{TRAIN_RANGE[0]}..{TRAIN_RANGE[1]}",
+            "val_range": f"{VAL_RANGE[0]}..{VAL_RANGE[1]}",
+            "test_range": f"{TEST_RANGE[0]}..{TEST_RANGE[1]}",
             "scaler_fit": "train_only",
             "lr": LR, "batch_size": BATCH_SIZE, "hidden": HIDDEN, "dropout": DROPOUT,
             "temperature": TEMPERATURE, "patience": PATIENCE, "seed": SEED,
             "conf_long": CONF_LONG, "conf_short": CONF_SHORT,
             "epochs_used": epochs_used,
-        })
-        tracking.log_metrics({
-            "train_accuracy": m_tr["accuracy"], "train_confident_accuracy": m_tr["confident_accuracy"],
-            "val_accuracy": m_va["accuracy"], "val_confident_accuracy": m_va["confident_accuracy"],
-            "test_accuracy": m_te["accuracy"], "test_confident_accuracy": m_te["confident_accuracy"],
-            "test_n_confident": m_te["n_confident"],
-            "best_val_loss": round(best_val_loss, 6),
-        })
-        tracking.set_tags({
-            "git_commit": git_commit(),
-            "data_15m_md5": dvc_hash(REPO_ROOT / "data/raw/BTCUSDT_15m_ohlcv.parquet.dvc"),
-            "source": "honest_retrain_local_cpu",
-            "notes": "LSTM+Attention with date-based split, scaler on train only. Replaces leaky Colab-trained version.",
-        })
+        },
+        primary_metric="test_confident_accuracy",
+        model_type="LSTMAttention",
+        dataset_version="feature_cache_v2",
+        notes=f"Honest attention retrain {date.today().isoformat()} — replaces leaky Colab version.",
+    ) as run:
+        run_id = run.mlflow_run_id
+
+        conf_threshold_short_for_eval = 1 - CONF_SHORT
+
+        m_tr = evaluate_direction_prediction(
+            probs_tr, ydir_tr.astype(int),
+            conf_threshold_long=CONF_LONG,
+            conf_threshold_short=conf_threshold_short_for_eval,
+            split_name="train",
+        )
+        m_va = evaluate_direction_prediction(
+            probs_va, ydir_va.astype(int),
+            conf_threshold_long=CONF_LONG,
+            conf_threshold_short=conf_threshold_short_for_eval,
+            split_name="val",
+        )
+        m_te = evaluate_direction_prediction(
+            probs_te, ydir_te.astype(int),
+            mfe_up_bps=mfe_up_test, mfe_down_bps=mfe_down_test,
+            conf_threshold_long=CONF_LONG,
+            conf_threshold_short=conf_threshold_short_for_eval,
+            split_name="test",
+        )
+        run.log_metrics({**m_tr, **m_va, **m_te})
+        run.log_metric("best_val_loss", round(best_val_loss, 6))
+
+        run.set_tag("git_commit", git_commit())
+        run.set_tag("data_15m_md5", dvc_hash(REPO_ROOT / "data/raw/BTCUSDT_15m_ohlcv.parquet.dvc"))
+        run.set_tag("source", "honest_retrain_local_cpu")
+
         for f in sorted(OUT_DIR.glob("*")):
-            tracking.log_artifact(f, artifact_path="model")
-    finally:
-        tracking.end_run("FINISHED")
+            run.log_artifact(str(f), artifact_subdir="model")
+
+        print(f"  train acc {m_tr['train_accuracy']:.4f} conf_acc {m_tr['train_confident_accuracy']:.4f}")
+        print(f"  val   acc {m_va['val_accuracy']:.4f} conf_acc {m_va['val_confident_accuracy']:.4f}")
+        print(f"  TEST  acc {m_te['test_accuracy']:.4f} conf_acc {m_te['test_confident_accuracy']:.4f}")
 
     version = register_staging(run_id, "model")
     print(f"\nRegistered {MODEL_NAME} v{version} @staging.")
@@ -404,10 +433,13 @@ def main():
         },
         "label": "direction_h8 (H8)",
         "metrics": {
-            "train_accuracy": m_tr["accuracy"],
-            "val_accuracy": m_va["accuracy"],
-            "test_accuracy": m_te["accuracy"],
-            "test_confident_accuracy": m_te["confident_accuracy"],
+            "train_accuracy": m_tr.get("train_accuracy"),
+            "val_accuracy": m_va.get("val_accuracy"),
+            "test_accuracy": m_te.get("test_accuracy"),
+            "test_confident_accuracy": m_te.get("test_confident_accuracy"),
+            "test_f1": m_te.get("test_f1"),
+            "test_precision_long": m_te.get("test_precision_long"),
+            "test_recall_long": m_te.get("test_recall_long"),
         },
         "mlflow": {"run_id": run_id, "registered_version": int(version), "alias": "staging"},
     }
