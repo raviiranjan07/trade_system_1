@@ -1,0 +1,15 @@
+# Pipeline manifest: which DVC stages belong to each model.
+# Used by scripts/mlops/run_pipeline.py so humans can say "run ml_v1"
+# instead of typing every stage name.
+#
+# When adding a new model, append a block with its stage list. No code changes.
+
+ml_v1:
+  description: MLP direction predictor (honest retrain, date-based split)
+  stages:
+    - build_features
+    - build_labels
+    - train_mlp_v15
+    - verify_ml_v1
+    - backtest_staging
+    - verify_backtest
