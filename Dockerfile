@@ -21,11 +21,13 @@ COPY src/web/frontend/dist/ src/web/frontend/dist/
 COPY configs/ configs/
 
 # Copy ML models — ONNX + scaler only (torch not installed in production image)
-# ML_V1 (MLP, honest v8 @production)
+# ML_V1 (MLP). Newer torch.onnx exports split weights into a sidecar .onnx.data
+# file that onnxruntime expects next to the .onnx — both must be copied.
 COPY models/ML_V1/direction_model.onnx models/ML_V1/
+COPY models/ML_V1/direction_model.onnx.data models/ML_V1/
 COPY models/ML_V1/scaler.npz models/ML_V1/
 
-# ML_V2_ATTENTION (LSTM+Attention, honest v2 @production)
+# ML_V2_ATTENTION (LSTM+Attention). Same pattern — .onnx.data sidecar required.
 COPY models/ML_V2_ATTENTION/attention_model.onnx models/ML_V2_ATTENTION/
 COPY models/ML_V2_ATTENTION/attention_model.onnx.data models/ML_V2_ATTENTION/
 COPY models/ML_V2_ATTENTION/scaler.npz models/ML_V2_ATTENTION/
