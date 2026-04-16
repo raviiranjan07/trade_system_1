@@ -11,21 +11,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source code
+# Copy source code (includes engine/config/, so no separate config copy needed)
 COPY src/ src/
 
 # Copy pre-built frontend
 COPY src/web/frontend/dist/ src/web/frontend/dist/
 
-# Copy config
-COPY src/v12/config/ src/v12/config/
+# Copy runtime configs (params.yaml, pipelines.yaml — read at runtime)
+COPY configs/ configs/
 
-# Copy ML models (ONNX + scaler only, no torch)
-COPY models/direction_v15/direction_model.onnx models/direction_v15/
-COPY models/direction_v15/scaler.npz models/direction_v15/
-COPY models/direction_attention/attention_model.onnx models/direction_attention/
-COPY models/direction_attention/attention_model.onnx.data models/direction_attention/
-COPY models/direction_attention/scaler.npz models/direction_attention/
+# Copy ML models — ONNX + scaler only (torch not installed in production image)
+# ML_V1 (MLP, honest v8 @production)
+COPY models/ML_V1/direction_model.onnx models/ML_V1/
+COPY models/ML_V1/scaler.npz models/ML_V1/
+
+# ML_V2_ATTENTION (LSTM+Attention, honest v2 @production)
+COPY models/ML_V2_ATTENTION/attention_model.onnx models/ML_V2_ATTENTION/
+COPY models/ML_V2_ATTENTION/attention_model.onnx.data models/ML_V2_ATTENTION/
+COPY models/ML_V2_ATTENTION/scaler.npz models/ML_V2_ATTENTION/
 
 # Create data directories (persistent volume mounted here)
 RUN mkdir -p data/trades/risk_logs/ml data/trades/risk_logs/ml_attn
@@ -36,4 +39,4 @@ EXPOSE 8080
 ENV PYTHONPATH=src
 ENV PYTHONUNBUFFERED=1
 
-CMD ["python", "-m", "v12.bot"]
+CMD ["python", "-m", "engine.bot"]
