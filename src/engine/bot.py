@@ -176,7 +176,10 @@ class V12Bot:
             json.dump(state, f, indent=2)
 
     def _update_risk_after_trade(self, trade: TradeRecord) -> None:
-        """Update wallet, health monitor, and decision logger after trade close."""
+        """Update wallet, health monitor, and decision logger after trade close.
+        Does NOT reset _current_qty — caller must do that after pushing the
+        trade to dashboard (otherwise the dashboard push would see qty=0).
+        """
         if self._current_qty > 0:
             pnl_usd = self._current_qty * trade.entry_price * (trade.net_profit_bps / 10000)
             self._wallet += pnl_usd
@@ -193,7 +196,6 @@ class V12Bot:
             )
             self._push_risk_to_dashboard(last_pnl_usd=pnl_usd)
 
-        self._current_qty = 0.0
         self._current_decision = None
 
     def _push_risk_to_dashboard(self, last_pnl_usd: float = 0.0) -> None:
@@ -565,7 +567,10 @@ class V12Bot:
             csv.writer(f).writerow(row)
 
     def _update_ml_risk_after_trade(self, trade: TradeRecord) -> None:
-        """Update ML wallet and health after trade close."""
+        """Update ML wallet and health after trade close. Does NOT reset
+        _ml_qty — caller must do that after pushing the trade to dashboard
+        (otherwise the dashboard push would see qty=0 and liq_price=0).
+        """
         if self._ml_qty > 0:
             pnl_usd = self._ml_qty * trade.entry_price * (trade.net_profit_bps / 10000)
             self._ml_wallet += pnl_usd
@@ -578,7 +583,6 @@ class V12Bot:
                 self._ml_wallet, pnl_usd, self._ml_qty,
             )
             self._push_ml_to_dashboard(last_pnl_usd=pnl_usd)
-        self._ml_qty = 0.0
 
     def _push_ml_to_dashboard(self, last_pnl_usd: float = 0.0) -> None:
         """Push ML state to dashboard."""
