@@ -106,8 +106,7 @@ class V12Bot:
         self._ml_risk_state_path = PROJECT_ROOT / "data" / "trades" / "risk_state_ml.json"
         self._load_ml_risk_state()
         if self._ml_gen.loaded:
-            logger.info("ML V1.5 model loaded — ML_LONG/ML_SHORT signals enabled | exit_version=%s",
-                        self._ml_pm.exit_version.upper())
+            logger.info("ML V1.5 model loaded — ML_LONG/ML_SHORT signals enabled")
         else:
             logger.warning("ML V1.5 model not found — ML signals disabled")
 
@@ -129,8 +128,7 @@ class V12Bot:
         self._ml_attn_risk_state_path = PROJECT_ROOT / "data" / "trades" / "risk_state_ml_attn.json"
         self._load_ml_attn_risk_state()
         if self._ml_attn_gen.loaded:
-            logger.info("ML Attention model loaded — ML_ATTN_LONG/ML_ATTN_SHORT signals enabled | exit_version=%s",
-                        self._ml_attn_pm.exit_version.upper())
+            logger.info("ML Attention model loaded — ML_ATTN_LONG/ML_ATTN_SHORT signals enabled")
         else:
             logger.warning("ML Attention model not found — ML_ATTN signals disabled")
 
