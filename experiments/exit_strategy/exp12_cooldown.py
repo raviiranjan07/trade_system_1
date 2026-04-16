@@ -27,7 +27,7 @@ def main():
     df_15m.index = pd.to_datetime(df_15m.index).tz_localize(None)
 
     from engine.strategy import V12Strategy
-    from engine.signals.direction_v15 import DirectionV15 as MLSignalGenerator
+    from engine.signals.ml_v1 import MLV1 as MLSignalGenerator
     from pathlib import Path
 
     strategy = V12Strategy(config)
@@ -37,8 +37,8 @@ def main():
     # Generate all signals
     signals = strategy.generate_signals(test)
     ml_gen = MLSignalGenerator(
-        model_path=Path("models/direction_v15/direction_model.onnx"),
-        scaler_path=Path("models/direction_v15/scaler.npz"),
+        model_path=Path("models/ML_V1/direction_model.onnx"),
+        scaler_path=Path("models/ML_V1/scaler.npz"),
     )
     if ml_gen.loaded:
         test_ml = ml_gen.compute_features_from_df(test.copy())

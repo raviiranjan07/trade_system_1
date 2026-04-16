@@ -34,8 +34,9 @@ bull_short_filters:
   ema_separation_min: 1.0    # only when EMAs separated by 1%+
 
 # --- Exit Mechanics ---
-# V2 params (used by V1.4 RSI and ML V2 Attention)
-# V3 params (used by ML V1.5 MLP only) — proposed, see exit_v3.yaml
+# V2 params (legacy — used by V1.4 RSI and ML V2 Attention)
+# V1 params (current production — used by ML V1.5 MLP; was V3 pre-rename)
+#   See configs/strategy_cards/exit_v1.yaml for full rule docs.
 exit:
   # V2 params
   long_trailing_stop_bps: 20
@@ -49,16 +50,16 @@ exit:
   breakeven_floor_gross_bps: 9
 
   # V3 params (ML V1.5)
-  v3_max_bars: 6
-  v3_pt_arm_bps: 60
-  v3_pt_target_bps: 80
-  v3_pt_lock_bps: 60
-  v3_pt_max_bar: 5
-  v3_mid_trail_arm_bps: 25
-  v3_mid_trail_width_bps: 10
-  v3_lock_arm_bps: 15
-  v3_lock_trigger_bps: 15
-  v3_stop_loss_bps: -10
+  v1_max_bars: 6
+  v1_pt_arm_bps: 60
+  v1_pt_target_bps: 80
+  v1_pt_lock_bps: 60
+  v1_pt_max_bar: 5
+  v1_mid_trail_arm_bps: 25
+  v1_mid_trail_width_bps: 10
+  v1_lock_arm_bps: 15
+  v1_lock_trigger_bps: 15
+  v1_stop_loss_bps: -10
 
 # --- Re-entry (EXP-012: Config A+RE validated) ---
 reentry:

@@ -22,7 +22,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
 from engine.config.loader import load_config
-from engine.signals.direction_v15 import DirectionV15
+from engine.signals.ml_v1 import MLV1
 from engine.signals.direction_attention import DirectionAttention
 from engine.strategy import V12Strategy, Direction, SignalType
 from engine.config.constants import FEES_BPS
@@ -256,7 +256,7 @@ def main():
 
     # === Config 1: ML V1.5 only + V2 exits (honest) ===
     logger.info("=== Config 1: ML V1.5 only + V2 exits (HONEST) ===")
-    v15_gen = DirectionV15()
+    v15_gen = MLV1()
     test_v15 = v15_gen.compute_features_from_df(test.copy())
     v15_signals = v15_gen.generate_signals(test_v15)
     logger.info("V1.5 signals: %d", len(v15_signals))

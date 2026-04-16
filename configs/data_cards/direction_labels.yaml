@@ -133,7 +133,7 @@ pipeline:
 # Consumers
 # ============================================================
 consumers:
-  - model_card: mlp_direction_v15
+  - model_card: ML_V1
     label_used: direction (H96)
     columns_consumed: 1 of 30
   - model_card: lstm_attention_direction

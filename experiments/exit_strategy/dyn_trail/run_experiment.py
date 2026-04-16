@@ -24,7 +24,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
 from engine.config.loader import load_config
-from engine.signals.direction_v15 import DirectionV15
+from engine.signals.ml_v1 import MLV1
 from engine.signals.direction_attention import DirectionAttention
 from engine.strategy import V12Strategy, Direction
 from engine.config.constants import FEES_BPS
@@ -197,7 +197,7 @@ def main():
     df_1m = pd.read_parquet(DATA_1M); df_1m.index = pd.to_datetime(df_1m.index).tz_localize(None)
     test_15m = df_15m["2024-01-01":"2025-12-31"]; test_1m = df_1m["2024-01-01":"2025-12-31"]
     # ML V1.5
-    v15 = DirectionV15(); test_v15 = v15.compute_features_from_df(test_15m.copy())
+    v15 = MLV1(); test_v15 = v15.compute_features_from_df(test_15m.copy())
     signals_v15 = v15.generate_signals(test_v15)
     # ML V2 attention (SHORT 0.40 + 0.35)
     attn_040 = DirectionAttention(); attn_040.conf_short = 0.60

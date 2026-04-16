@@ -80,7 +80,7 @@ system_1/
 │       └── risk_logs/
 │
 ├── models/                                # Trained model artifacts
-│   └── direction_v15/                     # Production V1.5
+│   └── ML_V1/                     # Production V1.5
 │       ├── direction_model.onnx
 │       ├── direction_model.pt
 │       └── scaler.npz
@@ -93,7 +93,7 @@ system_1/
 │   ├── data_cards/                        # Dataset documentation
 │   │   └── l2_003_feature_cache.yaml
 │   └── model_cards/                       # Model documentation
-│       ├── mlp_direction_v15.yaml
+│       ├── ML_V1.yaml
 │       ├── lstm_gru_direction.yaml
 │       ├── lstm_attention_direction.yaml
 │       └── mlp_curriculum_direction.yaml
@@ -221,7 +221,7 @@ Document what's inside each dataset. Stored in `configs/data_cards/`.
 Document how each model works and what it achieved. Stored in `configs/model_cards/`.
 
 **Current cards:**
-- `mlp_direction_v15.yaml` — production MLP (deployed)
+- `ML_V1.yaml` — production MLP (deployed)
 - `lstm_gru_direction.yaml` — LSTM baseline (rejected)
 - `lstm_attention_direction.yaml` — LSTM + Attention (best accuracy)
 - `mlp_curriculum_direction.yaml` — curriculum learning (didn't help)

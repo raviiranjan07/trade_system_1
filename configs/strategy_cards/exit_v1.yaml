@@ -1,75 +1,162 @@
 name: exit_v1
-version: 1
-status: RETIRED (replaced by exit_v2)
+version: 2
+status: PARTIALLY_LIVE (5 of 6 tick rules deployed in v1.8.0; STOP_LOSS pending deployment)
 description: |
-  First production exit strategy. Trailing stop + time exit.
-  Established from EXP-005 (RSI layer1). Used in V1.2 through V1.3.1.
+  Third-generation exit strategy. Complete tiered exit system with 6 tick rules
+  plus bar-close backstop:
+    1. PROFIT_TARGET  — take profit at 80 bps (arm at peak 60)
+    2. PT_LOCK        — profit lock at 60 bps (arm at peak 60)
+    3. MID_TRAIL      — trail 10 bps from peak (arm at peak 25)
+    4. LOCKED_PROFIT  — static exit at 15 bps (arm at peak 15)
+    5. STOP_LOSS      — hard cap at -10 bps
+    6. NO_ZONE/TIME_EXIT — bar 6 backstop (split by pnl sign)
 
-# Rules
+  Uses IDEALIZED stop-order simulation for PT_LOCK, MID_TRAIL, STOP_LOSS
+  (assumes stop-limit orders on Binance fill at the designated level).
+
+  Validated on V1.5 MLP, Attn 0.40, Attn 0.35 — all profitable with complete V1.
+
+# Rules (priority order per tick)
 rules:
-  trailing_stop:
-    long_bps: 20
-    short_bps: 30
-    description: Exit when price pulls back X bps from peak
-  tightening:
-    after_bar: 5
-    tight_bps: 8
-    description: After bar 5, trailing stop tightens to 8 bps
+  pt_target:
+    description: Take profit at 80 when price ran from 60
+    activation: peak_mfe >= 60 AND bars_held <= 5
+    trigger: tick_pnl >= 80
+    exit_at: current tick price (can gap above 80)
+
+  pt_lock:
+    description: Stop order at 60 bps once peak touched 60
+    activation: peak_mfe >= 60 AND bars_held <= 5
+    trigger: tick_pnl <= 60
+    exit_at: IDEALIZED 60 bps (stop-limit simulation)
+
+  mid_trail:
+    description: Dynamic trailing stop for mid-range winners
+    activation: peak_mfe >= 25 AND NOT pt_armed
+    trigger: drawdown (peak - tick_pnl) >= 10
+    exit_at: IDEALIZED peak - 10 bps (stop-limit simulation)
+
+  locked_profit:
+    description: Static profit lock for small winners
+    activation: peak_mfe >= 15
+    trigger: tick_pnl <= 15
+    exit_at: current tick price
+
+  stop_loss:
+    description: Hard stop loss (part of V1 core — pending deployment)
+    activation: always (from entry)
+    trigger: tick_pnl <= -10
+    exit_at: IDEALIZED -10 bps (stop-market simulation)
+    recommended_bps: -10    # best in backtest sweep
+    alternate: {-15, -20}   # safer if real slippage > 2 bps
+
+  no_zone:
+    description: Bar-6 exit when pnl is above entry but below LP trigger
+    activation: bars_held >= 6
+    trigger: bar_close_pnl >= 0
+    exit_at: bar close
+
   time_exit:
-    max_bars: 10
-    description: Force exit at bar 10 (2.5 hours) regardless of PnL
+    description: Bar-6 exit when pnl below entry (rarely fires with stop loss)
+    activation: bars_held >= 6
+    trigger: bar_close_pnl < 0
+    exit_at: bar close
 
-# What V1 does NOT have
-not_included:
-  - early_cut (no early loser detection)
-  - breakeven_lock (no profit floor)
+# Parameters (current production values)
+parameters:
+  pt_arm_bps: 60
+  pt_target_bps: 80
+  pt_lock_bps: 60
+  pt_max_bar: 5
+  mid_trail_arm_bps: 25
+  mid_trail_width_bps: 10
+  lock_arm_bps: 15
+  lock_trigger_bps: 15
+  stop_loss_bps: -10     # core V1 rule
+  max_bars: 6
 
-# Performance (OOS 2024-2025, V1.5 signals — 1,680 trades)
+# What V1 REMOVES from V2
+removed:
+  - early_cut_bar3_mfe    # V2: cut if MFE < 3 at bar 3
+  - early_cut_bar4_mfe    # V2: cut if MFE < 5 at bar 4
+  - breakeven_activation  # V2: BE lock at MFE >= 15
+  - breakeven_floor       # V2: floor 9 bps gross
+  - tighten_after_bar     # V2: tighten to 6 bps at bar 4+
+  - tight_trailing_stop   # V2: 6 bps trailing
+  - wide_trailing_stop    # V1/V2: 20/30 bps trailing
+
+# Performance (OOS 2024-2025, tick monitored, idealized stops)
 performance:
-  total_bps: 30312
-  profit_factor: 2.21
-  max_drawdown_bps: -774
-  win_rate: 0.58
-  n_trades: 1680
-  exit_breakdown:
-    trailing_stop: {count: ~950, net_positive: true}
-    tight_ts: {count: ~450, net_positive: true}
-    time_exit: {count: ~280, net_negative: true, note: "61% had MFE=0, never went positive"}
+  v1_baseline_no_stop:
+    v15_ml: {n_trades: 1530, win_rate: 0.731, total_bps: 4026, profit_factor: 1.14, max_drawdown_bps: -1731}
+    attn_0.40: {n_trades: 5260, total_bps: -23648, pf: 0.77}
+    attn_0.35: {n_trades: 3172, total_bps: -13123, pf: 0.81}
+  v1_plus_stop_loss_10:
+    v15_ml: {n_trades: 1767, win_rate: 0.533, total_bps: 18207, profit_factor: 2.29, max_drawdown_bps: -234}
+    attn_0.40: {n_trades: 6714, win_rate: 0.481, total_bps: 21723, profit_factor: 1.36, max_drawdown_bps: -2010}
+    attn_0.35: {n_trades: 3859, win_rate: 0.489, total_bps: 19873, profit_factor: 1.59, max_drawdown_bps: -548}
+  stop_loss_sweep_v15:
+    "-10": {total_bps: 18207, pf: 2.29, dd: -234}
+    "-15": {total_bps: 15833, pf: 1.93, dd: -377}
+    "-20": {total_bps: 13799, pf: 1.71, dd: -470}
+    "-25": {total_bps: 12308, pf: 1.58, dd: -603}
+    "-30": {total_bps: 10968, pf: 1.48, dd: -702}
+    "-40": {total_bps: 9267, pf: 1.37, dd: -890}
+    "-50": {total_bps: 6864, pf: 1.25, dd: -1391}
 
-# Performance (OOS 2024-2025, V1.4 signals only — 220 trades)
-performance_v14_only:
-  total_bps: 5267
-  profit_factor: 3.46
-  max_drawdown_bps: -192
-  win_rate: 0.60
-  n_trades: 220
+# Comparison vs original V1
+vs_original_v1:
+  v1_baseline: {n_trades: 1559, total_bps: -3901, pf: 0.88, max_drawdown_bps: -4474}
+  v1_no_stop: {net_gain_vs_v1: +7927, pf_gain: 0.26, dd_improvement: 2743}
+  v1_plus_stop10: {net_gain_vs_v1: +22108, pf_gain: 1.41, dd_improvement: 4240}
 
-# Key weakness
-weaknesses:
-  - Losers sit until bar 10 bleeding slowly (61% of TIME_EXIT losers never went positive)
-  - Winners give back profit through wide trailing stop before tightening kicks in
-  - No profit protection once trade is profitable
+# Exit distribution (V1.5 + V1 + stop -10)
+exit_breakdown_v1_stop10:
+  pt_target: {n: 155, win_rate: 1.00, total_bps: 14208, avg_bps: 92}
+  pt_lock: {n: 124, win_rate: 1.00, total_bps: 6448, avg_bps: 52}
+  mid_trail: {n: 490, win_rate: 1.00, total_bps: 11028, avg_bps: 23}
+  locked_profit: {n: 231, win_rate: 0.72, total_bps: 330, avg_bps: 1}
+  stop_loss: {n: 767, win_rate: 0.00, total_bps: -13806, avg_bps: -18}
 
-# Experiments that built V1
-experiments:
-  - EXP-005 (layer1/rsi): Trailing stop sizing, LONG=20 SHORT=30 optimal
-  - EXP-009 (layer1/rsi): Remove time exit — REJECTED, catastrophic trades emerge
-  - test_trailing_stop_levels: Extended parameter sweep 15-50 bps
-  - test_activation_threshold: Delayed TS start — informational
-  - test_profit_protected: Only trigger TS if profitable — informational
-  - V1.3.1 tightening: Tighten to 8bps after bar 5 — ACCEPTED
+# Implementation status
+implementation:
+  live_in_production: partial
+  deployed_tag: v1.8.1
+  deployed_model: ML V1.5 only (V1.4 and Attention still on V2)
+  rules_live: [pt_target, pt_lock, mid_trail, locked_profit, no_zone, time_exit]
+  rules_pending: [stop_loss]
+  requires:
+    - Real-time tick monitoring via WebSocket (already built)
+    - on_tick() method (already built)
+    - Stop-limit orders on Binance for real live trading (future work)
+  reference_script: experiments/exit_strategy/v3_plus_stop30/run_experiment.py
 
-# Data
+# Known limitations
+limitations:
+  - PT_LOCK, MID_TRAIL, STOP_LOSS use idealized back-calculated exit prices
+  - Real Binance fills have 1-5 bps slippage; real-world numbers will be lower
+  - Stop -10 may be too tight with real slippage (-10 stop + 5 bps slip = -15 effective)
+  - No re-entry rules in V1 yet
+  - Only tested on V1.5 and Attention with H8 label; not validated on future models
+
+# Tested on
 tested_on:
-  dataset: data/raw/BTCUSDT_15m_ohlcv.parquet
-  timeframe: 15m
+  dataset: data/raw/BTCUSDT_15m_ohlcv.parquet + data/raw/BTCUSDT_1m_ohlcv.parquet
+  timeframe: 15m signals + 1m exit monitoring
   asset: BTCUSDT
-  train_period: 2020-2023
+  train_period: 2020-2023 (model training)
   test_period: 2024-2025 (OOS)
-  resolution: bar_close_only
   data_card: configs/data_cards/btcusdt_15m_ohlcv.yaml
+
+# Experiments
+experiments:
+  - experiments/exit_strategy/dyn_trail/: initial V1 dev (MID_TRAIL idealization)
+  - experiments/exit_strategy/bar_sweep/: time exit bar optimization (bar 6 winner)
+  - experiments/exit_strategy/pt_target_sweep/: PT_TARGET 80-150 sweep
+  - experiments/exit_strategy/pt_trail/: PT trailing test (rejected)
+  - experiments/exit_strategy/v3_plus_stop30/: STOP_LOSS sweep (found -10 optimal)
 
 tags:
   layer: 0
-  status: retired
-  replaced_by: exit_v2
+  status: production_partial
+  next_step: add_stop_loss_to_live_code

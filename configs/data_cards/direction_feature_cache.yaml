@@ -61,7 +61,7 @@ cleanup_history:
 # Consumers
 # ============================================================
 consumers:
-  - model_card: mlp_direction_v15
+  - model_card: ML_V1
     features_used: [roc1, roc2, roc3, roc4, roc5, roc6, roc7, roc8, range_position, rsi7]
     note: "Only 10 of 23 columns used"
   - model_card: lstm_attention_direction

@@ -57,14 +57,14 @@ required_artifacts:
   - comparison.md
 
 baseline:
-  name: exit_v3
+  name: exit_v1
   description: |
-    V3 exit (proposed): PT_TARGET at 80, PT_LOCK at 60 (stop order),
-    MID_TRAIL arm 25 trail 10 (stop order), LOCKED_PROFIT 15 static,
-    bar 6 TIME_EXIT/NO_ZONE split.
+    V1 exit (current production, was V3 pre-rename): PT_TARGET at 80,
+    PT_LOCK at 60 (stop order), MID_TRAIL arm 25 trail 10 (stop order),
+    LOCKED_PROFIT 15 static, STOP_LOSS -10, bar 6 TIME_EXIT/NO_ZONE split.
     OOS (2024-2025, V1.5 MLP): +4,026 bps, PF 1.14, DD -1,731 (honest tick)
   historical:
-    exit_v1:
+    exit_v0_retired_trailing:
       description: LONG 20bps TS, SHORT 30bps TS, tighten 8bps after bar 5, bar 10 time exit
       metrics: {total_bps: -3901, profit_factor: 0.88, max_drawdown_bps: -4474, note: "honest tick backtest"}
     exit_v2:

@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
 from engine.config.loader import load_config
 from engine.config.schema import AppConfig
-from engine.signals.direction_v15 import DirectionV15
+from engine.signals.ml_v1 import MLV1
 from engine.signals.direction_attention import DirectionAttention
 from engine.position_manager import V12PositionManager
 from engine.strategy import V12Strategy, Direction, SignalType
@@ -82,7 +82,7 @@ def run_backtest(
 
     # ML V1.5 signals
     if include_v15:
-        v15_gen = DirectionV15()
+        v15_gen = MLV1()
         if v15_gen.loaded:
             test_v15 = v15_gen.compute_features_from_df(test.copy())
             v15_signals = v15_gen.generate_signals(test_v15)

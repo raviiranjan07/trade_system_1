@@ -20,7 +20,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
 from engine.config.loader import load_config
-from engine.signals.direction_v15 import DirectionV15
+from engine.signals.ml_v1 import MLV1
 from engine.strategy import V12Strategy, Direction
 from engine.config.constants import FEES_BPS
 
@@ -237,7 +237,7 @@ def main():
     test_15m = df_15m["2024-01-01":"2025-12-31"]
     test_1m = df_1m["2024-01-01":"2025-12-31"]
 
-    v15_gen = DirectionV15()
+    v15_gen = MLV1()
     test_v15 = v15_gen.compute_features_from_df(test_15m.copy())
     signals = v15_gen.generate_signals(test_v15)
     logger.info("V1.5 signals: %d", len(signals))

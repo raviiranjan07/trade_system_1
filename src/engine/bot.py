@@ -23,7 +23,7 @@ from .config.constants import SYMBOL, TIMEFRAME
 from .config.loader import load_config
 from .config.schema import AppConfig
 from .position_manager import V12PositionManager, TradeRecord
-from .signals.direction_v15 import DirectionV15 as MLSignalGenerator
+from .signals.ml_v1 import MLV1 as MLSignalGenerator
 from .signals.direction_attention import DirectionAttention as MLAttnSignalGenerator
 from .strategy import V12Strategy, Direction, Signal, SignalType
 from .risk.risk_calculator import RiskCalculator, RiskConfig, RiskDecision
@@ -89,10 +89,10 @@ class V12Bot:
 
         # ML signal generator — separate position manager, wallet, and CSV
         self._ml_gen = MLSignalGenerator(
-            model_path=PROJECT_ROOT / "models" / "direction_v15" / "direction_model.onnx",
-            scaler_path=PROJECT_ROOT / "models" / "direction_v15" / "scaler.npz",
+            model_path=PROJECT_ROOT / "models" / "ML_V1" / "direction_model.onnx",
+            scaler_path=PROJECT_ROOT / "models" / "ML_V1" / "scaler.npz",
         )
-        self._ml_pm = V12PositionManager(config, exit_version="v3")   # ML V1.5 uses V3 exits
+        self._ml_pm = V12PositionManager(config, exit_version="v1")   # ML V1.5 uses V1 exits
         self._ml_wallet = DEFAULT_CAPITAL
         self._ml_health = AccountHealthMonitor()
         self._ml_risk_calc = RiskCalculator(worst_loss_bps=865, health=self._ml_health)
@@ -115,7 +115,7 @@ class V12Bot:
             model_path=PROJECT_ROOT / "models" / "direction_attention" / "attention_model.onnx",
             scaler_path=PROJECT_ROOT / "models" / "direction_attention" / "scaler.npz",
         )
-        self._ml_attn_pm = V12PositionManager(config, exit_version="v3")   # ML V2 Attention uses V3 exits
+        self._ml_attn_pm = V12PositionManager(config, exit_version="v1")   # ML V2 Attention uses V1 exits
         self._ml_attn_wallet = DEFAULT_CAPITAL
         self._ml_attn_health = AccountHealthMonitor()
         self._ml_attn_risk_calc = RiskCalculator(worst_loss_bps=865, health=self._ml_attn_health)

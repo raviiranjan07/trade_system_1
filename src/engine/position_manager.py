@@ -62,7 +62,7 @@ class V12PositionManager:
 
     def __init__(self, config: AppConfig, exit_version: str = "v2"):
         self.cfg = config
-        self.exit_version = exit_version  # "v2" or "v3"
+        self.exit_version = exit_version  # "v2" or "v1"
         self.position: Optional[OpenPosition] = None
         self.trades: list[TradeRecord] = []
 
@@ -92,7 +92,7 @@ class V12PositionManager:
         else:
             ts = self.cfg.exit.short_trailing_stop_bps
 
-        max_bars = self.cfg.exit.v3_max_bars if self.exit_version == "v3" else self.cfg.exit.max_bars
+        max_bars = self.cfg.exit.v1_max_bars if self.exit_version == "v1" else self.cfg.exit.max_bars
         self.position = OpenPosition(
             direction=direction,
             signal_type=signal_type,
@@ -109,7 +109,7 @@ class V12PositionManager:
 
         Branches based on exit_version:
           v2: trailing stop + BE lock (existing V2 logic)
-          v3: PT_TARGET, PT_LOCK, MID_TRAIL, LOCKED_PROFIT (new V3 logic)
+          v1: PT_TARGET, PT_LOCK, MID_TRAIL, LOCKED_PROFIT (new V3 logic)
 
         Returns TradeRecord if position was closed, None if still open.
         """
@@ -131,8 +131,8 @@ class V12PositionManager:
         if tick_pnl < pos.mae_bps:
             pos.mae_bps = tick_pnl
 
-        if self.exit_version == "v3":
-            return self._on_tick_v3(pos, price, tick_pnl, tick_time)
+        if self.exit_version == "v1":
+            return self._on_tick_v1(pos, price, tick_pnl, tick_time)
         return self._on_tick_v2(pos, price, tick_pnl, tick_time)
 
     def _on_tick_v2(self, pos, price, tick_pnl, tick_time) -> Optional[TradeRecord]:
@@ -157,36 +157,36 @@ class V12PositionManager:
 
         return None
 
-    def _on_tick_v3(self, pos, price, tick_pnl, tick_time) -> Optional[TradeRecord]:
+    def _on_tick_v1(self, pos, price, tick_pnl, tick_time) -> Optional[TradeRecord]:
         """V3 tick logic: PT (60/80) + MID_TRAIL (25/10) + LOCKED_PROFIT (15) + STOP_LOSS (-10)."""
         e = self.cfg.exit
 
         # Arm PT once peak touches pt_arm within max bar
-        if pos.highest_profit_bps >= e.v3_pt_arm_bps and pos.bars_held <= e.v3_pt_max_bar:
+        if pos.highest_profit_bps >= e.v1_pt_arm_bps and pos.bars_held <= e.v1_pt_max_bar:
             pos.pt_armed = True
 
         # 1a. PT_TARGET: take profit at 80 (tick price, can gap above)
-        if pos.pt_armed and tick_pnl >= e.v3_pt_target_bps:
+        if pos.pt_armed and tick_pnl >= e.v1_pt_target_bps:
             return self._close_position(tick_pnl, tick_time, pos.bars_held, "PT_TARGET")
 
         # 1b. PT_LOCK: stop order at 60 — exit at IDEALIZED 60 bps
-        if pos.pt_armed and tick_pnl <= e.v3_pt_lock_bps:
-            return self._close_position(e.v3_pt_lock_bps, tick_time, pos.bars_held, "PT_LOCK")
+        if pos.pt_armed and tick_pnl <= e.v1_pt_lock_bps:
+            return self._close_position(e.v1_pt_lock_bps, tick_time, pos.bars_held, "PT_LOCK")
 
         # 2. MID_TRAIL: arm at 25, trail 10 (not if already pt_armed)
-        if pos.highest_profit_bps >= e.v3_mid_trail_arm_bps and not pos.pt_armed:
+        if pos.highest_profit_bps >= e.v1_mid_trail_arm_bps and not pos.pt_armed:
             drawdown = pos.highest_profit_bps - tick_pnl
-            if drawdown >= e.v3_mid_trail_width_bps:
-                exit_bps = pos.highest_profit_bps - e.v3_mid_trail_width_bps
+            if drawdown >= e.v1_mid_trail_width_bps:
+                exit_bps = pos.highest_profit_bps - e.v1_mid_trail_width_bps
                 return self._close_position(exit_bps, tick_time, pos.bars_held, "MID_TRAIL")
 
         # 3. LOCKED_PROFIT (static)
-        if pos.highest_profit_bps >= e.v3_lock_arm_bps and tick_pnl <= e.v3_lock_trigger_bps:
+        if pos.highest_profit_bps >= e.v1_lock_arm_bps and tick_pnl <= e.v1_lock_trigger_bps:
             return self._close_position(tick_pnl, tick_time, pos.bars_held, "LOCKED_PROFIT")
 
         # 4. STOP_LOSS: hard cap — exit at IDEALIZED -10 bps (stop-market simulation)
-        if tick_pnl <= e.v3_stop_loss_bps:
-            return self._close_position(e.v3_stop_loss_bps, tick_time, pos.bars_held, "STOP_LOSS")
+        if tick_pnl <= e.v1_stop_loss_bps:
+            return self._close_position(e.v1_stop_loss_bps, tick_time, pos.bars_held, "STOP_LOSS")
 
         return None
 
@@ -223,9 +223,9 @@ class V12PositionManager:
         if bar_mfe > pos.highest_profit_bps:
             pos.highest_profit_bps = bar_mfe
 
-        # V3 branch
-        if self.exit_version == "v3":
-            # V3: only time exit here — price exits handled by on_tick
+        # V1 branch
+        if self.exit_version == "v1":
+            # V1: only time exit here — price exits handled by on_tick
             if pos.bars_held >= pos.max_bars:
                 if bar_close_pnl >= 0:
                     return self._close_position(bar_close_pnl, bar_time, bar_index, "NO_ZONE")

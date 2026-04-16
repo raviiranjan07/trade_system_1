@@ -4,7 +4,7 @@ Same architecture, features, label as production V1.5.
 Only difference: date-based split (train 2020-2023, val 2024, test 2025).
 Scaler fit on train only. No data leakage.
 
-The production model (models/direction_v15/) is NOT modified.
+The production model (models/ML_V1/) is NOT modified.
 This is a separate training run purely for honest metrics.
 
 Usage:

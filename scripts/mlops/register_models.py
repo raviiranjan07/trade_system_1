@@ -1,6 +1,6 @@
 """Register current production models in the MLflow Model Registry.
 
-One-time bootstrap: wraps the files under models/direction_v15/ and
+One-time bootstrap: wraps the files under models/ML_V1/ and
 models/direction_attention/ as MLflow runs, then registers each as a
 named model with @production alias.
 
@@ -81,10 +81,10 @@ def register(
 def main() -> None:
     tracking.init()
 
-    # direction_v15 — MLP, deployed in production as ML V1.5
-    v15_files = sorted((REPO_ROOT / "models/direction_v15").glob("*"))
+    # ML_V1 — MLP, deployed in production as ML V1.5
+    v15_files = sorted((REPO_ROOT / "models/ML_V1").glob("*"))
     v15_version = register(
-        name="direction_v15",
+        name="ML_V1",
         run_name="direction_v15_v1_imported",
         artifacts=v15_files,
         metrics={
@@ -103,7 +103,7 @@ def main() -> None:
         },
         notes="Imported from existing production files. Trained 2026-04-12 (run 15f73d0c).",
     )
-    print(f"  Registered direction_v15 version {v15_version}")
+    print(f"  Registered ML_V1 version {v15_version}")
 
     # direction_attention — V2 attention model
     attn_files = sorted((REPO_ROOT / "models/direction_attention").glob("*"))
@@ -134,7 +134,7 @@ def main() -> None:
 
     print("\nDone. Verify with:")
     print("  mlflow models list")
-    print("  Or in Python: mlflow.MlflowClient().get_model_version_by_alias('direction_v15', 'production')")
+    print("  Or in Python: mlflow.MlflowClient().get_model_version_by_alias('ML_V1', 'production')")
 
 
 if __name__ == "__main__":

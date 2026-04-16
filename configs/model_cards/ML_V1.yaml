@@ -1,7 +1,7 @@
 # Model Card: V1.5 Direction Prediction MLP
 # Production model deployed 2026-03-19. Paper trading on live bot.
 
-name: mlp_direction_v15
+name: ML_V1
 version: 1
 created: 2026-03-01
 status: DEPLOYED (production, paper trading since 2026-03-19)
@@ -135,7 +135,7 @@ input:
   normalization:
     method: z-score
     fit_on: "ALL data 2020-2025 (production). Research used train-only 2020-2023."
-    note: "Scaler saved to models/direction_v15/scaler.npz. Same scaler applied at inference."
+    note: "Scaler saved to models/ML_V1/scaler.npz. Same scaler applied at inference."
 
 # ============================================================
 # Data usage (exact columns read from each file)

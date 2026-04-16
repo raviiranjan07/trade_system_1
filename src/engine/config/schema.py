@@ -75,16 +75,16 @@ class ExitConfig(BaseModel):
     breakeven_floor_gross_bps: float = Field(ge=0, le=100)
 
     # --- V3 params (new — for ML V1.5 only) ---
-    v3_max_bars: int = Field(default=6, ge=1, le=50)
-    v3_pt_arm_bps: float = Field(default=60, ge=10, le=500)
-    v3_pt_target_bps: float = Field(default=80, ge=10, le=500)
-    v3_pt_lock_bps: float = Field(default=60, ge=10, le=500)
-    v3_pt_max_bar: int = Field(default=5, ge=1, le=50)
-    v3_mid_trail_arm_bps: float = Field(default=25, ge=5, le=200)
-    v3_mid_trail_width_bps: float = Field(default=10, ge=1, le=50)
-    v3_lock_arm_bps: float = Field(default=15, ge=1, le=100)
-    v3_lock_trigger_bps: float = Field(default=15, ge=1, le=100)
-    v3_stop_loss_bps: float = Field(default=-10, ge=-200, le=0)
+    v1_max_bars: int = Field(default=6, ge=1, le=50)
+    v1_pt_arm_bps: float = Field(default=60, ge=10, le=500)
+    v1_pt_target_bps: float = Field(default=80, ge=10, le=500)
+    v1_pt_lock_bps: float = Field(default=60, ge=10, le=500)
+    v1_pt_max_bar: int = Field(default=5, ge=1, le=50)
+    v1_mid_trail_arm_bps: float = Field(default=25, ge=5, le=200)
+    v1_mid_trail_width_bps: float = Field(default=10, ge=1, le=50)
+    v1_lock_arm_bps: float = Field(default=15, ge=1, le=100)
+    v1_lock_trigger_bps: float = Field(default=15, ge=1, le=100)
+    v1_stop_loss_bps: float = Field(default=-10, ge=-200, le=0)
 
 
 class ReentryConfig(BaseModel):
