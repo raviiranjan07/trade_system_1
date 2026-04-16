@@ -112,8 +112,8 @@ class V12Bot:
 
         # ML Attention signal generator — A/B test alongside V1.5
         self._ml_attn_gen = MLAttnSignalGenerator(
-            model_path=PROJECT_ROOT / "models" / "direction_attention" / "attention_model.onnx",
-            scaler_path=PROJECT_ROOT / "models" / "direction_attention" / "scaler.npz",
+            model_path=PROJECT_ROOT / "models" / "ML_V2_ATTENTION" / "attention_model.onnx",
+            scaler_path=PROJECT_ROOT / "models" / "ML_V2_ATTENTION" / "scaler.npz",
         )
         self._ml_attn_pm = V12PositionManager(config, exit_version="v1")   # ML V2 Attention uses V1 exits
         self._ml_attn_wallet = DEFAULT_CAPITAL

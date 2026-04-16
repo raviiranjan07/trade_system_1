@@ -1,1 +1,0 @@
-[{"id": 1770714305886.4233, "type": "SMA", "period": 200, "color": "#f59e0b", "lineWidth": 2, "source": "close", "visible": true}, {"id": 1770714326562.7695, "type": "EMA", "period": 9, "color": "#3b82f6", "lineWidth": 2, "source": "close", "visible": true}]

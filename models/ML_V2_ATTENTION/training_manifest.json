@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "model_name": "ML_V1",
-  "trained_at": "2026-04-16T15:59:13",
-  "git_commit": "66a5d8809e7cbec0b786e8408a6ca8de828ee6a9",
+  "model_name": "ML_V2_ATTENTION",
+  "trained_at": "2026-04-16T17:59:44",
+  "git_commit": "1fdb5de196a70db3f907038174c246f9c6fd314d",
   "data": {
     "feature_cache_path": "data\\features\\direction_prediction\\feature_cache.parquet",
     "feature_cache_md5": "e78134d5a94a39dfc609b9f18b03cc4d",
@@ -28,33 +28,19 @@
     "fit_on": "train_only"
   },
   "feature_recipe": {
-    "compute_fn": "engine.ml_train.compute_features",
+    "compute_fn": "engine.train_attention.compute_features",
     "source_parquet": "data\\features\\direction_prediction\\feature_cache.parquet"
   },
-  "features": [
-    "roc1",
-    "roc2",
-    "roc3",
-    "roc4",
-    "roc5",
-    "roc6",
-    "roc7",
-    "roc8",
-    "range_position_50_mlp",
-    "rsi7_mlp"
-  ],
-  "label": "direction (H96)",
+  "label": "direction_h8 (H8)",
   "metrics": {
-    "train_accuracy": 0.5343,
-    "train_confident_accuracy": 0.6854,
-    "val_accuracy": 0.5171,
-    "val_confident_accuracy": 0.6117,
-    "test_accuracy": 0.5105,
-    "test_confident_accuracy": 0.5829
+    "train_accuracy": 0.5288,
+    "val_accuracy": 0.514,
+    "test_accuracy": 0.5079,
+    "test_confident_accuracy": 0.552
   },
   "mlflow": {
-    "run_id": "c80f6f99b0fc420ca06b525cf4008244",
-    "registered_version": 8,
+    "run_id": "0c3b59549ed446bda23c5f56ec96db9e",
+    "registered_version": 2,
     "alias": "staging"
   }
 }
