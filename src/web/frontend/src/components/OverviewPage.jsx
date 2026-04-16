@@ -486,7 +486,7 @@ function OverviewPage({ stats, risk, ml, mlAttn, trades, mlTrades, mlAttnTrades,
           lastTrade={v14LastTrade}
           accentColor="#3b82f6"
           tradeHistory={trades}
-          exitVersion="V2"
+          exitVersion="V1"
         />
         <BotCard
           title="ML Strategy"

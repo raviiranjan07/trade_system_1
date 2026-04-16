@@ -1,12 +1,14 @@
-"""V2 Position Manager — Tracks open positions, handles exits and re-entry.
+"""Position Manager — tracks open positions, handles exits and re-entry.
 
-Exit mechanics (EXP-5 V2, frozen 2026-03-29):
-  - Trailing stop: 20 bps LONG, 30 bps SHORT
-  - Tighten: bar 4+ to 6 bps
-  - Early cut: bar 3 MFE<3, bar 4 MFE<5
-  - Breakeven lock: MFE>=15, floor 9 bps gross
-  - Time exit: bar 10
-  - Re-entry: 1 max, 2 bar cooldown after trailing stop
+Exit rules (V1, PT_TARGET family — the only supported exit plan):
+  - PT_TARGET: arm at peak >=60 bps within max bar, exit at >=80 bps tick
+  - PT_LOCK: once armed, exit at 60 bps on any drop back to it
+  - MID_TRAIL: arm at peak >=25 bps, trail with 10 bps width (if not PT-armed)
+  - LOCKED_PROFIT: peak >=15 bps, close if price drops back to <=15
+  - STOP_LOSS: hard cap at -10 bps (stop-market simulation)
+  - Time exit: bar 6+
+  - Re-entry: disabled (re-entry hook still exists but never fires — V1
+    exit reasons are never "TRAILING_STOP" which the re-entry gate checks for)
 """
 
 from dataclasses import dataclass, field
@@ -44,7 +46,6 @@ class OpenPosition:
     entry_price: float
     entry_time: object
     signal_time: object
-    trailing_stop_bps: float
     max_bars: int
     is_reentry: bool = False
 
@@ -53,16 +54,14 @@ class OpenPosition:
     highest_profit_bps: float = 0.0
     mfe_bps: float = 0.0
     mae_bps: float = 0.0
-    # V3 state
     pt_armed: bool = False
 
 
 class V12PositionManager:
     """Manages position lifecycle: entry, bar updates, exits, re-entry."""
 
-    def __init__(self, config: AppConfig, exit_version: str = "v2"):
+    def __init__(self, config: AppConfig):
         self.cfg = config
-        self.exit_version = exit_version  # "v2" or "v1"
         self.position: Optional[OpenPosition] = None
         self.trades: list[TradeRecord] = []
 
@@ -87,32 +86,18 @@ class V12PositionManager:
         is_reentry: bool = False,
     ) -> None:
         """Open a new position."""
-        if direction == Direction.LONG:
-            ts = self.cfg.exit.long_trailing_stop_bps
-        else:
-            ts = self.cfg.exit.short_trailing_stop_bps
-
-        max_bars = self.cfg.exit.v1_max_bars if self.exit_version == "v1" else self.cfg.exit.max_bars
         self.position = OpenPosition(
             direction=direction,
             signal_type=signal_type,
             entry_price=entry_price,
             entry_time=entry_time,
             signal_time=signal_time,
-            trailing_stop_bps=ts,
-            max_bars=max_bars,
+            max_bars=self.cfg.exit.v1_max_bars,
             is_reentry=is_reentry,
         )
 
     def on_tick(self, price: float, tick_time: object) -> Optional[TradeRecord]:
-        """Check price-based exits on every tick (real-time monitoring).
-
-        Branches based on exit_version:
-          v2: trailing stop + BE lock (existing V2 logic)
-          v1: PT_TARGET, PT_LOCK, MID_TRAIL, LOCKED_PROFIT (new V3 logic)
-
-        Returns TradeRecord if position was closed, None if still open.
-        """
+        """Check price-based exits on every tick (PT/MID_TRAIL/LOCKED_PROFIT/STOP_LOSS)."""
         pos = self.position
         if pos is None:
             return None
@@ -131,34 +116,6 @@ class V12PositionManager:
         if tick_pnl < pos.mae_bps:
             pos.mae_bps = tick_pnl
 
-        if self.exit_version == "v1":
-            return self._on_tick_v1(pos, price, tick_pnl, tick_time)
-        return self._on_tick_v2(pos, price, tick_pnl, tick_time)
-
-    def _on_tick_v2(self, pos, price, tick_pnl, tick_time) -> Optional[TradeRecord]:
-        """V2 tick logic: trailing stop + BE lock."""
-        tighten_bar = self.cfg.exit.tighten_after_bar
-        if pos.bars_held > tighten_bar:
-            active_trailing = self.cfg.exit.tight_trailing_stop_bps
-        else:
-            active_trailing = pos.trailing_stop_bps
-
-        be_activation = self.cfg.exit.breakeven_activation_mfe
-        be_floor = self.cfg.exit.breakeven_floor_gross_bps
-        be_active = pos.highest_profit_bps >= be_activation
-
-        drawdown = pos.highest_profit_bps - tick_pnl
-        if drawdown >= active_trailing and pos.highest_profit_bps > 0:
-            reason = "TIGHT_TS" if pos.bars_held > tighten_bar else "TRAILING_STOP"
-            return self._close_position(tick_pnl, tick_time, pos.bars_held, reason)
-
-        if be_active and tick_pnl <= be_floor:
-            return self._close_position(tick_pnl, tick_time, pos.bars_held, "BE_LOCK")
-
-        return None
-
-    def _on_tick_v1(self, pos, price, tick_pnl, tick_time) -> Optional[TradeRecord]:
-        """V3 tick logic: PT (60/80) + MID_TRAIL (25/10) + LOCKED_PROFIT (15) + STOP_LOSS (-10)."""
         e = self.cfg.exit
 
         # Arm PT once peak touches pt_arm within max bar
@@ -191,14 +148,7 @@ class V12PositionManager:
         return None
 
     def on_bar(self, high: float, low: float, close: float, bar_time: object, bar_index: int) -> Optional[TradeRecord]:
-        """Process a new bar close. Handles time-based exits (EARLY_CUT, TIME_EXIT).
-
-        Price-based exits (trailing stop, BE lock) are handled by on_tick.
-        This method is a safety net: if on_tick wasn't called, it also checks
-        price exits using bar_close_pnl.
-
-        Returns TradeRecord if position was closed, None if still open.
-        """
+        """Process a new bar close. Handles time exit (price exits via on_tick)."""
         pos = self.position
         if pos is None:
             return None
@@ -223,44 +173,11 @@ class V12PositionManager:
         if bar_mfe > pos.highest_profit_bps:
             pos.highest_profit_bps = bar_mfe
 
-        # V1 branch
-        if self.exit_version == "v1":
-            # V1: only time exit here — price exits handled by on_tick
-            if pos.bars_held >= pos.max_bars:
-                if bar_close_pnl >= 0:
-                    return self._close_position(bar_close_pnl, bar_time, bar_index, "NO_ZONE")
-                return self._close_position(bar_close_pnl, bar_time, bar_index, "TIME_EXIT")
-            return None
-
-        # V2 branch (existing logic)
-        tighten_bar = self.cfg.exit.tighten_after_bar
-        if pos.bars_held > tighten_bar:
-            active_trailing = self.cfg.exit.tight_trailing_stop_bps
-        else:
-            active_trailing = pos.trailing_stop_bps
-
-        be_activation = self.cfg.exit.breakeven_activation_mfe
-        be_floor = self.cfg.exit.breakeven_floor_gross_bps
-        be_active = pos.highest_profit_bps >= be_activation
-
-        drawdown = pos.highest_profit_bps - bar_close_pnl
-        if drawdown >= active_trailing and pos.highest_profit_bps > 0:
-            reason = "TIGHT_TS" if pos.bars_held > tighten_bar else "TRAILING_STOP"
-            return self._close_position(bar_close_pnl, bar_time, bar_index, reason)
-
-        if be_active and bar_close_pnl <= be_floor:
-            return self._close_position(bar_close_pnl, bar_time, bar_index, "BE_LOCK")
-
-        early_cut_bar3 = self.cfg.exit.early_cut_bar3_mfe
-        early_cut_bar4 = self.cfg.exit.early_cut_bar4_mfe
-        if pos.bars_held == 3 and pos.highest_profit_bps < early_cut_bar3:
-            return self._close_position(bar_close_pnl, bar_time, bar_index, "EARLY_CUT")
-        if pos.bars_held == 4 and pos.highest_profit_bps < early_cut_bar4:
-            return self._close_position(bar_close_pnl, bar_time, bar_index, "EARLY_CUT")
-
+        # V1 only: time exit on max bar (price exits handled by on_tick)
         if pos.bars_held >= pos.max_bars:
+            if bar_close_pnl >= 0:
+                return self._close_position(bar_close_pnl, bar_time, bar_index, "NO_ZONE")
             return self._close_position(bar_close_pnl, bar_time, bar_index, "TIME_EXIT")
-
         return None
 
     def _close_position(

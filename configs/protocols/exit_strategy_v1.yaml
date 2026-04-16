@@ -25,15 +25,21 @@ required_metrics:
   - max_drawdown_bps
   - n_trades
   - avg_bps_per_trade
-  # Exit type breakdown
-  - trailing_stop_count
-  - trailing_stop_bps
-  - tight_ts_count
-  - tight_ts_bps
+  # Exit type breakdown (V1 rules)
+  - pt_target_count
+  - pt_target_bps
+  - pt_lock_count
+  - pt_lock_bps
+  - mid_trail_count
+  - mid_trail_bps
+  - locked_profit_count
+  - locked_profit_bps
+  - stop_loss_count
+  - stop_loss_bps
   - time_exit_count
   - time_exit_bps
-  - early_cut_count
-  - early_cut_bps
+  - no_zone_count
+  - no_zone_bps
   # Winner/loser analysis
   - avg_winner_bps
   - avg_loser_bps
@@ -45,8 +51,6 @@ required_metrics:
   - per_signal_type_bps
 
 optional_metrics:
-  - breakeven_lock_count
-  - breakeven_lock_bps
   - loss_conversion_rate
   - per_quarter_bps
   - sharpe_daily
@@ -73,15 +77,16 @@ baseline:
       honest_metrics: {total_bps: -4822, profit_factor: 0.86, note: "with honest bar-close pricing"}
 
 configurable_params:
-  - trailing_stop_long_bps
-  - trailing_stop_short_bps
-  - tighten_after_bar
-  - tight_trailing_stop_bps
-  - early_cut_bar3_mfe
-  - early_cut_bar4_mfe
-  - breakeven_activation_mfe
-  - breakeven_floor_gross_bps
-  - max_bars
+  - v1_pt_arm_bps
+  - v1_pt_target_bps
+  - v1_pt_lock_bps
+  - v1_pt_max_bar
+  - v1_mid_trail_arm_bps
+  - v1_mid_trail_width_bps
+  - v1_lock_arm_bps
+  - v1_lock_trigger_bps
+  - v1_stop_loss_bps
+  - v1_max_bars
   - monitoring_resolution      # 15m or 1m
 
 tags:

@@ -93,7 +93,7 @@ class V12Bot:
             model_path=PROJECT_ROOT / "models" / "ML_V1" / "direction_model.onnx",
             scaler_path=PROJECT_ROOT / "models" / "ML_V1" / "scaler.npz",
         )
-        self._ml_pm = V12PositionManager(config, exit_version="v1")   # ML V1.5 uses V1 exits
+        self._ml_pm = V12PositionManager(config)
         self._ml_wallet = DEFAULT_CAPITAL
         self._ml_health = AccountHealthMonitor()
         self._ml_risk_calc = RiskCalculator(worst_loss_bps=865, health=self._ml_health)
@@ -116,7 +116,7 @@ class V12Bot:
             model_path=PROJECT_ROOT / "models" / "ML_V2_ATTENTION" / "attention_model.onnx",
             scaler_path=PROJECT_ROOT / "models" / "ML_V2_ATTENTION" / "scaler.npz",
         )
-        self._ml_attn_pm = V12PositionManager(config, exit_version="v1")   # ML V2 Attention uses V1 exits
+        self._ml_attn_pm = V12PositionManager(config)
         self._ml_attn_wallet = DEFAULT_CAPITAL
         self._ml_attn_health = AccountHealthMonitor()
         self._ml_attn_risk_calc = RiskCalculator(worst_loss_bps=865, health=self._ml_attn_health)
@@ -223,9 +223,9 @@ class V12Bot:
             pair=SYMBOL,
             timeframe=TIMEFRAME,
             mode=self.cfg.execution.mode,
-            trailing_stop_long=self.cfg.exit.long_trailing_stop_bps,
-            trailing_stop_short=self.cfg.exit.short_trailing_stop_bps,
-            max_bars=self.cfg.exit.max_bars,
+            trailing_stop_long=0,
+            trailing_stop_short=0,
+            max_bars=self.cfg.exit.v1_max_bars,
             reentry_enabled=self.cfg.reentry.enabled,
             config_hash=self.cfg.config_hash(),
         )
@@ -990,20 +990,13 @@ class V12Bot:
         else:
             current_pnl = (pos.entry_price - close_price) / pos.entry_price * 10000
 
-        # Show active trailing stop (tightened after configured bar)
-        tighten_bar = self.cfg.exit.tighten_after_bar
-        if pos.bars_held > tighten_bar:
-            active_ts = self.cfg.exit.tight_trailing_stop_bps
-        else:
-            active_ts = pos.trailing_stop_bps
-
         liq_price = _calc_liq_price(pos.entry_price, pos.direction.value, self._wallet, self._current_qty)
 
         self._dashboard.update_position(
             has_position=True,
             side=pos.direction.value,
             entry_price=pos.entry_price,
-            trailing_stop_bps=active_ts,
+            trailing_stop_bps=0,
             highest_profit_bps=round(pos.highest_profit_bps, 1),
             current_pnl_bps=round(current_pnl, 1),
             bars_held=pos.bars_held,
@@ -1025,12 +1018,6 @@ class V12Bot:
         else:
             current_pnl = (pos.entry_price - close_price) / pos.entry_price * 10000
 
-        tighten_bar = self.cfg.exit.tighten_after_bar
-        if pos.bars_held > tighten_bar:
-            active_ts = self.cfg.exit.tight_trailing_stop_bps
-        else:
-            active_ts = pos.trailing_stop_bps
-
         liq_price = _calc_liq_price(pos.entry_price, pos.direction.value, self._ml_wallet, self._ml_qty)
 
         self._dashboard.update_ml(
@@ -1038,7 +1025,7 @@ class V12Bot:
             ml_position_side=pos.direction.value,
             ml_position_pnl_bps=round(current_pnl, 1),
             ml_position_entry_price=pos.entry_price,
-            ml_position_trailing_stop_bps=active_ts,
+            ml_position_trailing_stop_bps=0,
             ml_position_highest_profit_bps=round(pos.highest_profit_bps, 1),
             ml_position_bars_held=pos.bars_held,
             ml_position_max_bars=pos.max_bars,
@@ -1058,12 +1045,6 @@ class V12Bot:
         else:
             current_pnl = (pos.entry_price - close_price) / pos.entry_price * 10000
 
-        tighten_bar = self.cfg.exit.tighten_after_bar
-        if pos.bars_held > tighten_bar:
-            active_ts = self.cfg.exit.tight_trailing_stop_bps
-        else:
-            active_ts = pos.trailing_stop_bps
-
         liq_price = _calc_liq_price(pos.entry_price, pos.direction.value, self._ml_attn_wallet, self._ml_attn_qty)
 
         self._dashboard.update_ml_attn(
@@ -1071,7 +1052,7 @@ class V12Bot:
             ml_attn_position_side=pos.direction.value,
             ml_attn_position_pnl_bps=round(current_pnl, 1),
             ml_attn_position_entry_price=pos.entry_price,
-            ml_attn_position_trailing_stop_bps=active_ts,
+            ml_attn_position_trailing_stop_bps=0,
             ml_attn_position_highest_profit_bps=round(pos.highest_profit_bps, 1),
             ml_attn_position_bars_held=pos.bars_held,
             ml_attn_position_max_bars=pos.max_bars,
@@ -1435,10 +1416,10 @@ class V12Bot:
                         ml_position_side=ml_signal.direction.value,
                         ml_position_pnl_bps=0.0,
                         ml_position_entry_price=current_price,
-                        ml_position_trailing_stop_bps=20 if ml_signal.direction == Direction.LONG else 30,
+                        ml_position_trailing_stop_bps=0,
                         ml_position_highest_profit_bps=0.0,
                         ml_position_bars_held=0,
-                        ml_position_max_bars=self.cfg.exit.max_bars,
+                        ml_position_max_bars=self.cfg.exit.v1_max_bars,
                         ml_position_mfe_bps=0.0,
                         ml_position_mae_bps=0.0,
                         ml_position_liq_price=ml_liq,
@@ -1570,10 +1551,10 @@ class V12Bot:
                             ml_attn_position_side=attn_signal.direction.value,
                             ml_attn_position_pnl_bps=0.0,
                             ml_attn_position_entry_price=current_price,
-                            ml_attn_position_trailing_stop_bps=20 if attn_signal.direction == Direction.LONG else 30,
+                            ml_attn_position_trailing_stop_bps=0,
                             ml_attn_position_highest_profit_bps=0.0,
                             ml_attn_position_bars_held=0,
-                            ml_attn_position_max_bars=self.cfg.exit.max_bars,
+                            ml_attn_position_max_bars=self.cfg.exit.v1_max_bars,
                             ml_attn_position_mfe_bps=0.0,
                             ml_attn_position_mae_bps=0.0,
                             ml_attn_position_liq_price=_calc_liq_price(current_price, attn_signal.direction.value, self._ml_attn_wallet, self._ml_attn_qty),

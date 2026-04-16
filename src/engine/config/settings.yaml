@@ -33,23 +33,9 @@ bull_short_filters:
   atr_percentile_min: 60     # only in high volatility (60th+ percentile)
   ema_separation_min: 1.0    # only when EMAs separated by 1%+
 
-# --- Exit Mechanics ---
-# V2 params (legacy — used by V1.4 RSI and ML V2 Attention)
-# V1 params (current production — used by ML V1.5 MLP; was V3 pre-rename)
-#   See configs/strategy_cards/exit_v1.yaml for full rule docs.
+# --- Exit Mechanics (V1: PT/MID_TRAIL/LOCKED_PROFIT/STOP_LOSS) ---
+# See configs/strategy_cards/exit_v1.yaml for full rule docs.
 exit:
-  # V2 params
-  long_trailing_stop_bps: 20
-  short_trailing_stop_bps: 30
-  max_bars: 10
-  tighten_after_bar: 4
-  tight_trailing_stop_bps: 6
-  early_cut_bar3_mfe: 3
-  early_cut_bar4_mfe: 5
-  breakeven_activation_mfe: 15
-  breakeven_floor_gross_bps: 9
-
-  # V3 params (ML V1.5)
   v1_max_bars: 6
   v1_pt_arm_bps: 60
   v1_pt_target_bps: 80

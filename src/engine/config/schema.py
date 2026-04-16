@@ -56,25 +56,9 @@ class BullShortFilters(BaseModel):
 
 
 class ExitConfig(BaseModel):
-    """Exit mechanics. V2 (frozen 2026-03-29) + V3 (proposed) params.
-
-    V2 params used by V1.4 RSI and ML V2 Attention.
-    V3 params used by ML V1.5 MLP.
-    """
+    """Exit mechanics — V1 (PT_TARGET / MID_TRAIL / LOCKED_PROFIT / STOP_LOSS)."""
     model_config = ConfigDict(frozen=True)
 
-    # --- V2 params (existing) ---
-    long_trailing_stop_bps: float = Field(ge=5, le=100)
-    short_trailing_stop_bps: float = Field(ge=5, le=100)
-    max_bars: int = Field(ge=1, le=50)
-    tighten_after_bar: int = Field(ge=1, le=50)
-    tight_trailing_stop_bps: float = Field(ge=1, le=100)
-    early_cut_bar3_mfe: float = Field(ge=0, le=50)
-    early_cut_bar4_mfe: float = Field(ge=0, le=50)
-    breakeven_activation_mfe: float = Field(ge=0, le=200)
-    breakeven_floor_gross_bps: float = Field(ge=0, le=100)
-
-    # --- V3 params (new — for ML V1.5 only) ---
     v1_max_bars: int = Field(default=6, ge=1, le=50)
     v1_pt_arm_bps: float = Field(default=60, ge=10, le=500)
     v1_pt_target_bps: float = Field(default=80, ge=10, le=500)

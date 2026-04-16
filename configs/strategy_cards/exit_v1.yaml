@@ -1,6 +1,6 @@
 name: exit_v1
-version: 2
-status: PARTIALLY_LIVE (5 of 6 tick rules deployed in v1.8.0; STOP_LOSS pending deployment)
+version: 3
+status: LIVE (all tick rules deployed; sole exit plan after V2 removal in v1.10.x)
 description: |
   Third-generation exit strategy. Complete tiered exit system with 6 tick rules
   plus bar-close backstop:
@@ -120,11 +120,11 @@ exit_breakdown_v1_stop10:
 
 # Implementation status
 implementation:
-  live_in_production: partial
-  deployed_tag: v1.8.1
-  deployed_model: ML V1.5 only (V1.4 and Attention still on V2)
-  rules_live: [pt_target, pt_lock, mid_trail, locked_profit, no_zone, time_exit]
-  rules_pending: [stop_loss]
+  live_in_production: full
+  deployed_tag: v1.10.x
+  deployed_model: V1.4 + ML V1.5 + ML V2 Attention (all three on V1)
+  rules_live: [pt_target, pt_lock, mid_trail, locked_profit, stop_loss, no_zone, time_exit]
+  rules_pending: []
   requires:
     - Real-time tick monitoring via WebSocket (already built)
     - on_tick() method (already built)

@@ -46,7 +46,7 @@ def run_backtest(
     ml_generator_class: type[BaseSignalGenerator] = MLV1,
     ml_onnx_filename: str = "direction_model.onnx",
     ml_scaler_filename: str = "scaler.npz",
-    exit_version: str | None = None,
+    v14_only: bool = False,
 ) -> list[TradeRecord]:
     """Run backtest using the same modules as the live bot.
 
@@ -93,18 +93,21 @@ def run_backtest(
     signals = strategy.generate_signals(test)
     logger.info("V1.4 signals: %d", len(signals))
 
-    # Generate ML signals — which model class + its onnx/scaler filenames.
-    ml_model_path = ml_model_dir / ml_onnx_filename
-    ml_scaler_path = ml_model_dir / ml_scaler_filename
-    ml_gen = ml_generator_class(model_path=ml_model_path, scaler_path=ml_scaler_path)
-
-    if ml_gen.loaded:
-        test_with_ml = ml_gen.compute_features_from_df(test.copy())
-        ml_signals = ml_gen.generate_signals(test_with_ml)
-        logger.info("ML signals: %d", len(ml_signals))
-        signals.extend(ml_signals)
+    # Generate ML signals — unless V1.4-only mode is requested.
+    if v14_only:
+        logger.info("V1.4-only mode: skipping ML signal generation")
     else:
-        logger.warning("ML model not found — running V1.4 only")
+        ml_model_path = ml_model_dir / ml_onnx_filename
+        ml_scaler_path = ml_model_dir / ml_scaler_filename
+        ml_gen = ml_generator_class(model_path=ml_model_path, scaler_path=ml_scaler_path)
+
+        if ml_gen.loaded:
+            test_with_ml = ml_gen.compute_features_from_df(test.copy())
+            ml_signals = ml_gen.generate_signals(test_with_ml)
+            logger.info("ML signals: %d", len(ml_signals))
+            signals.extend(ml_signals)
+        else:
+            logger.warning("ML model not found — running V1.4 only")
 
     # Build signal lookup: bar_index -> Signal (V1.4 takes priority over ML)
     signal_map = {}
@@ -118,12 +121,7 @@ def run_backtest(
                 signal_map[s.bar_index] = s  # replace ML with V1.4
 
     # Walk through bars, managing positions.
-    # Exit version: caller can override via `exit_version` arg; else read from params.yaml.
-    if exit_version is None:
-        import yaml as _yaml
-        with open(Path(__file__).resolve().parents[2] / "configs/params.yaml") as _f:
-            exit_version = _yaml.safe_load(_f)["exit"]["version"]
-    pm = V12PositionManager(config, exit_version=exit_version)
+    pm = V12PositionManager(config)
     n = len(test)
 
     i = 0
@@ -276,9 +274,22 @@ def print_results(trades: list[TradeRecord], config: AppConfig) -> None:
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--v14-only", action="store_true",
+                        help="Skip ML signals — backtest V1.4 strategy alone")
+    parser.add_argument("--start", default="2024-01-01")
+    parser.add_argument("--end", default="2025-12-31")
+    args = parser.parse_args()
+
     logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
     config = load_config()
-    trades = run_backtest(config)
+    trades = run_backtest(
+        config,
+        start=args.start,
+        end=args.end,
+        v14_only=args.v14_only,
+    )
     print_results(trades, config)
 
 
