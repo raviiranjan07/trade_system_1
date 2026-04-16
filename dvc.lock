@@ -1,13 +1,12 @@
 schema: '2.0'
 stages:
   build_labels:
-    cmd: PYTHONPATH=src python 
-      experiments/layer2/L2-003/stage_3/L2_003_stage3_labels.py
+    cmd: python experiments/layer2/L2-003/stage_3/L2_003_stage3_labels.py
     deps:
     - path: data/features/direction_prediction/feature_cache.parquet
       hash: md5
-      md5: e395c57f0eb678807d4d22cf08ea6eec
-      size: 39698502
+      md5: e78134d5a94a39dfc609b9f18b03cc4d
+      size: 39641806
     - path: experiments/layer2/L2-003/stage_3/L2_003_stage3_labels.py
       hash: md5
       md5: 2f415b55e22f6f4d9902d05cbc440b14
@@ -15,19 +14,19 @@ stages:
     outs:
     - path: data/features/direction_prediction/labels.parquet
       hash: md5
-      md5: 5ab7883630d668e1e96f6ef6e08491f9
-      size: 32887969
+      md5: 2b95e64e723b960ddc59a9bf9ce5d468
+      size: 32889487
   train_mlp_v15:
-    cmd: PYTHONPATH=src python -m engine.ml_train
+    cmd: python src/engine/ml_train.py
     deps:
     - path: data/features/direction_prediction/feature_cache.parquet
       hash: md5
-      md5: e395c57f0eb678807d4d22cf08ea6eec
-      size: 39698502
+      md5: e78134d5a94a39dfc609b9f18b03cc4d
+      size: 39641806
     - path: data/features/direction_prediction/labels.parquet
       hash: md5
-      md5: 5ab7883630d668e1e96f6ef6e08491f9
-      size: 32887969
+      md5: 2b95e64e723b960ddc59a9bf9ce5d468
+      size: 32889487
     - path: src/engine/ml_train.py
       hash: md5
       md5: 6f6aaba7eca91237c1e9325ad47c0932
@@ -44,15 +43,31 @@ stages:
     deps:
     - path: data/features/direction_prediction/feature_cache.parquet
       hash: md5
-      md5: e395c57f0eb678807d4d22cf08ea6eec
-      size: 39698502
+      md5: e78134d5a94a39dfc609b9f18b03cc4d
+      size: 39641806
     - path: data/features/direction_prediction/labels.parquet
       hash: md5
-      md5: 5ab7883630d668e1e96f6ef6e08491f9
-      size: 32887969
+      md5: 2b95e64e723b960ddc59a9bf9ce5d468
+      size: 32889487
     outs:
     - path: models/direction_attention
       hash: md5
       md5: 1fd2e65cf52d4cbec6d1c37d8c304f18.dir
       size: 579732
       nfiles: 4
+  build_features:
+    cmd: python src/engine/build_features.py
+    deps:
+    - path: data/raw/BTCUSDT_15m_ohlcv.parquet
+      hash: md5
+      md5: 80dddbc50f8fce723e9c9fbb8d48a32a
+      size: 9061640
+    - path: src/engine/build_features.py
+      hash: md5
+      md5: ed6af768168e333306dafac7c19775a9
+      size: 5167
+    outs:
+    - path: data/features/direction_prediction/feature_cache.parquet
+      hash: md5
+      md5: e78134d5a94a39dfc609b9f18b03cc4d
+      size: 39641806
