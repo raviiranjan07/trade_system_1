@@ -197,6 +197,72 @@ Migration effort: ~2 hours when triggered. **Do not build preemptively.**
 
 ---
 
+## Capability matrix — what the pipeline supports today
+
+### Supported workflows (use now)
+
+| Goal | Command | Notes |
+|---|---|---|
+| End-to-end test for ml_v1 | `python scripts/mlops/run_pipeline.py ml_v1 --test` | Cleans up MLflow versions created |
+| Production retrain | `python scripts/mlops/run_pipeline.py ml_v1` | Runs only stale stages |
+| Force full rebuild | `python scripts/mlops/run_pipeline.py ml_v1 --force` | Keeps new MLflow version |
+| Train only | `dvc repro train_mlp_v15` | Stops after training |
+| Backtest only | `dvc repro backtest_staging` | Uses current trained model |
+| Change exit rules (v1 vs v2) | Edit `exit.version` in params.yaml, `dvc repro backtest_staging` | Only backtest re-runs |
+| Change training hyperparams | Edit `ml_v1.training` in params.yaml, `dvc repro` | train + backtest re-run |
+| Change labels (same model/exit) | Edit label builder script, `dvc repro` | Full cascade: labels -> train -> backtest |
+| Change features (same model/exit) | Edit feature builder script, `dvc repro` | Full cascade |
+| Change inference thresholds | Edit `ml_v1.inference` in params.yaml, `dvc repro backtest_staging` | Only backtest re-runs |
+
+### Not-yet-wired (needs work before it runs)
+
+| Goal | Effort | What to add |
+|---|---|---|
+| Backtest across multiple models (ml_v1 + attention) | ~30 min | Generalize `backtest_staging.py` to take `--model` arg; add per-model backtest stages |
+| Test a new exit strategy (e.g. v3) | ~1 hour | Add exit rules in code; add V3 invariants in verify_backtest.py |
+| Promotion: staging -> production + alias swap | ~20 min | Add a `promote.py` helper that copies files and swaps MLflow alias |
+| Attention model pipeline (Colab-trained) | ~2-3 hr | Write train script, add DVC stages, add pipelines.yaml entry |
+| All-models aggregate pipeline | ~15 min after per-model wiring | Add `all_models` entry in pipelines.yaml |
+
+### Known limitations of current pipeline
+
+1. **Single-model backtest only.** `backtest_staging.py` hardcodes `models/ML_V1_staging/` as the staging dir. To backtest Attention or another model, need a `--model <name>` arg that reads a per-model staging dir. Applies to `backtest_staging.py` and the DVC stage output path.
+2. **Exit version invariants are V1-only.** `verify_backtest.py` encodes V1 rules (STOP_LOSS = -10, PT_TARGET = 80, etc.). Switching `exit.version: v2` and running verify_backtest will fail. For V2 testing, either skip verifier or add V2 invariant branch.
+3. **Backtest reports get overwritten.** `backtest_staging.json` and `backtest_staging_trades.parquet` are replaced each run. MLflow has model version history but no corresponding backtest JSONs. Fix: log metrics back to MLflow run, or archive per-run JSONs.
+4. **No multi-model comparison stage.** To compare ML_V1 vs Attention head-to-head, you'd need both backtested on the same window, then a diff script. Not built.
+5. **Manifest writer and verifier are loosely coupled.** Adding a new model requires writing a correct manifest (schema_version, split.method, scaler.fit_on, feature_recipe.compute_fn). No schema enforcement — typos silently make verifier skip checks.
+6. **Inference thresholds in params.yaml are ML_V1-specific.** `ml_v1.inference.*`. Each new model needs its own section and its own signal-generator code that reads from there.
+
+### Workflow patterns (decision tree)
+
+```
+What changed?
+├─ Tunable parameter (hyperparam, threshold, window)
+│   └── Edit configs/params.yaml -> dvc repro
+│
+├─ Code (feature builder, label builder, training logic)
+│   └── Edit script -> dvc repro (cascades automatically)
+│
+├─ Data (new raw bars added)
+│   └── dvc add data/raw/<file> -> dvc repro (full cascade)
+│
+├─ Exit strategy (new ruleset)
+│   └── Add exit method + schema + settings -> flip params.yaml
+│       If new invariants needed: extend verify_backtest.py
+│
+├─ New model architecture
+│   └── New training script + DVC stages + pipelines.yaml entry
+│       Generic verifier works as-is if manifest is correct
+│
+├─ Card/documentation only
+│   └── Edit card -> git commit (no pipeline rerun)
+│
+└─ Runtime config default (schema.py, settings.yaml)
+    └── Edit + dvc repro
+```
+
+---
+
 ## How to add a new model (checklist)
 
 1. Write the training script (e.g. `src/engine/train_xgboost.py`) that:
