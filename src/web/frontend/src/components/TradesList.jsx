@@ -18,7 +18,7 @@ const REASON_STYLES = {
   TIME_EXIT: { bg: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b', label: 'TIME' },
   BE_LOCK: { bg: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6', label: 'BE' },
   EARLY_CUT: { bg: 'rgba(230, 55, 87, 0.12)', color: '#e63757', label: 'EARLY' },
-  // V3 exits (ML V1.5)
+  // V1 exits (current production for ML_V1 and ML_V2_ATTENTION)
   PT_TARGET: { bg: 'rgba(0, 217, 126, 0.20)', color: '#00c97e', label: 'PT80' },
   PT_LOCK: { bg: 'rgba(0, 217, 126, 0.12)', color: '#00a86b', label: 'PT60' },
   MID_TRAIL: { bg: 'rgba(14, 165, 233, 0.12)', color: '#0ea5e9', label: 'MTRAIL' },
