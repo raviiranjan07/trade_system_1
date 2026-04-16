@@ -29,14 +29,14 @@ stages:
       size: 32889487
     - path: src/engine/ml_train.py
       hash: md5
-      md5: 6f6aaba7eca91237c1e9325ad47c0932
-      size: 7200
+      md5: fb30ffab31d21deb2e0f9358dbb5b97f
+      size: 13061
     outs:
-    - path: models/direction_v15
+    - path: models/direction_v15_staging
       hash: md5
-      md5: fc3f6a5c6e90a503215641ca308dcd55.dir
-      size: 154782
-      nfiles: 3
+      md5: c07db51f887a78a7643ee43a4a60badc.dir
+      size: 155078
+      nfiles: 4
   train_attention:
     cmd: echo "Trained externally on Colab. Files placed manually in 
       models/direction_attention/"

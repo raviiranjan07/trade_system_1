@@ -17,13 +17,15 @@ stages:
       - data/features/direction_prediction/labels.parquet
 
   train_mlp_v15:
+    # Outputs go to models/direction_v15_staging/ — the live bot reads from
+    # models/direction_v15/ and is unaffected until manual promotion.
     cmd: python src/engine/ml_train.py
     deps:
       - data/features/direction_prediction/feature_cache.parquet
       - data/features/direction_prediction/labels.parquet
       - src/engine/ml_train.py
     outs:
-      - models/direction_v15:
+      - models/direction_v15_staging:
           cache: false
 
   train_attention:
