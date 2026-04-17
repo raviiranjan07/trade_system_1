@@ -178,7 +178,7 @@ function MonitoringRow({ label, actual, expected, delta, status }) {
   )
 }
 
-function BotCard({ title, active, wallet, growth, totalBps, trades, winRate, drawdown, lastTrade, accentColor, tradeHistory, prediction, exitVersion, monitoring }) {
+function BotCard({ title, active, wallet, growth, totalBps, trades, winRate, drawdown, lastTrade, accentColor, tradeHistory, prediction, exitVersion, monitoring, onTradesClick }) {
   const growthNum = Number(growth)
   const ddPct = (drawdown * 100)
   const ddColor = ddPct > 15 ? '#e63757' : ddPct > 5 ? '#f59e0b' : '#00d97e'
@@ -229,8 +229,8 @@ function BotCard({ title, active, wallet, growth, totalBps, trades, winRate, dra
           </div>
           <div className="db-stat-label">P&L (bps)</div>
         </div>
-        <div className="db-stat-item">
-          <div className="db-stat-value">{trades}</div>
+        <div className="db-stat-item" onClick={onTradesClick} style={onTradesClick ? { cursor: 'pointer' } : undefined}>
+          <div className="db-stat-value" style={onTradesClick ? { textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 } : undefined}>{trades}</div>
           <div className="db-stat-label">Trades</div>
         </div>
         <div className="db-stat-item">
@@ -375,7 +375,7 @@ function PositionBlock({ label, accentColor, side, entryPrice, currentPrice, pnl
   )
 }
 
-function OverviewPage({ stats, risk, ml, mlAttn, trades, mlTrades, mlAttnTrades, status, position }) {
+function OverviewPage({ stats, risk, ml, mlAttn, trades, mlTrades, mlAttnTrades, status, position, onTradesNavigate }) {
   const v14Wallet = risk?.wallet_usd ?? 0
   const mlWallet = ml?.ml_wallet_usd ?? 0
   const mlAttnWallet = mlAttn?.ml_attn_wallet_usd ?? 0
@@ -487,6 +487,7 @@ function OverviewPage({ stats, risk, ml, mlAttn, trades, mlTrades, mlAttnTrades,
           accentColor="#3b82f6"
           tradeHistory={trades}
           exitVersion="V1"
+          onTradesClick={() => onTradesNavigate?.('V1.4')}
         />
         <BotCard
           title="ML Strategy"
@@ -522,6 +523,7 @@ function OverviewPage({ stats, risk, ml, mlAttn, trades, mlTrades, mlAttnTrades,
               status: ml?.ml_cum_status ?? 'pending',
             },
           }}
+          onTradesClick={() => onTradesNavigate?.('ML')}
         />
         <BotCard
           title="ML V2"
@@ -557,6 +559,7 @@ function OverviewPage({ stats, risk, ml, mlAttn, trades, mlTrades, mlAttnTrades,
               status: mlAttn?.ml_attn_cum_status ?? 'pending',
             },
           }}
+          onTradesClick={() => onTradesNavigate?.('ML V2')}
         />
       </div>
 

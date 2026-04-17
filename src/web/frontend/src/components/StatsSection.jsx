@@ -1,7 +1,9 @@
-import React, { useState } from 'react'
+import React from 'react'
 
-function StatsSection({ stats, risk, ml, trades, mlTrades, mlAttnTrades }) {
-  const [view, setView] = useState('combined')
+const FILTER_TO_VIEW = { 'Combined': 'combined', 'V1.4': 'v14', 'ML': 'ml', 'ML V2': 'mlv2' }
+
+function StatsSection({ stats, risk, ml, trades, mlTrades, mlAttnTrades, activeFilter, onFilterChange }) {
+  const view = FILTER_TO_VIEW[activeFilter] || 'combined'
 
   // Compute stats based on view
   let displayStats = stats || {}
@@ -73,10 +75,12 @@ function StatsSection({ stats, risk, ml, trades, mlTrades, mlAttnTrades }) {
   return (
     <div>
       <div className="stats-filter-bar">
-        <button className={`stats-filter-btn ${view === 'combined' ? 'active' : ''}`} onClick={() => setView('combined')}>Combined</button>
-        <button className={`stats-filter-btn ${view === 'v14' ? 'active' : ''}`} onClick={() => setView('v14')}>V1.4</button>
-        <button className={`stats-filter-btn ${view === 'ml' ? 'active' : ''}`} onClick={() => setView('ml')}>ML</button>
-        <button className={`stats-filter-btn ${view === 'mlv2' ? 'active' : ''}`} onClick={() => setView('mlv2')}>ML V2</button>
+        {['Combined', 'V1.4', 'ML', 'ML V2'].map(f => {
+          const viewKey = FILTER_TO_VIEW[f]
+          return (
+            <button key={f} className={`stats-filter-btn ${view === viewKey ? 'active' : ''}`} onClick={() => onFilterChange?.(f)}>{f}</button>
+          )
+        })}
       </div>
       <div className="stats-hero">
         <div className="stats-hero-card">

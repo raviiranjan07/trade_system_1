@@ -59,12 +59,13 @@ stages:
     params:
       - configs/params.yaml:
           - backtest
-          - exit
           - ml_v1.inference
     outs:
-      - data/reports/backtest_staging.json:
+      - data/reports/backtest_staging_ml_v1_exitv1.json:
           cache: false
-      - data/reports/backtest_staging_trades.parquet:
+      - data/reports/backtest_staging_trades_ml_v1_exitv1.parquet:
+          cache: false
+      - data/reports/backtest_matrix_summary.json:
           cache: false
 
   verify_backtest:
@@ -74,7 +75,7 @@ stages:
     # config is set but V3 logic doesn't actually run.
     cmd: python scripts/mlops/verify_backtest.py
     deps:
-      - data/reports/backtest_staging_trades.parquet
+      - data/reports/backtest_staging_trades_ml_v1_exitv1.parquet
       - scripts/mlops/verify_backtest.py
     outs:
       - data/reports/verify_backtest.json:
@@ -83,11 +84,109 @@ stages:
   train_attention:
     # Trained on Colab T4 GPU — see scripts/colab/train_attention_production.py
     # This stage is frozen: dvc repro will not re-run it.
-    cmd: echo "Trained externally on Colab. Files placed manually in models/direction_attention/"
+    cmd: echo "Trained externally. Files in models/ML_V2_ATTENTION/"
     deps:
       - data/features/direction_prediction/feature_cache.parquet
       - data/features/direction_prediction/labels.parquet
     outs:
-      - models/direction_attention:
+      - models/ML_V2_ATTENTION:
           cache: false
     frozen: true
+
+  # ================================================================
+  # ML V3 Pipeline — Exit-Aware Direction Prediction
+  # ================================================================
+
+  build_exit_labels:
+    cmd: python -m engine.build_exit_labels
+    wdir: src
+    deps:
+      - ../data/raw/BTCUSDT_15m_ohlcv.parquet
+      - ../data/raw/BTCUSDT_1m_ohlcv.parquet
+      - engine/position_manager.py
+      - engine/config/settings.yaml
+      - engine/build_exit_labels.py
+    outs:
+      - ../data/features/direction_prediction/exit_aware_labels.parquet
+
+  verify_exit_labels:
+    cmd: python -m engine.verify_exit_labels
+    wdir: src
+    deps:
+      - ../data/features/direction_prediction/exit_aware_labels.parquet
+      - ../data/raw/BTCUSDT_15m_ohlcv.parquet
+      - ../data/raw/BTCUSDT_1m_ohlcv.parquet
+      - engine/verify_exit_labels.py
+    outs:
+      - ../data/reports/label_verification.json:
+          cache: false
+
+  train_v3:
+    cmd: python -m engine.train_v3
+    wdir: src
+    deps:
+      - ../data/features/direction_prediction/feature_cache.parquet
+      - ../data/features/direction_prediction/exit_aware_labels.parquet
+      - ../data/reports/label_verification.json
+      - engine/train_v3.py
+    params:
+      - ../configs/params.yaml:
+          - ml_v3.training
+          - ml_v3.split
+    outs:
+      - ../models/ML_V3_staging:
+          cache: false
+    metrics:
+      - ../data/reports/v3_train_metrics.json:
+          cache: false
+
+  verify_v3_model:
+    cmd: python -m engine.verify_v3_model
+    wdir: src
+    deps:
+      - ../models/ML_V3_staging
+      - ../data/features/direction_prediction/feature_cache.parquet
+      - ../data/features/direction_prediction/exit_aware_labels.parquet
+      - engine/verify_v3_model.py
+    outs:
+      - ../data/reports/v3_model_verification.json:
+          cache: false
+
+  backtest_v3:
+    cmd: python -m engine.backtest --model v3
+    wdir: src
+    deps:
+      - ../models/ML_V3_staging
+      - ../data/reports/v3_model_verification.json
+      - ../data/raw/BTCUSDT_15m_ohlcv.parquet
+      - ../data/raw/BTCUSDT_1m_ohlcv.parquet
+      - engine/backtest.py
+      - engine/signals/ml_v3.py
+    outs:
+      - ../data/reports/backtest_staging_v3.json:
+          cache: false
+      - ../data/reports/backtest_staging_v3_trades.parquet:
+          cache: false
+
+  verify_v3_backtest:
+    cmd: python -m engine.verify_v3_backtest
+    wdir: src
+    deps:
+      - ../data/reports/backtest_staging_v3.json
+      - ../data/reports/backtest_staging_ml_v2_attention_exitv2.json
+      - engine/verify_v3_backtest.py
+    outs:
+      - ../data/reports/v3_backtest_verification.json:
+          cache: false
+
+  compare_v3:
+    cmd: python -m engine.compare_models
+    wdir: src
+    deps:
+      - ../data/reports/backtest_staging_v3.json
+      - ../data/reports/backtest_staging_ml_v2_attention_exitv2.json
+      - ../data/reports/v3_backtest_verification.json
+      - engine/compare_models.py
+    outs:
+      - ../data/reports/v3_vs_v2_comparison.json:
+          cache: false

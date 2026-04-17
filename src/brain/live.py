@@ -32,11 +32,11 @@ class BrainLive:
 
         # Paths
         self.state_file = Path(self.live_cfg.get("state", {}).get(
-            "state_file", "data/v12_trades/brain_state.json"))
+            "state_file", "data/trades/brain_state.json"))
         self.log_file = Path(self.live_cfg.get("monitoring", {}).get(
-            "log_file", "data/risk_logs/brain/decisions.csv"))
+            "log_file", "data/trades/risk_logs/brain/decisions.csv"))
         self.error_log = Path(self.live_cfg.get("error_handling", {}).get(
-            "error_log", "data/risk_logs/brain/errors.csv"))
+            "error_log", "data/trades/risk_logs/brain/errors.csv"))
 
         # Thresholds
         self.long_thresh = self.live_cfg.get("thresholds", {}).get("long_confidence", 0.60)

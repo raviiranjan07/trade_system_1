@@ -1,0 +1,125 @@
+# Direction Prediction V3 Protocol
+# Exit-aware 3-class prediction (LONG / SHORT / SKIP)
+# Extended from direction_prediction_v1 for 3-class output + PnL regression
+
+name: direction_prediction_v3
+version: 1
+description: |
+  Validate ML V3 exit-aware direction prediction model.
+  3-class output (LONG/SHORT/SKIP) with PnL regression auxiliary heads.
+  Labels are simulated trade outcomes using V2 exit rules on 1m ticks.
+
+test_spec:
+  type: supervised_classification
+  classes: 3 (LONG=0, SHORT=1, SKIP=2)
+  auxiliary: regression (long_pnl, short_pnl)
+  entry: model-generated signals
+  exit: V2 rules (PT_TARGET, PT_LOCK, MID_TRAIL, STOP_LOSS, TIME_EXIT)
+
+data_split:
+  train: ["2020-01-01", "2023-12-31"]
+  val: ["2024-01-01", "2024-12-31"]
+  test: ["2025-01-01", "2025-12-31"]
+  gap_months: 1
+  asset: BTCUSDT
+  timeframe: 15m
+  tick_data: 1m (for label generation and backtest)
+
+# Metrics that MUST be logged — pipeline fails if any missing
+required_metrics:
+  # 3-class accuracy
+  - overall_accuracy_3class
+  - long_precision
+  - long_recall
+  - short_precision
+  - short_recall
+  - skip_recall
+  # Confident signals (at production thresholds)
+  - confident_accuracy
+  - n_confident_signals
+  - n_confident_long
+  - n_confident_short
+  # PnL regression quality
+  - pnl_mse_long_test
+  - pnl_mse_short_test
+  # Stability
+  - seed_stability_std
+  # Trading (from backtest)
+  - bt_total_trades
+  - bt_total_bps
+  - bt_profit_factor
+  - bt_stop_rate
+  - bt_max_drawdown_bps
+  - bt_win_rate
+  - bt_avg_bps_per_trade
+  # Breakdown
+  - bt_per_signal_type_bps
+  - bt_per_year_bps
+  - bt_per_exit_reason_bps
+
+optional_metrics:
+  - confusion_matrix_3class
+  - roc_auc_long_vs_rest
+  - roc_auc_short_vs_rest
+  - calibration_curve
+  - per_quarter_bps
+  - sharpe_daily
+
+# Gates — checks that must PASS for pipeline to continue
+gates:
+  verify_model:
+    overall_accuracy_3class: ">= 0.40"       # not trivial "always SKIP"
+    long_recall: ">= 0.10"                   # model predicts LONG sometimes
+    short_recall: ">= 0.10"                  # model predicts SHORT sometimes
+    skip_recall: ">= 0.10"                   # model uses SKIP class
+    n_confident_signals: ">= 100"            # enough to trade
+    seed_stability_std: "<= 0.02"            # stable across seeds
+
+  verify_backtest:
+    bt_total_trades: ">= 50"                 # enough trades
+    bt_profit_factor: ">= 1.0"              # at least profitable
+    bt_stop_rate: "< 0.504"                  # better than V2 baseline (50.4%)
+    bt_max_drawdown_bps: ">= -2000"          # not catastrophic
+
+# Required artifacts — must exist after training
+required_artifacts:
+  - v3_model.onnx
+  - v3_model.pt
+  - scaler.npz
+  - backtest_staging_v3.json
+  - backtest_staging_v3_trades.parquet
+  - v3_vs_v2_comparison.json
+  - label_verification.json
+  - v3_model_verification.json
+  - v3_backtest_verification.json
+
+# Baseline for comparison
+baseline:
+  model: ML_V2_ATTENTION
+  exit_version: v2
+  metrics:
+    total_bps: 10129
+    profit_factor: 2.28
+    stop_rate: 0.504
+    max_drawdown_bps: -367
+    win_rate: 0.496
+    n_trades: 804
+
+# Configurable params (from params.yaml ml_v3 section)
+configurable_params:
+  - hidden_size
+  - dropout
+  - temperature
+  - lr
+  - batch_size
+  - loss_weight_pnl
+  - loss_weight_dir
+  - conf_long
+  - conf_short
+
+tags:
+  layer: 2
+  category: direction_prediction
+  asset: BTCUSDT
+  timeframe: 15m
+  label_type: exit_aware

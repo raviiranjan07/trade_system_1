@@ -8,7 +8,7 @@ Usage on Colab:
   Run: python training.py --data_dir ./datasets --config config.yaml --output_dir ./output
 
 Usage locally:
-  PYTHONPATH=src python -m brain.training --data_dir experiments/brain/datasets --config configs/base.yaml --output_dir experiments/brain/EXP-B001
+  PYTHONPATH=src python -m brain.training --data_dir data/archive/brain_datasets --config configs/base.yaml --output_dir experiments/brain/EXP-B001
 """
 
 import argparse

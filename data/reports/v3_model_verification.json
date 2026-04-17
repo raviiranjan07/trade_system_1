@@ -1,0 +1,40 @@
+{
+  "status": "FAIL",
+  "n_test": 34799,
+  "checks": {
+    "overall_accuracy_3class": {
+      "value": 0.3582,
+      "threshold": 0.4,
+      "pass": false
+    },
+    "long_recall": {
+      "value": 0.2634,
+      "threshold": 0.1,
+      "pass": true
+    },
+    "short_recall": {
+      "value": 0.2947,
+      "threshold": 0.1,
+      "pass": true
+    },
+    "skip_recall": {
+      "value": 0.5,
+      "threshold": 0.1,
+      "pass": true
+    },
+    "n_confident_signals": {
+      "value": 1377,
+      "threshold": 100,
+      "pass": true
+    }
+  },
+  "prediction_distribution": {
+    "LONG": 8552,
+    "SHORT": 9811,
+    "SKIP": 16436
+  },
+  "conf_long": 0.4,
+  "conf_short": 0.4,
+  "n_confident_long": 991,
+  "n_confident_short": 386
+}

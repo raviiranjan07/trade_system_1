@@ -1,0 +1,78 @@
+{
+  "window": {
+    "start": "2025-01-01",
+    "end": "2025-12-31"
+  },
+  "model": {
+    "name": "ML_V2_ATTENTION",
+    "version": 2,
+    "alias": "staging"
+  },
+  "exit_version": "v2",
+  "metrics": {
+    "n_trades": 276,
+    "total_bps": -1195.3,
+    "win_pct": 41.7,
+    "pf": 0.81,
+    "max_dd_bps": -1586.0,
+    "avg_trade_bps": -4.33,
+    "by_signal_type": {
+      "BEAR_LONG": {
+        "n": 10,
+        "win_pct": 30.0,
+        "total_bps": 46.4
+      },
+      "BULL_SHORT": {
+        "n": 4,
+        "win_pct": 75.0,
+        "total_bps": 206.8
+      },
+      "ML_ATTN_LONG": {
+        "n": 166,
+        "win_pct": 45.8,
+        "total_bps": -761.8
+      },
+      "ML_ATTN_SHORT": {
+        "n": 4,
+        "win_pct": 25.0,
+        "total_bps": -73.8
+      },
+      "V12_LONG": {
+        "n": 29,
+        "win_pct": 37.9,
+        "total_bps": -309.0
+      },
+      "V12_SHORT": {
+        "n": 63,
+        "win_pct": 33.3,
+        "total_bps": -303.8
+      }
+    },
+    "by_exit_reason": {
+      "BE_LOCK": {
+        "n": 40,
+        "win_pct": 22.5,
+        "total_bps": -100.2,
+        "avg_bps": -2.5
+      },
+      "EARLY_CUT": {
+        "n": 50,
+        "win_pct": 0.0,
+        "total_bps": -4339.3,
+        "avg_bps": -86.79
+      },
+      "TIGHT_TS": {
+        "n": 13,
+        "win_pct": 76.9,
+        "total_bps": 245.2,
+        "avg_bps": 18.86
+      },
+      "TRAILING_STOP": {
+        "n": 173,
+        "win_pct": 55.5,
+        "total_bps": 2999.0,
+        "avg_bps": 17.34
+      }
+    }
+  }
+}

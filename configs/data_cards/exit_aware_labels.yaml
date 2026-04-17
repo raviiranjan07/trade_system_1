@@ -1,0 +1,144 @@
+# Data Card: Exit-Aware Labels
+# Per-bar trade simulation outcomes using V2 exit rules
+
+name: exit_aware_labels
+version: 1
+created: 2026-04-18
+status: PLANNED
+
+description: |
+  For every 15m bar in the dataset, two trades are simulated:
+  1. Enter LONG at next bar's open → feed 1m ticks through V2 exit rules → record P&L
+  2. Enter SHORT at next bar's open → same → record P&L
+
+  Labels encode the ACTUAL trade outcome (including path through stop loss),
+  not just endpoint direction. This teaches the model "is this bar worth trading?"
+  instead of "which direction moves 15 bps?"
+
+# Generation
+generation:
+  script: src/engine/build_exit_labels.py
+  method: |
+    For each 15m bar (index i):
+      1. entry_price = open of bar i+1
+      2. Create V12PositionManager(exit_version="v2")
+      3. Open LONG, feed 1m ticks until exit fires → record net_profit_bps
+      4. Create fresh PM, open SHORT, same ticks → record net_profit_bps
+      5. Direction = LONG if long > 0 and long > short
+                     SHORT if short > 0 and short > long
+                     SKIP if both ≤ 0
+  exit_rules:
+    - PT_TARGET: arm peak >= 60 by bar 5, exit tick >= 80 (idealized)
+    - PT_LOCK: arm peak >= 60 by bar 5, exit tick <= 60 (idealized 60)
+    - MID_TRAIL: arm peak >= 25 (not PT-armed), trail 10 width (idealized)
+    - STOP_LOSS: exit tick <= -10 (idealized -10)
+    - TIME_EXIT: bar 6, pnl < 0
+    - NO_ZONE: bar 6, pnl >= 0
+  fees: 8 bps round-trip (applied to net_profit_bps)
+  source_code: src/engine/position_manager.py (V12PositionManager)
+  exit_params: src/engine/config/settings.yaml
+
+# Source data
+source:
+  15m_bars: data/raw/BTCUSDT_15m_ohlcv.parquet
+  1m_ticks: data/raw/BTCUSDT_1m_ohlcv.parquet
+  data_cards:
+    - configs/data_cards/btcusdt_15m_ohlcv.yaml
+    - configs/data_cards/btcusdt_1m_ohlcv.yaml
+
+# Output
+output:
+  path: data/features/direction_prediction/exit_aware_labels.parquet
+  format: parquet
+  rows: "~210,000 (one per 15m bar, minus edges)"
+  index: datetime (matching 15m bar timestamps)
+
+  columns:
+    - name: long_net_bps
+      type: float32
+      description: "Net P&L in bps if entered LONG (after 8 bps fees)"
+      range: "typically -18 to +92 (stop to PT_TARGET)"
+      example: -18.0
+
+    - name: short_net_bps
+      type: float32
+      description: "Net P&L in bps if entered SHORT (after 8 bps fees)"
+      range: "typically -18 to +92"
+      example: +16.3
+
+    - name: long_exit_reason
+      type: string
+      description: "Which exit rule fired for the LONG trade"
+      values: [PT_TARGET, PT_LOCK, MID_TRAIL, STOP_LOSS, TIME_EXIT, NO_ZONE, TIMEOUT]
+
+    - name: short_exit_reason
+      type: string
+      description: "Which exit rule fired for the SHORT trade"
+      values: [PT_TARGET, PT_LOCK, MID_TRAIL, STOP_LOSS, TIME_EXIT, NO_ZONE, TIMEOUT]
+
+    - name: long_exit_bar
+      type: int8
+      description: "Bar number (0-6) when LONG exit fired"
+      range: "0 to 6"
+
+    - name: short_exit_bar
+      type: int8
+      description: "Bar number (0-6) when SHORT exit fired"
+      range: "0 to 6"
+
+    - name: direction
+      type: int8
+      description: "Derived direction label for training"
+      values:
+        0: "LONG — long_net_bps > 0 and long_net_bps >= short_net_bps"
+        1: "SHORT — short_net_bps > 0 and short_net_bps > long_net_bps"
+        2: "SKIP — both directions lose money (both net_bps <= 0)"
+
+# Expected distribution
+expected_distribution:
+  LONG: "~25% (entries where LONG trade profits)"
+  SHORT: "~25% (entries where SHORT trade profits)"
+  SKIP: "~50% (entries where both sides lose — mostly STOP_LOSS)"
+  note: "SKIP dominates because ~50% of entries get stopped in both directions"
+
+# Data quality
+quality:
+  missing_values: "NaN at dataset edges (last 6 bars have no future data)"
+  validation: "verify_exit_labels.py — 1000 random bars verified against real backtest"
+  known_issues:
+    - "Labels coupled to V2 exit rules — invalid if rules change"
+    - "49 time gaps in 1m data (max 5.5h) — labels spanning gaps may be inaccurate"
+    - "Boundary bars (within 6 bars of split edge) should be excluded in training"
+
+# Split
+split:
+  method: date-based (same as features)
+  train: "2020-01-01 to 2023-12-31"
+  val: "2024-01-01 to 2024-12-31"
+  test: "2025-01-01 to 2025-12-31"
+  gap: "1 month between splits to prevent label leakage"
+
+# Regeneration
+regeneration:
+  triggers:
+    - "Exit rules change (position_manager.py or settings.yaml)"
+    - "New raw data added (15m or 1m parquet updated)"
+    - "Fee structure changes"
+  command: "PYTHONPATH=src python -m engine.build_exit_labels"
+  runtime: "~30-60 min on CPU"
+  tracked_by: DVC (deps on position_manager.py + settings.yaml + raw data)
+
+# Comparison to V2 labels
+vs_v2_labels:
+  v2_labels:
+    file: data/features/direction_prediction/labels.parquet
+    column: direction_h8
+    method: "±15 bps first-hit within 8 bars"
+    classes: "LONG(0), SHORT(1), BOTH(2), SKIP(3)"
+    problem: "Labels bar as LONG even if STOP_LOSS fires at -10 on the way to +15"
+  v3_labels:
+    file: data/features/direction_prediction/exit_aware_labels.parquet
+    column: direction
+    method: "simulate actual trade with V2 exit rules on 1m ticks"
+    classes: "LONG(0), SHORT(1), SKIP(2)"
+    improvement: "Bars where STOP_LOSS fires → correctly labeled SKIP, not LONG"

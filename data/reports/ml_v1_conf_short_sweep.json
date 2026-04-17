@@ -1,0 +1,90 @@
+[
+  {
+    "conf_short": 0.55,
+    "n_trades": 2437,
+    "win_pct": 45.1,
+    "total_bps": 675.0,
+    "pf": 1.03,
+    "max_dd_bps": -2823.0,
+    "avg_bps": 0.3,
+    "n_model_shorts": 2231,
+    "model_short_bps": -98.0
+  },
+  {
+    "conf_short": 0.58,
+    "n_trades": 571,
+    "win_pct": 45.2,
+    "total_bps": 2693.0,
+    "pf": 1.52,
+    "max_dd_bps": -406.0,
+    "avg_bps": 4.7,
+    "n_model_shorts": 348,
+    "model_short_bps": 1749.0
+  },
+  {
+    "conf_short": 0.6,
+    "n_trades": 351,
+    "win_pct": 42.2,
+    "total_bps": 1536.0,
+    "pf": 1.45,
+    "max_dd_bps": -362.0,
+    "avg_bps": 4.4,
+    "n_model_shorts": 128,
+    "model_short_bps": 564.0
+  },
+  {
+    "conf_short": 0.62,
+    "n_trades": 275,
+    "win_pct": 42.9,
+    "total_bps": 1530.0,
+    "pf": 1.58,
+    "max_dd_bps": -303.0,
+    "avg_bps": 5.6,
+    "n_model_shorts": 50,
+    "model_short_bps": 452.0
+  },
+  {
+    "conf_short": 0.65,
+    "n_trades": 242,
+    "win_pct": 42.6,
+    "total_bps": 1283.0,
+    "pf": 1.56,
+    "max_dd_bps": -312.0,
+    "avg_bps": 5.3,
+    "n_model_shorts": 16,
+    "model_short_bps": 203.0
+  },
+  {
+    "conf_short": 0.68,
+    "n_trades": 232,
+    "win_pct": 42.2,
+    "total_bps": 1093.0,
+    "pf": 1.49,
+    "max_dd_bps": -343.0,
+    "avg_bps": 4.7,
+    "n_model_shorts": 6,
+    "model_short_bps": 14.0
+  },
+  {
+    "conf_short": 0.7,
+    "n_trades": 231,
+    "win_pct": 42.4,
+    "total_bps": 1108.0,
+    "pf": 1.5,
+    "max_dd_bps": -343.0,
+    "avg_bps": 4.8,
+    "n_model_shorts": 5,
+    "model_short_bps": 28.0
+  },
+  {
+    "conf_short": 0.75,
+    "n_trades": 228,
+    "win_pct": 42.1,
+    "total_bps": 1064.0,
+    "pf": 1.49,
+    "max_dd_bps": -343.0,
+    "avg_bps": 4.7,
+    "n_model_shorts": 2,
+    "model_short_bps": -15.0
+  }
+]

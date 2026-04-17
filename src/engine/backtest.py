@@ -18,6 +18,7 @@ from .config.loader import load_config
 from .config.schema import AppConfig
 from .signals.ml_v1 import MLV1
 from .signals.direction_attention import DirectionAttention
+from .signals.ml_v3 import MLV3
 from .signals.base import BaseSignalGenerator
 from .position_manager import V12PositionManager, TradeRecord
 from .strategy import V12Strategy, Direction, SignalType
@@ -28,6 +29,7 @@ from .strategy import V12Strategy, Direction, SignalType
 ML_GENERATORS: dict[str, tuple[type[BaseSignalGenerator], Path]] = {
     "ml_v1": (MLV1, Path("models/ML_V1")),
     "ml_v2_attention": (DirectionAttention, Path("models/ML_V2_ATTENTION_staging")),
+    "ml_v3": (MLV3, Path("models/ML_V3_staging")),
 }
 
 logger = logging.getLogger(__name__)
@@ -47,6 +49,7 @@ def run_backtest(
     ml_onnx_filename: str = "direction_model.onnx",
     ml_scaler_filename: str = "scaler.npz",
     v14_only: bool = False,
+    exit_version: str = "v1",
 ) -> list[TradeRecord]:
     """Run backtest using the same modules as the live bot.
 
@@ -121,7 +124,7 @@ def run_backtest(
                 signal_map[s.bar_index] = s  # replace ML with V1.4
 
     # Walk through bars, managing positions.
-    pm = V12PositionManager(config)
+    pm = V12PositionManager(config, exit_version=exit_version)
     n = len(test)
 
     i = 0
@@ -278,17 +281,30 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--v14-only", action="store_true",
                         help="Skip ML signals — backtest V1.4 strategy alone")
+    parser.add_argument("--exit-version", choices=["v1", "v2"], default="v1",
+                        help="v1 = full V1 (default). v2 = V1 minus LOCKED_PROFIT.")
+    parser.add_argument("--model", choices=list(ML_GENERATORS.keys()), default="ml_v1",
+                        help="Which ML model to use for signals (default: ml_v1)")
     parser.add_argument("--start", default="2024-01-01")
     parser.add_argument("--end", default="2025-12-31")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
     config = load_config()
+
+    gen_class, model_dir = ML_GENERATORS[args.model]
+    onnx_name = "v3_model.onnx" if args.model == "ml_v3" else (
+        "attention_model.onnx" if args.model == "ml_v2_attention" else "direction_model.onnx")
+
     trades = run_backtest(
         config,
         start=args.start,
         end=args.end,
         v14_only=args.v14_only,
+        exit_version=args.exit_version,
+        ml_model_dir=model_dir,
+        ml_generator_class=gen_class,
+        ml_onnx_filename=onnx_name,
     )
     print_results(trades, config)
 

@@ -7,33 +7,45 @@ const PROFIT_COLORS = { 200: '#14532d', 150: '#166534', 100: '#15803d', 50: '#16
 const LOSS_COLORS = { 25: '#f87171', 50: '#dc2626', 100: '#991b1b' }
 
 function BpsDistribution({ trades, mlTrades, mlAttnTrades }) {
-  const { profitBars, lossBars, total } = useMemo(() => {
+  const { profitBars, lossBars, totalDays } = useMemo(() => {
     const v14 = Array.isArray(trades) ? trades : []
     const ml = Array.isArray(mlTrades) ? mlTrades : []
     const mlAttn = Array.isArray(mlAttnTrades) ? mlAttnTrades : []
     const all = [...v14, ...ml, ...mlAttn]
-    const total = all.length
-    if (total === 0) return { profitBars: [], lossBars: [], total: 0 }
 
-    const bpsValues = all.map(t => t.net_profit_bps || 0)
+    if (all.length === 0) return { profitBars: [], lossBars: [], totalDays: 0 }
+
+    // Group by date -> sum net_profit_bps
+    const dailyPnl = {}
+    for (const t of all) {
+      if (!t.exit_time) continue
+      const d = new Date(t.exit_time)
+      const dateKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+      dailyPnl[dateKey] = (dailyPnl[dateKey] || 0) + (t.net_profit_bps || 0)
+    }
+
+    const dailyValues = Object.values(dailyPnl)
+    const totalDays = dailyValues.length
+
+    if (totalDays === 0) return { profitBars: [], lossBars: [], totalDays: 0 }
 
     const profitBars = PROFIT_THRESHOLDS.map(level => {
-      const count = bpsValues.filter(b => b >= level).length
-      return { label: `\u2265${level}`, count, pct: (count / total * 100), color: PROFIT_COLORS[level] }
+      const count = dailyValues.filter(pnl => pnl >= level).length
+      return { label: `\u2265${level}`, count, pct: (count / totalDays * 100), color: PROFIT_COLORS[level] }
     })
 
     const lossBars = LOSS_THRESHOLDS.map(level => {
-      const count = bpsValues.filter(b => b <= -level).length
-      return { label: `\u2264-${level}`, count, pct: (count / total * 100), color: LOSS_COLORS[level] }
+      const count = dailyValues.filter(pnl => pnl <= -level).length
+      return { label: `\u2264-${level}`, count, pct: (count / totalDays * 100), color: LOSS_COLORS[level] }
     })
 
-    return { profitBars, lossBars, total }
+    return { profitBars, lossBars, totalDays }
   }, [trades, mlTrades, mlAttnTrades])
 
-  if (total === 0) {
+  if (totalDays === 0) {
     return (
       <div className="card bps-dist">
-        <div className="card-header">BPS Distribution (All Models)</div>
+        <div className="card-header">Daily PnL Distribution (All Models)</div>
         <div className="trades-empty">No trades yet</div>
       </div>
     )
@@ -45,8 +57,8 @@ function BpsDistribution({ trades, mlTrades, mlAttnTrades }) {
   return (
     <div className="card bps-dist">
       <div className="bps-dist-header">
-        <span className="card-header">BPS Distribution (All Models)</span>
-        <span className="bps-dist-total">{total} trades</span>
+        <span className="card-header">Daily PnL Distribution (All Models)</span>
+        <span className="bps-dist-total">{totalDays} days</span>
       </div>
       <div className="bps-dist-bars">
         {profitBars.map(({ label, count, pct, color }) => (

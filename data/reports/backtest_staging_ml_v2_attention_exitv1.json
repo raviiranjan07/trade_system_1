@@ -1,0 +1,90 @@
+{
+  "window": {
+    "start": "2025-01-01",
+    "end": "2025-12-31"
+  },
+  "model": {
+    "name": "ML_V2_ATTENTION",
+    "version": 2,
+    "alias": "staging"
+  },
+  "exit_version": "v1",
+  "metrics": {
+    "n_trades": 450,
+    "total_bps": 3657.6,
+    "win_pct": 48.2,
+    "pf": 1.91,
+    "max_dd_bps": -376.3,
+    "avg_trade_bps": 8.13,
+    "by_signal_type": {
+      "BEAR_LONG": {
+        "n": 13,
+        "win_pct": 69.2,
+        "total_bps": 143.1
+      },
+      "BULL_SHORT": {
+        "n": 4,
+        "win_pct": 25.0,
+        "total_bps": -29.1
+      },
+      "ML_ATTN_LONG": {
+        "n": 176,
+        "win_pct": 46.0,
+        "total_bps": 2645.5
+      },
+      "ML_ATTN_SHORT": {
+        "n": 164,
+        "win_pct": 51.2,
+        "total_bps": 875.9
+      },
+      "V12_LONG": {
+        "n": 29,
+        "win_pct": 44.8,
+        "total_bps": 80.3
+      },
+      "V12_SHORT": {
+        "n": 64,
+        "win_pct": 45.3,
+        "total_bps": -58.1
+      }
+    },
+    "by_exit_reason": {
+      "LOCKED_PROFIT": {
+        "n": 54,
+        "win_pct": 75.9,
+        "total_bps": 87.3,
+        "avg_bps": 1.62
+      },
+      "MID_TRAIL": {
+        "n": 112,
+        "win_pct": 100.0,
+        "total_bps": 2312.8,
+        "avg_bps": 20.65
+      },
+      "PT_LOCK": {
+        "n": 26,
+        "win_pct": 100.0,
+        "total_bps": 1352.0,
+        "avg_bps": 52.0
+      },
+      "PT_TARGET": {
+        "n": 38,
+        "win_pct": 100.0,
+        "total_bps": 3858.6,
+        "avg_bps": 101.54
+      },
+      "STOP_LOSS": {
+        "n": 219,
+        "win_pct": 0.0,
+        "total_bps": -3942.0,
+        "avg_bps": -18.0
+      },
+      "TIME_EXIT": {
+        "n": 1,
+        "win_pct": 0.0,
+        "total_bps": -11.1,
+        "avg_bps": -11.09
+      }
+    }
+  }
+}

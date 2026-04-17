@@ -1,0 +1,42 @@
+{
+  "dynamic_features": [
+    "dist_to_zone_pct",
+    "support_width_pct",
+    "res_width_pct",
+    "support_retest",
+    "resistance_retest",
+    "zone_width",
+    "recovery_up_pct",
+    "recovery_down_pct",
+    "speed_short",
+    "speed_mid",
+    "speed_long"
+  ],
+  "static_features": [
+    "bounce_ratio",
+    "recent_bounce_ratio",
+    "pressure",
+    "bars_since_touch",
+    "touch_count_scaled",
+    "level_type_binary",
+    "avg_bounce_mfe",
+    "avg_break_mfe",
+    "max_bounce_mfe",
+    "max_break_mfe",
+    "last_outcome",
+    "bounce_streak",
+    "bounce_mfe_trend",
+    "chop_ratio"
+  ],
+  "snapshot_count": 25,
+  "touch_mode": "every_bar",
+  "total_samples": 67047,
+  "train_samples": 32817,
+  "val_samples": 8877,
+  "test_samples": 23586,
+  "label_map": {
+    "0": "BREAK",
+    "1": "BOUNCE",
+    "2": "CHOP"
+  }
+}

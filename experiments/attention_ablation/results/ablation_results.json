@@ -1,0 +1,158 @@
+[
+  {
+    "variant": "WITH_MFE",
+    "runs": [
+      {
+        "seed": 42,
+        "overall_acc": 50.71,
+        "confident_acc": 57.27,
+        "n_confident": 220,
+        "n_long": 81,
+        "n_short": 139,
+        "prob_mean": 0.491,
+        "prob_std": 0.0309,
+        "epochs": 40,
+        "val_loss": 0.7134,
+        "backtest": {
+          "n_trades": 722,
+          "total_bps": 3023.4,
+          "pf": 1.4,
+          "stop_rate": 57.9,
+          "avg_bps": 4.2,
+          "max_dd": -419.5,
+          "win_rate": 41.4
+        }
+      },
+      {
+        "seed": 43,
+        "overall_acc": 50.91,
+        "confident_acc": 52.94,
+        "n_confident": 136,
+        "n_long": 45,
+        "n_short": 91,
+        "prob_mean": 0.4872,
+        "prob_std": 0.0288,
+        "epochs": 39,
+        "val_loss": 0.7131,
+        "backtest": {}
+      },
+      {
+        "seed": 44,
+        "overall_acc": 50.92,
+        "confident_acc": 56.16,
+        "n_confident": 219,
+        "n_long": 128,
+        "n_short": 91,
+        "prob_mean": 0.4898,
+        "prob_std": 0.03,
+        "epochs": 32,
+        "val_loss": 0.7131,
+        "backtest": {}
+      }
+    ]
+  },
+  {
+    "variant": "NO_MFE",
+    "runs": [
+      {
+        "seed": 42,
+        "overall_acc": 51.05,
+        "confident_acc": 57.3,
+        "n_confident": 1773,
+        "n_long": 450,
+        "n_short": 1323,
+        "prob_mean": 0.4897,
+        "prob_std": 0.0393,
+        "epochs": 38,
+        "val_loss": 0.691,
+        "backtest": {
+          "n_trades": 3369,
+          "total_bps": 8130.5,
+          "pf": 1.22,
+          "stop_rate": 59.8,
+          "avg_bps": 2.4,
+          "max_dd": -1704.9,
+          "win_rate": 39.4
+        }
+      },
+      {
+        "seed": 43,
+        "overall_acc": 50.86,
+        "confident_acc": 54.55,
+        "n_confident": 165,
+        "n_long": 157,
+        "n_short": 8,
+        "prob_mean": 0.4963,
+        "prob_std": 0.025,
+        "epochs": 23,
+        "val_loss": 0.6916,
+        "backtest": {}
+      },
+      {
+        "seed": 44,
+        "overall_acc": 50.81,
+        "confident_acc": 54.45,
+        "n_confident": 393,
+        "n_long": 242,
+        "n_short": 151,
+        "prob_mean": 0.4937,
+        "prob_std": 0.0294,
+        "epochs": 15,
+        "val_loss": 0.6919,
+        "backtest": {}
+      }
+    ]
+  },
+  {
+    "variant": "ASYMMETRY",
+    "runs": [
+      {
+        "seed": 42,
+        "overall_acc": 50.85,
+        "confident_acc": 56.16,
+        "n_confident": 203,
+        "n_long": 181,
+        "n_short": 22,
+        "prob_mean": 0.4937,
+        "prob_std": 0.0278,
+        "epochs": 16,
+        "val_loss": 0.94,
+        "backtest": {
+          "n_trades": 759,
+          "total_bps": 1976.1,
+          "pf": 1.24,
+          "stop_rate": 60.7,
+          "avg_bps": 2.6,
+          "max_dd": -920.3,
+          "win_rate": 38.2
+        }
+      },
+      {
+        "seed": 43,
+        "overall_acc": 50.87,
+        "confident_acc": 57.8,
+        "n_confident": 173,
+        "n_long": 95,
+        "n_short": 78,
+        "prob_mean": 0.4907,
+        "prob_std": 0.0264,
+        "epochs": 16,
+        "val_loss": 0.9402,
+        "backtest": {}
+      },
+      {
+        "seed": 44,
+        "overall_acc": 50.88,
+        "confident_acc": 57.31,
+        "n_confident": 335,
+        "n_long": 168,
+        "n_short": 167,
+        "prob_mean": 0.4898,
+        "prob_std": 0.0287,
+        "epochs": 20,
+        "val_loss": 0.9398,
+        "backtest": {}
+      }
+    ]
+  }
+]

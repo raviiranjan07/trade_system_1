@@ -1,14 +1,12 @@
 """Position Manager — tracks open positions, handles exits and re-entry.
 
-Exit rules (V1, PT_TARGET family — the only supported exit plan):
-  - PT_TARGET: arm at peak >=60 bps within max bar, exit at >=80 bps tick
-  - PT_LOCK: once armed, exit at 60 bps on any drop back to it
-  - MID_TRAIL: arm at peak >=25 bps, trail with 10 bps width (if not PT-armed)
-  - LOCKED_PROFIT: peak >=15 bps, close if price drops back to <=15
-  - STOP_LOSS: hard cap at -10 bps (stop-market simulation)
-  - Time exit: bar 6+
-  - Re-entry: disabled (re-entry hook still exists but never fires — V1
-    exit reasons are never "TRAILING_STOP" which the re-entry gate checks for)
+Exit plans (priority order on every tick):
+  V1 (default): PT_TARGET / PT_LOCK / MID_TRAIL / LOCKED_PROFIT / STOP_LOSS
+  V2         : V1 minus LOCKED_PROFIT (no static 15 bps lock)
+
+Bar-level: time exit on bar v1_max_bars (NO_ZONE if pnl>=0, TIME_EXIT otherwise).
+Re-entry: disabled — hook left in place but never fires under V1/V2 (it keys off
+the obsolete TRAILING_STOP reason from the removed V2-old plan).
 """
 
 from dataclasses import dataclass, field
@@ -58,10 +56,18 @@ class OpenPosition:
 
 
 class V12PositionManager:
-    """Manages position lifecycle: entry, bar updates, exits, re-entry."""
+    """Manages position lifecycle: entry, bar updates, exits, re-entry.
 
-    def __init__(self, config: AppConfig):
+    exit_version:
+      "v1" — full V1 rules (includes LOCKED_PROFIT static exit at 15 bps peak)
+      "v2" — V1 minus LOCKED_PROFIT
+    """
+
+    def __init__(self, config: AppConfig, exit_version: str = "v1"):
+        if exit_version not in ("v1", "v2"):
+            raise ValueError(f"exit_version must be 'v1' or 'v2', got {exit_version!r}")
         self.cfg = config
+        self.exit_version = exit_version
         self.position: Optional[OpenPosition] = None
         self.trades: list[TradeRecord] = []
 
@@ -137,9 +143,10 @@ class V12PositionManager:
                 exit_bps = pos.highest_profit_bps - e.v1_mid_trail_width_bps
                 return self._close_position(exit_bps, tick_time, pos.bars_held, "MID_TRAIL")
 
-        # 3. LOCKED_PROFIT (static)
-        if pos.highest_profit_bps >= e.v1_lock_arm_bps and tick_pnl <= e.v1_lock_trigger_bps:
-            return self._close_position(tick_pnl, tick_time, pos.bars_held, "LOCKED_PROFIT")
+        # 3. LOCKED_PROFIT (static) — V1 only; V2 skips this rule
+        if self.exit_version == "v1":
+            if pos.highest_profit_bps >= e.v1_lock_arm_bps and tick_pnl <= e.v1_lock_trigger_bps:
+                return self._close_position(tick_pnl, tick_time, pos.bars_held, "LOCKED_PROFIT")
 
         # 4. STOP_LOSS: hard cap — exit at IDEALIZED -10 bps (stop-market simulation)
         if tick_pnl <= e.v1_stop_loss_bps:

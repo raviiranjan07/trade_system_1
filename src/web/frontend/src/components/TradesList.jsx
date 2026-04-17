@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 
 const SIGNAL_COLORS = {
   V12_LONG: '#00d97e',
@@ -27,8 +27,7 @@ const REASON_STYLES = {
   STOP_LOSS: { bg: 'rgba(220, 38, 38, 0.15)', color: '#dc2626', label: 'STOP' },
 }
 
-function TradesList({ trades, mlTrades, mlAttnTrades }) {
-  const [filter, setFilter] = useState('Combined')
+function TradesList({ trades, mlTrades, mlAttnTrades, filter }) {
   const [sortCol, setSortCol] = useState(null)
   const [sortDir, setSortDir] = useState('desc')
 
@@ -125,17 +124,6 @@ function TradesList({ trades, mlTrades, mlAttnTrades }) {
     <div className="trades-section">
       <div className="card">
         <div className="card-header">Recent Trades</div>
-        <div className="trades-filter-bar">
-          {['Combined', 'V1.4', 'ML', 'ML V2'].map(f => (
-            <button
-              key={f}
-              className={`trades-filter-btn${filter === f ? ' active' : ''}`}
-              onClick={() => setFilter(f)}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
         {displayTrades.length === 0 ? (
           <div className="trades-empty">No trades yet</div>
         ) : (

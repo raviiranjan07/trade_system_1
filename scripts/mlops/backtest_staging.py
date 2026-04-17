@@ -189,9 +189,9 @@ def main() -> None:
             if m not in MODELS:
                 raise ValueError(f"Unknown model: {m}. Available: {list(MODELS.keys())}")
 
-    # Resolve exit versions list
+    # Resolve exit versions list (V2 removed — V1 is the only exit plan)
     if args.exit is None:
-        exits = [_p["exit"]["version"]]
+        exits = ["v1"]
     elif args.exit == "all":
         exits = ["v1", "v2"]
     else:

@@ -29,8 +29,8 @@ stages:
       size: 32889487
     - path: src/engine/ml_train.py
       hash: md5
-      md5: 471a98fad329b0f38a9d7b13405c2341
-      size: 15953
+      md5: 9c9d5f436c7240ef4f54398563101541
+      size: 17072
     params:
       configs/params.yaml:
         ml_v1.split:
@@ -53,12 +53,11 @@ stages:
     outs:
     - path: models/ML_V1_staging
       hash: md5
-      md5: 7af6770a1ed6a2c4e192b72532dd49b0.dir
-      size: 156553
+      md5: df9f02023587508f7b51f5d558ae41cf.dir
+      size: 156643
       nfiles: 5
   train_attention:
-    cmd: echo "Trained externally on Colab. Files placed manually in 
-      models/direction_attention/"
+    cmd: echo "Trained externally. Files in models/ML_V2_ATTENTION/"
     deps:
     - path: data/features/direction_prediction/feature_cache.parquet
       hash: md5
@@ -69,11 +68,11 @@ stages:
       md5: 2b95e64e723b960ddc59a9bf9ce5d468
       size: 32889487
     outs:
-    - path: models/direction_attention
+    - path: models/ML_V2_ATTENTION
       hash: md5
-      md5: 1fd2e65cf52d4cbec6d1c37d8c304f18.dir
-      size: 579732
-      nfiles: 4
+      md5: 7302e937e3b77c45db1ae5f404e51ed2.dir
+      size: 618841
+      nfiles: 5
   build_features:
     cmd: python src/engine/build_features.py
     deps:
@@ -95,21 +94,21 @@ stages:
     deps:
     - path: data/reports/verification_ML_V1_staging.json
       hash: md5
-      md5: d3250be89553cbdc3f04dcb1fd8b103c
-      size: 2055
+      md5: 4eabd02a0b1f32d76c09714d4f794e40
+      size: 2053
     - path: models/ML_V1_staging
       hash: md5
-      md5: 7af6770a1ed6a2c4e192b72532dd49b0.dir
-      size: 156553
+      md5: df9f02023587508f7b51f5d558ae41cf.dir
+      size: 156643
       nfiles: 5
     - path: scripts/mlops/backtest_staging.py
       hash: md5
-      md5: b531efe48a527cd797dcb2b9f592bbc7
-      size: 5125
+      md5: c94677db57a94d00c25c1af879471e4e
+      size: 7987
     - path: src/engine/backtest.py
       hash: md5
-      md5: 91098aaf8cfb03d394d84a24909a15e9
-      size: 10565
+      md5: d74374822ce126dc27b406556f918478
+      size: 12351
     - path: src/engine/signals/ml_v1.py
       hash: md5
       md5: 2ce660d58aa2fc5f87ea3499fb47ca8f
@@ -119,27 +118,29 @@ stages:
         backtest:
           start: '2025-01-01'
           end: '2025-12-31'
-        exit:
-          version: v1
         ml_v1.inference:
           conf_long: 0.6
-          conf_short: 0.65
+          conf_short: 0.58
     outs:
-    - path: data/reports/backtest_staging.json
+    - path: data/reports/backtest_matrix_summary.json
       hash: md5
-      md5: 3f9940094562bab92319b2c04f00b9d5
-      size: 1800
-    - path: data/reports/backtest_staging_trades.parquet
+      md5: 711c25355ca53becd60f456073fabd8b
+      size: 1969
+    - path: data/reports/backtest_staging_ml_v1_exitv1.json
       hash: md5
-      md5: 35a3efad61ff774d5c701ddead27c3b5
-      size: 25105
+      md5: 0b2414f45b2b4deb3e97555c695b5d10
+      size: 1832
+    - path: data/reports/backtest_staging_trades_ml_v1_exitv1.parquet
+      hash: md5
+      md5: 62a1e05af598c34482ce591d3c2a4477
+      size: 47392
   verify_ml_v1:
     cmd: python src/mlops/verify.py models/ML_V1_staging
     deps:
     - path: models/ML_V1_staging
       hash: md5
-      md5: 7af6770a1ed6a2c4e192b72532dd49b0.dir
-      size: 156553
+      md5: df9f02023587508f7b51f5d558ae41cf.dir
+      size: 156643
       nfiles: 5
     - path: src/mlops/verify.py
       hash: md5
@@ -148,21 +149,122 @@ stages:
     outs:
     - path: data/reports/verification_ML_V1_staging.json
       hash: md5
-      md5: d3250be89553cbdc3f04dcb1fd8b103c
-      size: 2055
+      md5: 4eabd02a0b1f32d76c09714d4f794e40
+      size: 2053
   verify_backtest:
     cmd: python scripts/mlops/verify_backtest.py
     deps:
-    - path: data/reports/backtest_staging_trades.parquet
+    - path: data/reports/backtest_staging_trades_ml_v1_exitv1.parquet
       hash: md5
-      md5: 35a3efad61ff774d5c701ddead27c3b5
-      size: 25105
+      md5: 62a1e05af598c34482ce591d3c2a4477
+      size: 47392
     - path: scripts/mlops/verify_backtest.py
       hash: md5
-      md5: f8be2d71c0ae6728e8f3119345fd9e2e
-      size: 5973
+      md5: b184842427dc66db178a952aa2eb471a
+      size: 5986
     outs:
     - path: data/reports/verify_backtest.json
       hash: md5
-      md5: 0bc5694c69f4fc653a163396001f420e
-      size: 1263
+      md5: 310b10f94065b1e715b8bbe268bb6b0f
+      size: 1265
+  build_exit_labels:
+    cmd: python -m engine.build_exit_labels
+    deps:
+    - path: ../data/raw/BTCUSDT_15m_ohlcv.parquet
+      hash: md5
+      md5: 80dddbc50f8fce723e9c9fbb8d48a32a
+      size: 9061640
+    - path: ../data/raw/BTCUSDT_1m_ohlcv.parquet
+      hash: md5
+      md5: d172da1885489670d63173b1c4badc86
+      size: 110075967
+    - path: engine/build_exit_labels.py
+      hash: md5
+      md5: 0feafa94175a8f017c1e9789d95286fa
+      size: 9257
+    - path: engine/config/settings.yaml
+      hash: md5
+      md5: c17827b512afdf9050189d014cae1bd3
+      size: 2174
+    - path: engine/position_manager.py
+      hash: md5
+      md5: 10aeb9fd1ec629053b1fb8cf4c1c8f1a
+      size: 10656
+    outs:
+    - path: ../data/features/direction_prediction/exit_aware_labels.parquet
+      hash: md5
+      md5: 5e517d67c113f77e08788879e707a8f2
+      size: 3219123
+  verify_exit_labels:
+    cmd: python -m engine.verify_exit_labels
+    deps:
+    - path: ../data/features/direction_prediction/exit_aware_labels.parquet
+      hash: md5
+      md5: 5e517d67c113f77e08788879e707a8f2
+      size: 3219123
+    - path: ../data/raw/BTCUSDT_15m_ohlcv.parquet
+      hash: md5
+      md5: 80dddbc50f8fce723e9c9fbb8d48a32a
+      size: 9061640
+    - path: ../data/raw/BTCUSDT_1m_ohlcv.parquet
+      hash: md5
+      md5: d172da1885489670d63173b1c4badc86
+      size: 110075967
+    - path: engine/verify_exit_labels.py
+      hash: md5
+      md5: 5b871c31146a79ba186605908811b4d1
+      size: 8940
+    outs:
+    - path: ../data/reports/label_verification.json
+      hash: md5
+      md5: c23e2361d31b3f901d1376448d16df00
+      size: 1546
+  train_v3:
+    cmd: python -m engine.train_v3
+    deps:
+    - path: ../data/features/direction_prediction/exit_aware_labels.parquet
+      hash: md5
+      md5: 5e517d67c113f77e08788879e707a8f2
+      size: 3219123
+    - path: ../data/features/direction_prediction/feature_cache.parquet
+      hash: md5
+      md5: e78134d5a94a39dfc609b9f18b03cc4d
+      size: 39641806
+    - path: ../data/reports/label_verification.json
+      hash: md5
+      md5: c23e2361d31b3f901d1376448d16df00
+      size: 1546
+    - path: engine/train_v3.py
+      hash: md5
+      md5: 2a574981a2e0781128468062c5409db8
+      size: 16752
+    params:
+      ../configs/params.yaml:
+        ml_v3.split:
+          train_start: '2020-01-01'
+          train_end: '2023-12-31'
+          val_start: '2024-01-01'
+          val_end: '2024-12-31'
+          test_start: '2025-01-01'
+          test_end: '2025-12-31'
+        ml_v3.training:
+          hidden: 128
+          dropout: 0.5
+          temperature: 0.5
+          lr: 0.001
+          batch_size: 2048
+          max_epochs: 100
+          patience: 10
+          seed: 42
+          loss_weight_pnl: 1.0
+          loss_weight_dir: 1.0
+    outs:
+    - path: ../data/reports/v3_train_metrics.json
+      hash: md5
+      md5: db1c6ab6b70949db25ab09d9fa02ea31
+      size: 1336
+    - path: ../models/ML_V3_staging
+      hash: md5
+      md5: 0694f3b0f29858d6d499335260a363ec.dir
+      size: 607335
+      nfiles: 4

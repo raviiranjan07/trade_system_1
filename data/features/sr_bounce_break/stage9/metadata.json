@@ -1,0 +1,37 @@
+{
+  "stage": 9,
+  "static_features": [
+    "price_position",
+    "bounce_ratio",
+    "touch_count_norm",
+    "strong_bounce_share",
+    "strong_break_share"
+  ],
+  "dynamic_features": [
+    "dist_to_zone_pct",
+    "support_width_pct",
+    "res_width_pct",
+    "support_retest",
+    "resistance_retest",
+    "zone_width",
+    "recovery_up_pct",
+    "recovery_down_pct",
+    "speed_short",
+    "speed_mid",
+    "speed_long"
+  ],
+  "snapshot_count": 25,
+  "history_n": 10,
+  "strict_support_threshold": 0.1,
+  "strict_resistance_threshold": 0.9,
+  "strong_fraction": 0.5,
+  "touch_count_normalizer": 10.0,
+  "label_map": {
+    "0": "BREAK",
+    "1": "BOUNCE"
+  },
+  "total_samples": 26329,
+  "train_samples": 11909,
+  "val_samples": 3245,
+  "test_samples": 10527
+}

@@ -1,0 +1,88 @@
+{
+  "n_trades": 343,
+  "total_bps": 4834.4,
+  "stop_loss": {
+    "total_trades": 146,
+    "total_bps": -2628.0,
+    "wrong_direction_mfe_lt_5": 121,
+    "recoverable_mfe_gte_20": 0,
+    "mfe_distribution": {
+      "MFE<5 (wrong-dir)": 121,
+      "5-10": 14,
+      "10-20": 11,
+      "20-50": 0,
+      "50+ (recoverable)": 0
+    }
+  },
+  "by_signal_type": {
+    "ML_LONG": {
+      "n": 184,
+      "win_pct": 56.5,
+      "total_bps": 3528.0,
+      "avg_bps": 19.2,
+      "stop_rate": 41.3
+    },
+    "V12_SHORT": {
+      "n": 66,
+      "win_pct": 59.1,
+      "total_bps": 463.2,
+      "avg_bps": 7.0,
+      "stop_rate": 36.4
+    },
+    "V12_LONG": {
+      "n": 30,
+      "win_pct": 56.7,
+      "total_bps": 370.2,
+      "avg_bps": 12.3,
+      "stop_rate": 43.3
+    },
+    "BULL_SHORT": {
+      "n": 19,
+      "win_pct": 57.9,
+      "total_bps": 258.3,
+      "avg_bps": 13.6,
+      "stop_rate": 36.8
+    },
+    "BEAR_LONG": {
+      "n": 11,
+      "win_pct": 36.4,
+      "total_bps": 208.7,
+      "avg_bps": 19.0,
+      "stop_rate": 63.6
+    },
+    "ML_SHORT": {
+      "n": 33,
+      "win_pct": 33.3,
+      "total_bps": 6.1,
+      "avg_bps": 0.2,
+      "stop_rate": 57.6
+    }
+  },
+  "winner_mae": {
+    "<-20": 0,
+    "[-20,-15)": 0,
+    "[-15,-10)": 2,
+    "[-10,-5)": 11,
+    "[-5, 0]": 173
+  },
+  "winners_that_dipped_past_neg10": 2,
+  "stop_widening_sim": {
+    "stop_at_-12": {
+      "losers_still_stopping": 128,
+      "potential_saved_trades": 12
+    },
+    "stop_at_-15": {
+      "losers_still_stopping": 111,
+      "potential_saved_trades": 15
+    },
+    "stop_at_-20": {
+      "losers_still_stopping": 80,
+      "potential_saved_trades": 21
+    },
+    "stop_at_-25": {
+      "losers_still_stopping": 66,
+      "potential_saved_trades": 22
+    }
+  },
+  "money_left_on_table_bps": 2834.5
+}

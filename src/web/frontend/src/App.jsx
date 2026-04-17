@@ -39,6 +39,7 @@ function App() {
     return validPages.includes(saved) ? saved : 'dashboard'
   })
   const [decisions, setDecisions] = useState([])
+  const [tradesFilter, setTradesFilter] = useState('Combined')
   const [chartView, setChartView] = useState(() => localStorage.getItem('chartView') || 'bot')
   const wsRef = useRef(null)
   const reconnectTimeoutRef = useRef(null)
@@ -421,7 +422,7 @@ function App() {
             <button
               key={page}
               className={`page-nav-btn ${activePage === page ? 'active' : ''}`}
-              onClick={() => setActivePage(page)}
+              onClick={() => { setActivePage(page); if (page !== 'trades') setTradesFilter('Combined') }}
             >
               {page.charAt(0).toUpperCase() + page.slice(1)}
             </button>
@@ -461,6 +462,7 @@ function App() {
             mlAttnTrades={data?.ml_attn_trades}
             status={status}
             position={position}
+            onTradesNavigate={(model) => { setTradesFilter(model); setActivePage('trades') }}
           />
         </div>
       )}
@@ -574,11 +576,11 @@ function App() {
       {/* ========== TRADES PAGE (full-width) ========== */}
       {activePage === 'trades' && (
         <div className="page-content page-trades">
-          <StatsSection stats={stats} risk={data?.risk} ml={data?.ml} trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} />
+          <StatsSection stats={stats} risk={data?.risk} ml={data?.ml} trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} activeFilter={tradesFilter} onFilterChange={setTradesFilter} />
 
           <BpsDistribution trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} />
 
-          <TradesList trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} />
+          <TradesList trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} filter={tradesFilter} onFilterChange={setTradesFilter} />
 
           <div className="card signals-full-container">
             <div className="card-header">Signal Log</div>

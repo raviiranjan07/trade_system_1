@@ -7,7 +7,7 @@ Trains a gradient boosted tree model to predict 4-class S/R outcomes:
   3: BREAK_RESISTANCE   (at resistance, price goes UP)
 
 Usage:
-  PYTHONPATH=src python -m brain.train_xgboost --data experiments/brain/datasets/sr_bounce_break
+  PYTHONPATH=src python -m brain.train_xgboost --data data/archive/brain_datasets/sr_bounce_break
 """
 
 import argparse
