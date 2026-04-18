@@ -511,7 +511,7 @@ function OverviewPage({ stats, risk, ml, mlAttn, mlV3, trades, mlTrades, mlAttnT
           lastTrade={mlLastTrade}
           accentColor="#8b5cf6"
           tradeHistory={mlTrades}
-          exitVersion="V1"
+          exitVersion="V2"
           prediction={{
             longPct: ml?.ml_long_pct ?? 50,
             shortPct: ml?.ml_short_pct ?? 50,
@@ -547,7 +547,7 @@ function OverviewPage({ stats, risk, ml, mlAttn, mlV3, trades, mlTrades, mlAttnT
           lastTrade={mlAttnTrades && mlAttnTrades.length > 0 ? mlAttnTrades[0] : null}
           accentColor="#f59e0b"
           tradeHistory={mlAttnTrades}
-          exitVersion="V1"
+          exitVersion="V2"
           prediction={{
             longPct: mlAttn?.ml_attn_long_pct ?? 50,
             shortPct: mlAttn?.ml_attn_short_pct ?? 50,
@@ -583,7 +583,7 @@ function OverviewPage({ stats, risk, ml, mlAttn, mlV3, trades, mlTrades, mlAttnT
           lastTrade={mlV3Trades && mlV3Trades.length > 0 ? mlV3Trades[0] : null}
           accentColor="#10b981"
           tradeHistory={mlV3Trades}
-          exitVersion="V1"
+          exitVersion="V2"
           prediction={{
             longPct: mlV3?.ml_v3_long_pct ?? 33,
             shortPct: mlV3?.ml_v3_short_pct ?? 33,
