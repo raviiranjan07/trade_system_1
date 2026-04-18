@@ -526,7 +526,7 @@ function OverviewPage({ stats, risk, ml, mlAttn, trades, mlTrades, mlAttnTrades,
           onTradesClick={() => onTradesNavigate?.('ML')}
         />
         <BotCard
-          title="ML V3"
+          title="ML V2"
           active={mlAttnActive}
           wallet={mlAttnWallet}
           growth={mlAttnGrowth}
@@ -559,7 +559,7 @@ function OverviewPage({ stats, risk, ml, mlAttn, trades, mlTrades, mlAttnTrades,
               status: mlAttn?.ml_attn_cum_status ?? 'pending',
             },
           }}
-          onTradesClick={() => onTradesNavigate?.('ML V3')}
+          onTradesClick={() => onTradesNavigate?.('ML V2')}
         />
       </div>
 
@@ -606,7 +606,7 @@ function OverviewPage({ stats, risk, ml, mlAttn, trades, mlTrades, mlAttnTrades,
             )}
             {mlAttnHasPos && (
               <PositionBlock
-                label="ML V3"
+                label="ML V2"
                 accentColor="#f59e0b"
                 side={mlAttn?.ml_attn_position_side}
                 entryPrice={mlAttn?.ml_attn_position_entry_price ?? 0}

@@ -9,8 +9,6 @@ const SIGNAL_COLORS = {
   ML_SHORT: '#ec4899',
   ML_ATTN_LONG: '#f59e0b',
   ML_ATTN_SHORT: '#d97706',
-  ML_V3_LONG: '#f59e0b',
-  ML_V3_SHORT: '#d97706',
 }
 
 const REASON_STYLES = {
@@ -59,8 +57,8 @@ function TradesList({ trades, mlTrades, mlAttnTrades, filter }) {
   }
 
   const isV14 = (sig) => sig && (sig.startsWith('V12_') || sig.startsWith('BEAR_') || sig.startsWith('BULL_'))
-  const isML = (sig) => sig && sig.startsWith('ML_') && !sig.startsWith('ML_ATTN_') && !sig.startsWith('ML_V3_')
-  const isMLAttn = (sig) => sig && (sig.startsWith('ML_ATTN_') || sig.startsWith('ML_V3_'))
+  const isML = (sig) => sig && sig.startsWith('ML_') && !sig.startsWith('ML_ATTN_')
+  const isMLAttn = (sig) => sig && sig.startsWith('ML_ATTN_')
 
   // Merge and sort by exit_time descending, then apply filter and sort
   const displayTrades = useMemo(() => {
@@ -81,7 +79,7 @@ function TradesList({ trades, mlTrades, mlAttnTrades, filter }) {
       merged = merged.filter(t => isV14(t.signal_type))
     } else if (filter === 'ML') {
       merged = merged.filter(t => isML(t.signal_type))
-    } else if (filter === 'ML V3') {
+    } else if (filter === 'ML V2') {
       merged = merged.filter(t => isMLAttn(t.signal_type))
     }
     // 'Combined' shows all

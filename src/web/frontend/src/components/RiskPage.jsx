@@ -389,9 +389,9 @@ function RiskPage({ risk, ml, mlAttn, decisions, trades, mlTrades, mlAttnTrades 
           </div>
         </div>
 
-        {/* ML V3 Card */}
+        {/* ML V2 Card */}
         <div className="rp-card">
-          <div className="rp-card-title" style={{borderColor: '#f59e0b'}}>ML V3</div>
+          <div className="rp-card-title" style={{borderColor: '#f59e0b'}}>ML V2</div>
           <div className="rp-card-body">
             <div className="rp-row">
               <span className="rp-label">Wallet</span>
