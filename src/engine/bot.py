@@ -260,6 +260,11 @@ class V12Bot:
             ml_attn_model_loaded=self._ml_attn_gen.loaded,
             ml_attn_wallet_usd=round(self._ml_attn_wallet, 2),
         )
+        # Push initial ML V3 state
+        dashboard_state.update_ml_v3(
+            ml_v3_model_loaded=self._ml_v3_gen.loaded,
+            ml_v3_wallet_usd=round(self._ml_v3_wallet, 2),
+        )
 
         # Push initial ML state (trades loaded later by _load_ml_trades_from_csv)
         try:
