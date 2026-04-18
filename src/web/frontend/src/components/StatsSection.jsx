@@ -1,6 +1,6 @@
 import React from 'react'
 
-const FILTER_TO_VIEW = { 'Combined': 'combined', 'V1.4': 'v14', 'ML': 'ml', 'ML V2': 'mlv2' }
+const FILTER_TO_VIEW = { 'Combined': 'combined', 'V1.4': 'v14', 'ML': 'ml', 'ML V3': 'mlv2' }
 
 function StatsSection({ stats, risk, ml, trades, mlTrades, mlAttnTrades, activeFilter, onFilterChange }) {
   const view = FILTER_TO_VIEW[activeFilter] || 'combined'
@@ -44,7 +44,7 @@ function StatsSection({ stats, risk, ml, trades, mlTrades, mlAttnTrades, activeF
   } else if (view === 'v14') {
     walletUsd = risk?.wallet_usd ?? 0
   } else {
-    // combined — merge V1.4 + ML + ML V2
+    // combined — merge V1.4 + ML + ML V3
     const allTrades = [...(trades || []), ...(mlTrades || []), ...(mlAttnTrades || [])]
     if (allTrades.length > 0 && stats) {
       const totalWins = allTrades.filter(t => (t.net_profit_bps || 0) > 0).length
@@ -75,7 +75,7 @@ function StatsSection({ stats, risk, ml, trades, mlTrades, mlAttnTrades, activeF
   return (
     <div>
       <div className="stats-filter-bar">
-        {['Combined', 'V1.4', 'ML', 'ML V2'].map(f => {
+        {['Combined', 'V1.4', 'ML', 'ML V3'].map(f => {
           const viewKey = FILTER_TO_VIEW[f]
           return (
             <button key={f} className={`stats-filter-btn ${view === viewKey ? 'active' : ''}`} onClick={() => onFilterChange?.(f)}>{f}</button>
