@@ -13,13 +13,13 @@ logger = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REPORT_DIR = REPO_ROOT / "data/reports"
-OUTPUT_PATH = REPORT_DIR / "model_comparison.json"
+OUTPUT_PATH = REPORT_DIR / "comparison.json"
 
 MODELS = {
-    "V1.4": REPORT_DIR / "backtest_v14.json",
-    "ML_V1": REPORT_DIR / "backtest_ml_v1.json",
-    "ML_V2": REPORT_DIR / "backtest_ml_v2_attention.json",
-    "ML_V3": REPORT_DIR / "backtest_ml_v3.json",
+    "V1.4": REPORT_DIR / "v14" / "backtest.json",
+    "ML_V1": REPORT_DIR / "ml_v1" / "backtest.json",
+    "ML_V2": REPORT_DIR / "ml_v2_attention" / "backtest.json",
+    "ML_V3": REPORT_DIR / "ml_v3" / "backtest.json",
 }
 
 

@@ -343,11 +343,12 @@ def main():
             period_type="test",
         )
 
-        json_path = report_dir / f"backtest_{model_key}.json"
-        parquet_path = report_dir / f"backtest_trades_{model_key}.parquet"
+        model_dir = report_dir / model_key
+        model_dir.mkdir(parents=True, exist_ok=True)
+        json_path = model_dir / "backtest.json"
+        parquet_path = model_dir / "trades.parquet"
 
         save_report(report, json_path)
-        report_dir.mkdir(parents=True, exist_ok=True)
         tdf.to_parquet(parquet_path)
         logger.info("Saved: %s + %s", json_path, parquet_path)
 

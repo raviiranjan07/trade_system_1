@@ -299,7 +299,7 @@ def main():
         "runtime_sec": round(time.time() - t0, 1),
     }
 
-    output_path = REPO_ROOT / "data" / "reports" / f"{model_name}_threshold_sweep.json"
+    output_path = REPO_ROOT / "data" / "reports" / model_name / "threshold_sweep.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w") as f:
         json.dump(report, f, indent=2)

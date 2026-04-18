@@ -24,9 +24,9 @@ stages:
       - src/engine/backtest.py
       - src/engine/strategy.py
     outs:
-      - data/reports/backtest_v14.json:
+      - data/reports/v14/backtest.json:
           cache: false
-      - data/reports/backtest_trades_v14.parquet:
+      - data/reports/v14/trades.parquet:
           cache: false
 
   # ================================================================
@@ -77,9 +77,9 @@ stages:
       - configs/params.yaml:
           - ml_v1.inference
     outs:
-      - data/reports/backtest_ml_v1.json:
+      - data/reports/ml_v1/backtest.json:
           cache: false
-      - data/reports/backtest_trades_ml_v1.parquet:
+      - data/reports/ml_v1/trades.parquet:
           cache: false
 
   # ================================================================
@@ -108,9 +108,9 @@ stages:
       - configs/params.yaml:
           - ml_v2_attention.inference
     outs:
-      - data/reports/backtest_ml_v2_attention.json:
+      - data/reports/ml_v2_attention/backtest.json:
           cache: false
-      - data/reports/backtest_trades_ml_v2_attention.parquet:
+      - data/reports/ml_v2_attention/trades.parquet:
           cache: false
 
   # ================================================================
@@ -184,7 +184,7 @@ stages:
       - configs/params.yaml:
           - ml_v3.sweep
     outs:
-      - data/reports/ml_v3_threshold_sweep.json:
+      - data/reports/ml_v3/threshold_sweep.json:
           cache: false
 
   backtest_ml_v3:
@@ -200,9 +200,9 @@ stages:
       - configs/params.yaml:
           - ml_v3.inference
     outs:
-      - data/reports/backtest_ml_v3.json:
+      - data/reports/ml_v3/backtest.json:
           cache: false
-      - data/reports/backtest_trades_ml_v3.parquet:
+      - data/reports/ml_v3/trades.parquet:
           cache: false
 
   # ================================================================
@@ -212,11 +212,11 @@ stages:
   compare_all:
     cmd: cmd /c "set PYTHONPATH=src && python -m engine.compare_models"
     deps:
-      - data/reports/backtest_ml_v1.json
-      - data/reports/backtest_ml_v2_attention.json
-      - data/reports/backtest_ml_v3.json
-      - data/reports/backtest_v14.json
+      - data/reports/ml_v1/backtest.json
+      - data/reports/ml_v2_attention/backtest.json
+      - data/reports/ml_v3/backtest.json
+      - data/reports/v14/backtest.json
       - src/engine/compare_models.py
     outs:
-      - data/reports/model_comparison.json:
+      - data/reports/comparison.json:
           cache: false
