@@ -42,6 +42,7 @@ def backtest_at_threshold(config, model_name, conf_long, conf_short, start, end)
         params = yaml.safe_load(f)
     original_long = params[model_name]["inference"]["conf_long"]
     original_short = params[model_name]["inference"]["conf_short"]
+    exit_version = params[model_name]["inference"].get("exit_version", "v1")
 
     try:
         params[model_name]["inference"]["conf_long"] = conf_long
@@ -54,6 +55,7 @@ def backtest_at_threshold(config, model_name, conf_long, conf_short, start, end)
             ml_model_dir=model_dir, ml_generator_class=gen_class,
             ml_onnx_filename=onnx_name,
             ml_only=True,
+            exit_version=exit_version,
         )
     finally:
         # Restore original thresholds

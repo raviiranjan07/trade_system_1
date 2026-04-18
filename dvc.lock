@@ -551,8 +551,8 @@ stages:
       nfiles: 5
     - path: src/engine/sweep_thresholds.py
       hash: md5
-      md5: 03e9f8abdf20ff4ef2a10bb12fd49430
-      size: 13592
+      md5: 54cfd7f7639e746758ec87fa54330ccc
+      size: 13708
     params:
       configs/params.yaml:
         ml_v3.sweep:
@@ -606,8 +606,8 @@ stages:
     outs:
     - path: data/reports/ml_v3/threshold_sweep.json
       hash: md5
-      md5: 8760266aca57798954d944fc380b06bb
-      size: 46945
+      md5: e89e162f8b4038e7963888091c6a2f9d
+      size: 46972
   backtest_ml_v3:
     cmd: cmd /c "set PYTHONPATH=src && python -m engine.backtest --model ml_v3 
       --independent --exit-version v1 --start 2025-01-01 --end 2025-12-31"
