@@ -351,6 +351,41 @@ def main():
         tdf.to_parquet(parquet_path)
         logger.info("Saved: %s + %s", json_path, parquet_path)
 
+        # Log to MLflow — links backtest metrics to the model
+        try:
+            import mlflow
+            from mlops import tracking
+            tracking.init()
+
+            experiment_name = f"{model_key}_backtest"
+            mlflow.set_experiment(experiment_name)
+            run_name = f"backtest_{mode}_{args.exit_version}_{args.start}_{args.end}"
+
+            with mlflow.start_run(run_name=run_name):
+                # Scope tags
+                mlflow.set_tags({
+                    "model": model_key,
+                    "mode": mode,
+                    "exit_version": args.exit_version,
+                    "period": f"{args.start} to {args.end}",
+                    "schema_version": report["schema_version"],
+                })
+                # Flatten metrics for MLflow (prefix with bt_ to distinguish from training)
+                for split in ["all", "long", "short"]:
+                    m = report["metrics"][split]
+                    for k, v in m.items():
+                        mlflow.log_metric(f"bt_{split}_{k}", v)
+                # Exit distribution
+                for reason, rd in report.get("exit_distribution", {}).items():
+                    mlflow.log_metric(f"bt_exit_{reason}_n", rd["n"])
+                    mlflow.log_metric(f"bt_exit_{reason}_bps", rd["bps"])
+                # Save report as artifact
+                mlflow.log_artifact(str(json_path))
+
+            logger.info("Logged to MLflow experiment: %s", experiment_name)
+        except Exception as e:
+            logger.warning("MLflow logging failed (non-fatal): %s", e)
+
 
 if __name__ == "__main__":
     main()
