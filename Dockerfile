@@ -27,10 +27,10 @@ COPY models/ML_V1/direction_model.onnx models/ML_V1/
 COPY models/ML_V1/direction_model.onnx.data models/ML_V1/
 COPY models/ML_V1/scaler.npz models/ML_V1/
 
-# ML_V3 (LSTM+Attention+Snapshot, exit-aware labels). Replaces ML_V2_ATTENTION.
-COPY models/ML_V3/v3_model.onnx models/ML_V3/
-COPY models/ML_V3/v3_model.onnx.data models/ML_V3/
-COPY models/ML_V3/scaler.npz models/ML_V3/
+# ML_V2_ATTENTION (LSTM+Attention). Same pattern — .onnx.data sidecar required.
+COPY models/ML_V2_ATTENTION/attention_model.onnx models/ML_V2_ATTENTION/
+COPY models/ML_V2_ATTENTION/attention_model.onnx.data models/ML_V2_ATTENTION/
+COPY models/ML_V2_ATTENTION/scaler.npz models/ML_V2_ATTENTION/
 
 # Create data directories (persistent volume mounted here)
 RUN mkdir -p data/trades/risk_logs/ml data/trades/risk_logs/ml_attn
