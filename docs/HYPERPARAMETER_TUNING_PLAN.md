@@ -1,14 +1,17 @@
-# ML V3 Hyperparameter Tuning Plan
+# Hyperparameter Tuning Plan
 
 **Date:** 2026-04-18
-**Model:** ML V3 (exit-aware labels + snapshot features)
-**Current baseline:** 614 trades, +7,721 bps, PF 2.42 on 2025 test (at default params)
+**Applies to:** Any ML model (V1, V2, V3, future models)
+**Current focus:** ML V3 (exit-aware labels + snapshot features)
+**Baseline:** 614 trades, +7,721 bps, PF 2.42 on 2025 test (at default params)
 
 ---
 
-## Tuning Rule
+## Design Principles
 
-**Tune on validation (2024). Confirm on test (2025). Never tune on test.**
+1. **Config-driven, not hardcoded** — all sweep ranges live in `configs/params.yaml` under each model's `sweep:` section. Scripts read from config.
+2. **Model-agnostic** — same sweep scripts work for any model via `--model` flag.
+3. **Tune on validation (2024). Confirm on test (2025). Never tune on test.**
 
 ```
 For each config:
@@ -19,56 +22,136 @@ For each config:
 
 ---
 
-## Level 1: Threshold Sweep (NO retraining, ~24-72 min)
+## Config Structure (configs/params.yaml)
 
-### Parameters:
+Each model has an `inference`, `training`, and `sweep` section:
 
-| Parameter | Current | Sweep values | What it controls |
-|-----------|:-------:|-------------|-----------------|
-| conf_long | 0.40 | 0.35, 0.37, 0.40, 0.42, 0.45, 0.50 | Min P(LONG) to fire signal |
-| conf_short | 0.40 | 0.35, 0.37, 0.40, 0.42, 0.45, 0.50 | Min P(SHORT) to fire signal |
+```yaml
+ml_v3:
+  inference:
+    conf_long: 0.40              # current production value
+    conf_short: 0.40             # updated by sweep winner
+  training:
+    hidden: 128
+    dropout: 0.5
+    temperature: 0.5
+    lr: 0.001
+    batch_size: 2048
+    loss_weight_pnl: 1.0
+    loss_weight_dir: 1.0
+    seed: 42
+  sweep:
+    # Level 1: inference thresholds (no retraining)
+    conf_long: [0.35, 0.37, 0.40, 0.42, 0.45, 0.50]
+    conf_short: [0.35, 0.37, 0.40, 0.42, 0.45, 0.50]
+    strategy: independent        # "independent" or "grid"
+    # Level 2: training params (retraining required)
+    learning_rate: [0.0005, 0.001, 0.002]
+    loss_weight_pnl: [0.5, 1.0, 2.0]
+    loss_weight_dir: [0.5, 1.0, 2.0]
+    batch_size: [512, 1024, 2048]
+    # Level 3: architecture (retraining required)
+    hidden_size: [64, 128, 180, 256]
+    temperature: [0.1, 0.3, 0.5, 0.7, 1.0]
+    dropout: [0.3, 0.4, 0.5, 0.6]
+```
+
+Same structure applies to ml_v1, ml_v2_attention, or any future model —
+just add a `sweep:` section with the ranges to test.
+
+---
+
+## Script Design (model-agnostic)
+
+All sweep scripts accept `--model` flag and read config from params.yaml:
+
+```bash
+# Same script, different models:
+python -m engine.sweep_thresholds --model ml_v3
+python -m engine.sweep_thresholds --model ml_v1
+python -m engine.sweep_thresholds --model ml_v2_attention
+
+# Level 2:
+python -m engine.sweep_training_params --model ml_v3
+
+# Level 3:
+python -m engine.sweep_architecture --model ml_v3
+```
+
+Script internals:
+```python
+# sweep_thresholds.py
+model_name = args.model                           # "ml_v3"
+sweep_cfg = params[model_name]["sweep"]            # from params.yaml
+long_values = sweep_cfg["conf_long"]               # [0.35, 0.37, ...]
+short_values = sweep_cfg["conf_short"]             # [0.35, 0.37, ...]
+strategy = sweep_cfg.get("strategy", "independent")
+model_class, model_dir = ML_GENERATORS[model_name] # from backtest registry
+```
+
+---
+
+## Level 1: Threshold Sweep (NO retraining)
+
+**Cost:** ~2 min per config (just re-run backtest with existing model)
+**Priority:** HIGH — most impact, zero cost
+
+### Parameters (read from params.yaml → model.sweep):
+
+| Parameter | Current | Sweep values (from config) | What it controls |
+|-----------|:-------:|---------------------------|-----------------|
+| conf_long | 0.40 | params[model]["sweep"]["conf_long"] | Min P(LONG) to fire signal |
+| conf_short | 0.40 | params[model]["sweep"]["conf_short"] | Min P(SHORT) to fire signal |
+| strategy | — | params[model]["sweep"]["strategy"] | "independent" or "grid" |
 
 ### Implementation:
 
 ```
-Script: src/engine/sweep_thresholds.py
+Script: src/engine/sweep_thresholds.py --model {model_name}
 
 What it does:
-  1. Load trained V3 model (no retraining)
-  2. Run inference on ALL val bars (2024) — get probabilities once
-  3. For each threshold combo:
+  1. Read sweep config from params.yaml → {model_name}.sweep
+  2. Load trained model from ML_GENERATORS registry (no retraining)
+  3. Run inference on ALL val bars (2024) — get probabilities once
+  4. For each threshold combo (based on strategy):
      - Filter signals where P(LONG) > threshold or P(SHORT) > threshold
      - Run those signals through backtest (2024 only)
      - Record: trades, bps, PF, stop_rate
-  4. Rank by PF (min 100 trades)
-  5. Take top 3, confirm each on test (2025)
-  6. Pick the one that holds best on 2025
+  5. Rank by PF (min 100 trades)
+  6. Take top 3, confirm each on test (2025)
+  7. Pick the one that holds best on 2025
+  8. Save winner to output JSON
 
 Input:
-  - models/ML_V3_staging/v3_model.onnx (existing, no retrain)
+  - Model ONNX + scaler (from ML_GENERATORS registry)
   - data/raw/BTCUSDT_15m_ohlcv.parquet
   - data/raw/BTCUSDT_1m_ohlcv.parquet
+  - configs/params.yaml → {model_name}.sweep
 
 Output:
-  - data/reports/threshold_sweep_results.json
-  - Best config → update configs/params.yaml
+  - data/reports/{model_name}_threshold_sweep.json
+  - Best config logged (user updates params.yaml manually)
 
 MLflow:
-  - Experiment: "ml_v3_threshold_sweep"
-  - One run per threshold combo (12-36 runs)
+  - Experiment: "{model_name}_threshold_sweep"
+  - One run per threshold combo
+
+Reusable: same script works for ml_v1, ml_v2_attention, ml_v3.
 ```
 
-### Sweep strategy:
+### Sweep strategies:
 
-**Option A: Independent sweep (12 runs, ~24 min)**
+**Independent (default, from config strategy="independent"):**
 ```
-Fix conf_short=0.40, sweep conf_long: 6 runs
-Fix conf_long=best, sweep conf_short: 6 runs
+Fix conf_short at current, sweep conf_long: N runs
+Fix conf_long at best, sweep conf_short: N runs
+Total: 2 × N runs
 ```
 
-**Option B: Grid sweep (36 runs, ~72 min)**
+**Grid (from config strategy="grid"):**
 ```
-All 6 × 6 = 36 combinations
+All conf_long × conf_short combinations
+Total: N × N runs
 ```
 
 ### Evaluation metric:
@@ -78,16 +161,19 @@ All 6 × 6 = 36 combinations
 
 ---
 
-## Level 2: Training Params (~90 min, requires retraining)
+## Level 2: Training Params (retraining required)
 
-### Parameters:
+**Cost:** ~5 min per config (retrain model)
+**Priority:** MEDIUM — do after Level 1
 
-| Parameter | Current | Sweep values | What it controls |
-|-----------|:-------:|-------------|-----------------|
-| loss_weight_pnl | 1.0 | 0.5, 1.0, 2.0 | How much LSTM focuses on P&L prediction |
-| loss_weight_dir | 1.0 | 0.5, 1.0, 2.0 | How much LSTM focuses on direction prediction |
-| learning_rate | 0.001 | 0.0005, 0.001, 0.002 | How fast model learns |
-| batch_size | 2048 | 512, 1024, 2048 | How many bars per weight update |
+### Parameters (read from params.yaml → model.sweep):
+
+| Parameter | Current | Config key | What it controls |
+|-----------|:-------:|-----------|-----------------|
+| loss_weight_pnl | 1.0 | sweep.loss_weight_pnl | How much LSTM focuses on P&L prediction |
+| loss_weight_dir | 1.0 | sweep.loss_weight_dir | How much LSTM focuses on direction prediction |
+| learning_rate | 0.001 | sweep.learning_rate | How fast model learns |
+| batch_size | 2048 | sweep.batch_size | How many bars per weight update |
 
 ### Why each matters:
 
@@ -121,56 +207,60 @@ V2 failed because MFE loss had 4× direction weight — balance matters.
 ### Implementation:
 
 ```
-Script: src/engine/sweep_training_params.py
+Script: src/engine/sweep_training_params.py --model {model_name}
 
 What it does:
-  Step 1 — Loss weight sweep (9 configs):
-    1. For each combo of loss_weight_pnl × loss_weight_dir:
-       - Train fresh model on 2020-2023 (same labels, same features)
-       - Evaluate on val 2024 (accuracy + backtest)
+  1. Read sweep config from params.yaml → {model_name}.sweep
+  2. Step 1 — Loss weight sweep:
+     - For each combo of loss_weight_pnl × loss_weight_dir (from config):
+       - Train fresh model on train split (same labels, same features)
+       - Evaluate on val (accuracy + backtest)
        - Record: val_PF, val_bps, val_stop_rate
-    2. Pick best loss weight combo
+     - Pick best loss weight combo
 
-  Step 2 — LR + batch_size sweep (9 configs):
-    1. Fix loss weights from Step 1
-    2. For each combo of lr × batch_size:
+  3. Step 2 — LR + batch_size sweep:
+     - Fix loss weights from Step 1
+     - For each combo of lr × batch_size (from config):
        - Train fresh model
-       - Evaluate on val 2024
-    3. Pick best combo
+       - Evaluate on val
+     - Pick best combo
 
-  Step 3 — Confirm:
-    1. Train final model with all best params
-    2. Run backtest on test 2025
-    3. Compare to baseline (PF 2.42)
+  4. Step 3 — Confirm:
+     - Train final model with all best params
+     - Run backtest on test (2025)
+     - Compare to baseline
 
 Input:
   - data/features/direction_prediction/feature_cache.parquet
   - data/features/direction_prediction/exit_aware_labels.parquet
   - data/raw/ (for backtest)
+  - configs/params.yaml → {model_name}.sweep
 
 Output:
-  - data/reports/training_param_sweep_results.json
-  - Best config → update configs/params.yaml
+  - data/reports/{model_name}_training_sweep.json
+  - Best config logged (user updates params.yaml manually)
 
 MLflow:
-  - Experiment: "ml_v3_training_sweep"
-  - 18 runs total (9 + 9)
-  - Each logs: params, val_accuracy, val_PF, val_bps
+  - Experiment: "{model_name}_training_sweep"
+  - Each run logs: params, val_accuracy, val_PF, val_bps
 
-Runtime: 18 × 5 min = ~90 min
+Reusable: same script works for any model.
 ```
 
 ---
 
-## Level 3: Architecture Params (~120 min, only if needed)
+## Level 3: Architecture Params (only if needed)
 
-### Parameters:
+**Cost:** ~5 min per config (retrain model)
+**Priority:** LOW — only if Level 1+2 don't satisfy
 
-| Parameter | Current | Sweep values | What it controls |
-|-----------|:-------:|-------------|-----------------|
-| hidden_size | 128 | 64, 128, 180, 256 | LSTM capacity — how many patterns it can learn |
-| temperature | 0.5 | 0.1, 0.3, 0.5, 0.7, 1.0 | Attention sharpness — focus on few steps vs blend all |
-| dropout | 0.5 | 0.3, 0.4, 0.5, 0.6 | Regularization — prevents overfitting |
+### Parameters (read from params.yaml → model.sweep):
+
+| Parameter | Current | Config key | What it controls |
+|-----------|:-------:|-----------|-----------------|
+| hidden_size | 128 | sweep.hidden_size | LSTM capacity — how many patterns it can learn |
+| temperature | 0.5 | sweep.temperature | Attention sharpness — focus on few steps vs blend all |
+| dropout | 0.5 | sweep.dropout | Regularization — prevents overfitting |
 
 ### Why each matters:
 
@@ -201,36 +291,36 @@ Runtime: 18 × 5 min = ~90 min
 ### Implementation:
 
 ```
-Script: src/engine/sweep_architecture.py
+Script: src/engine/sweep_architecture.py --model {model_name}
 
 What it does:
-  Step 1 — Hidden + Temperature sweep (20 configs):
-    1. Fix best from Level 1 + 2
-    2. For each combo of hidden_size × temperature:
+  1. Read sweep config from params.yaml → {model_name}.sweep
+  2. Step 1 — Hidden + Temperature sweep:
+     - Fix best from Level 1 + 2
+     - For each combo of hidden_size × temperature (from config):
        - Train fresh model
-       - Evaluate on val 2024 (accuracy + backtest)
-    3. Pick best combo
+       - Evaluate on val (accuracy + backtest)
+     - Pick best combo
 
-  Step 2 — Dropout sweep (4 configs):
-    1. Fix best hidden + temp from Step 1
-    2. For each dropout value:
+  3. Step 2 — Dropout sweep:
+     - Fix best hidden + temp from Step 1
+     - For each dropout value (from config):
        - Train fresh model
-       - Evaluate on val 2024
-    3. Pick best
+       - Evaluate on val
+     - Pick best
 
-  Step 3 — Confirm on test 2025
+  4. Step 3 — Confirm on test
 
 Input: same as Level 2
 
 Output:
-  - data/reports/architecture_sweep_results.json
-  - Best config → update configs/params.yaml
+  - data/reports/{model_name}_architecture_sweep.json
+  - Best config logged (user updates params.yaml manually)
 
 MLflow:
-  - Experiment: "ml_v3_architecture_sweep"
-  - 24 runs total (20 + 4)
+  - Experiment: "{model_name}_architecture_sweep"
 
-Runtime: 24 × 5 min = ~120 min
+Reusable: same script works for any model.
 ```
 
 ---
@@ -282,58 +372,74 @@ Phase 4: Final retrain on ALL data (2020-2025)
 
 ## DVC Pipeline Stages
 
+Model-agnostic stages — replace `{model}` with actual model name (e.g., `ml_v3`):
+
 ```yaml
-  sweep_thresholds:
-    cmd: python -m engine.sweep_thresholds
+  sweep_thresholds_{model}:
+    cmd: cmd /c "set PYTHONPATH=src && python -m engine.sweep_thresholds --model {model}"
     deps:
-      - models/ML_V3_staging/v3_model.onnx
+      - models/{MODEL_DIR}/         # model ONNX + scaler
       - data/raw/BTCUSDT_15m_ohlcv.parquet
       - data/raw/BTCUSDT_1m_ohlcv.parquet
       - src/engine/sweep_thresholds.py
+    params:
+      - configs/params.yaml:
+          - {model}.sweep
     outs:
-      - data/reports/threshold_sweep_results.json
+      - data/reports/{model}_threshold_sweep.json
 
-  sweep_training:
-    cmd: python -m engine.sweep_training_params
+  sweep_training_{model}:
+    cmd: cmd /c "set PYTHONPATH=src && python -m engine.sweep_training_params --model {model}"
     deps:
       - data/features/direction_prediction/feature_cache.parquet
       - data/features/direction_prediction/exit_aware_labels.parquet
-      - data/reports/threshold_sweep_results.json
+      - data/reports/{model}_threshold_sweep.json
       - src/engine/sweep_training_params.py
+    params:
+      - configs/params.yaml:
+          - {model}.sweep
     outs:
-      - data/reports/training_sweep_results.json
+      - data/reports/{model}_training_sweep.json
 
-  sweep_architecture:
-    cmd: python -m engine.sweep_architecture
+  sweep_architecture_{model}:
+    cmd: cmd /c "set PYTHONPATH=src && python -m engine.sweep_architecture --model {model}"
     deps:
       - data/features/direction_prediction/feature_cache.parquet
       - data/features/direction_prediction/exit_aware_labels.parquet
-      - data/reports/training_sweep_results.json
+      - data/reports/{model}_training_sweep.json
       - src/engine/sweep_architecture.py
+    params:
+      - configs/params.yaml:
+          - {model}.sweep
     outs:
-      - data/reports/architecture_sweep_results.json
+      - data/reports/{model}_architecture_sweep.json
 
-  train_v3_final:
-    cmd: python -m engine.train_v3_final
+  train_{model}_final:
+    cmd: cmd /c "set PYTHONPATH=src && python -m engine.train_v3_final --model {model}"
     deps:
       - data/features/direction_prediction/feature_cache.parquet
       - data/features/direction_prediction/exit_aware_labels.parquet
-      - data/reports/architecture_sweep_results.json
-      - src/engine/train_v3_final.py
+      - data/reports/{model}_architecture_sweep.json
     outs:
-      - models/ML_V3/
+      - models/{MODEL_DIR}/
 ```
+
+Note: DVC doesn't support template variables natively. When adding stages
+for a specific model, replace `{model}` with the actual name (e.g., `ml_v3`)
+and `{MODEL_DIR}` with the directory (e.g., `ML_V3_staging`).
 
 ---
 
 ## Scripts to Create
 
-| Script | Level | Configs tested | Runtime |
-|--------|:-----:|:--------------:|:-------:|
-| src/engine/sweep_thresholds.py | 1 | 12-36 | ~24-72 min |
-| src/engine/sweep_training_params.py | 2 | 18 | ~90 min |
-| src/engine/sweep_architecture.py | 3 | 24 | ~120 min |
-| src/engine/train_v3_final.py | Final | 1 (best) | ~5 min |
+All scripts are model-agnostic via `--model` flag:
+
+| Script | Level | Flag | Reads config from |
+|--------|:-----:|------|------------------|
+| src/engine/sweep_thresholds.py | 1 | --model ml_v3 | params.yaml → ml_v3.sweep.conf_long/short |
+| src/engine/sweep_training_params.py | 2 | --model ml_v3 | params.yaml → ml_v3.sweep.learning_rate/loss_weights/batch_size |
+| src/engine/sweep_architecture.py | 3 | --model ml_v3 | params.yaml → ml_v3.sweep.hidden_size/temperature/dropout |
+| src/engine/train_v3_final.py | Final | --model ml_v3 | params.yaml → ml_v3.training (locked best values) |
 
 ---
 

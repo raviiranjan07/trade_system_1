@@ -49,6 +49,7 @@ def run_backtest(
     ml_onnx_filename: str = "direction_model.onnx",
     ml_scaler_filename: str = "scaler.npz",
     v14_only: bool = False,
+    ml_only: bool = False,
     exit_version: str = "v1",
 ) -> list[TradeRecord]:
     """Run backtest using the same modules as the live bot.
@@ -92,14 +93,20 @@ def run_backtest(
     bull = test["bull_market"].values
     bear = test["bear_market"].values
 
-    # Generate V1.4 signals
-    signals = strategy.generate_signals(test)
-    logger.info("V1.4 signals: %d", len(signals))
+    # Generate signals based on mode:
+    #   v14_only=True  → V1.4 signals only (no ML)
+    #   ml_only=True   → ML signals only (no V1.4) — independent model test
+    #   both False     → mixed (V1.4 + ML, legacy mode)
+    signals = []
 
-    # Generate ML signals — unless V1.4-only mode is requested.
-    if v14_only:
-        logger.info("V1.4-only mode: skipping ML signal generation")
+    if not ml_only:
+        v14_signals = strategy.generate_signals(test)
+        logger.info("V1.4 signals: %d", len(v14_signals))
+        signals.extend(v14_signals)
     else:
+        logger.info("ML-only mode: skipping V1.4 signal generation")
+
+    if not v14_only:
         ml_model_path = ml_model_dir / ml_onnx_filename
         ml_scaler_path = ml_model_dir / ml_scaler_filename
         ml_gen = ml_generator_class(model_path=ml_model_path, scaler_path=ml_scaler_path)
@@ -111,6 +118,8 @@ def run_backtest(
             signals.extend(ml_signals)
         else:
             logger.warning("ML model not found — running V1.4 only")
+    else:
+        logger.info("V1.4-only mode: skipping ML signal generation")
 
     # Build signal lookup: bar_index -> Signal (V1.4 takes priority over ML)
     signal_map = {}
@@ -283,6 +292,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--v14-only", action="store_true",
                         help="Skip ML signals — backtest V1.4 strategy alone")
+    parser.add_argument("--independent", action="store_true",
+                        help="ML-only mode: skip V1.4, test model in isolation (matches live bot)")
     parser.add_argument("--exit-version", choices=["v1", "v2"], default="v1",
                         help="v1 = full V1 (default). v2 = V1 minus LOCKED_PROFIT.")
     parser.add_argument("--model", choices=list(ML_GENERATORS.keys()), default="ml_v1",
@@ -303,6 +314,7 @@ def main():
         start=args.start,
         end=args.end,
         v14_only=args.v14_only,
+        ml_only=args.independent,
         exit_version=args.exit_version,
         ml_model_dir=model_dir,
         ml_generator_class=gen_class,
@@ -368,9 +380,9 @@ def main():
             },
         }
 
-        suffix = f"_{args.model}" if args.model != "ml_v1" else ""
-        json_path = report_dir / f"backtest_staging{suffix}.json"
-        parquet_path = report_dir / f"backtest_staging_trades{suffix}.parquet"
+        model_key = args.model if not args.v14_only else "v14"
+        json_path = report_dir / f"backtest_{model_key}.json"
+        parquet_path = report_dir / f"backtest_trades_{model_key}.parquet"
 
         with open(json_path, "w") as f:
             json.dump(report, f, indent=2)

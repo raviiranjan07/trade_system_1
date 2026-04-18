@@ -12,9 +12,15 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-V3_BACKTEST = REPO_ROOT / "data/reports/backtest_staging_ml_v3.json"
-V2_BASELINE = REPO_ROOT / "data/reports/backtest_staging_ml_v2_attention_exitv2.json"
-OUTPUT_PATH = REPO_ROOT / "data/reports/v3_vs_v2_comparison.json"
+REPORT_DIR = REPO_ROOT / "data/reports"
+OUTPUT_PATH = REPORT_DIR / "model_comparison.json"
+
+MODELS = {
+    "V1.4": REPORT_DIR / "backtest_v14.json",
+    "ML_V1": REPORT_DIR / "backtest_ml_v1.json",
+    "ML_V2": REPORT_DIR / "backtest_ml_v2_attention.json",
+    "ML_V3": REPORT_DIR / "backtest_ml_v3.json",
+}
 
 
 def load_metrics(path, fallback=None):
@@ -30,13 +36,12 @@ def load_metrics(path, fallback=None):
 def main():
     logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 
-    v3 = load_metrics(V3_BACKTEST)
-    v2 = load_metrics(V2_BASELINE, fallback={
-        "n_trades": 804, "total_bps": 10129, "pf": 2.28,
-        "win_pct": 49.6, "max_dd_bps": -367, "avg_trade_bps": 12.6,
-    })
+    # Load all model results
+    all_data = {}
+    for name, path in MODELS.items():
+        all_data[name] = load_metrics(path)
 
-    metrics = [
+    metric_keys = [
         ("Trades", "n_trades", "{:.0f}"),
         ("Total bps", "total_bps", "{:+.0f}"),
         ("Profit Factor", "pf", "{:.2f}"),
@@ -47,72 +52,44 @@ def main():
     ]
 
     print()
-    print("=" * 65)
-    print("V3 vs V2 COMPARISON")
-    print("=" * 65)
-    print(f"  {'Metric':<20} {'V2 (current)':>14} {'V3 (new)':>14} {'Delta':>12}")
-    print(f"  {'-'*60}")
+    print("=" * 80)
+    print("ALL MODELS COMPARISON — Independent Backtests")
+    print("=" * 80)
+
+    header = f"  {'Metric':<16}"
+    for name in MODELS:
+        header += f" {name:>12}"
+    print(header)
+    print(f"  {'-'*72}")
 
     comparison = {}
-    for label, key, fmt in metrics:
-        v2_val = v2.get(key, 0)
-        v3_val = v3.get(key, 0)
-        if v2_val is None:
-            v2_val = 0
-        if v3_val is None:
-            v3_val = 0
-        delta = v3_val - v2_val
+    for label, key, fmt in metric_keys:
+        row = f"  {label:<16}"
+        vals = {}
+        for name in MODELS:
+            v = all_data[name].get(key, 0)
+            if v is None:
+                v = 0
+            row += f" {fmt.format(v):>12}"
+            vals[name] = v
+        print(row)
+        comparison[key] = vals
 
-        v2_str = fmt.format(v2_val)
-        v3_str = fmt.format(v3_val)
-        delta_str = f"{delta:+.1f}"
+    # Best model by PF
+    pf_vals = comparison.get("pf", {})
+    if pf_vals:
+        best = max(pf_vals, key=pf_vals.get)
+        print(f"\n  Best PF: {best} ({pf_vals[best]:.2f})")
 
-        print(f"  {label:<20} {v2_str:>14} {v3_str:>14} {delta_str:>12}")
-        comparison[key] = {"v2": v2_val, "v3": v3_val, "delta": round(delta, 2)}
+    bps_vals = comparison.get("total_bps", {})
+    if bps_vals:
+        best_bps = max(bps_vals, key=bps_vals.get)
+        print(f"  Best bps: {best_bps} ({bps_vals[best_bps]:+.0f})")
 
-    # Per signal type if available
-    v3_by_sig = v3.get("by_signal_type", {})
-    if v3_by_sig:
-        print(f"\n  V3 by signal type:")
-        for sig, data in sorted(v3_by_sig.items()):
-            if isinstance(data, dict):
-                n = data.get("n", 0)
-                bps = data.get("total_bps", 0)
-                wp = data.get("win_pct", 0)
-                print(f"    {sig:<16} {n:>4}t  win {wp:>5.1f}%  bps {bps:>+8.1f}")
-
-    # Per year if available
-    v3_by_year = v3.get("per_year", {})
-    if v3_by_year:
-        print(f"\n  V3 by year:")
-        for year, data in sorted(v3_by_year.items()):
-            if isinstance(data, dict):
-                n = data.get("n", 0)
-                bps = data.get("total_bps", 0)
-                pf = data.get("pf", 0)
-                print(f"    {year}: {n}t  bps {bps:>+8.1f}  PF {pf:.2f}")
-
-    # Verdict
-    bps_better = comparison.get("total_bps", {}).get("delta", 0) > 0
-    stop_better = comparison.get("stop_rate", {}).get("delta", 0) < 0
-
-    print()
-    if bps_better and stop_better:
-        verdict = "V3 WINS (better bps AND lower stop rate)"
-    elif bps_better:
-        verdict = "V3 MIXED (better bps but higher stop rate)"
-    elif stop_better:
-        verdict = "V3 MIXED (lower stop rate but less bps)"
-    else:
-        verdict = "V2 WINS (V3 did not improve)"
-    print(f"  VERDICT: {verdict}")
     print()
 
     result = {
         "comparison": comparison,
-        "verdict": verdict,
-        "v3_by_signal_type": v3_by_sig,
-        "v3_by_year": v3_by_year,
     }
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
