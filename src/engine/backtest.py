@@ -308,6 +308,73 @@ def main():
     )
     print_results(trades, config)
 
+    # Save JSON + parquet for DVC pipeline stages
+    if trades:
+        import json
+        from pathlib import Path
+        tdf = pd.DataFrame([asdict(t) for t in trades])
+        report_dir = Path("data/reports")
+        report_dir.mkdir(parents=True, exist_ok=True)
+
+        # Compute metrics
+        wins = tdf[tdf["net_profit_bps"] > 0]
+        losses = tdf[tdf["net_profit_bps"] <= 0]
+        gw = wins["net_profit_bps"].sum() if len(wins) else 0
+        gl = abs(losses["net_profit_bps"].sum()) if len(losses) else 1
+        stops = tdf[tdf["exit_reason"] == "STOP_LOSS"]
+        equity = tdf["net_profit_bps"].cumsum()
+        max_dd = float((equity - equity.cummax()).min())
+
+        by_sig = {}
+        for st, g in tdf.groupby("signal_type"):
+            sw = g[g["net_profit_bps"] > 0]
+            sl = g[g["net_profit_bps"] <= 0]
+            sgw = sw["net_profit_bps"].sum() if len(sw) else 0
+            sgl = abs(sl["net_profit_bps"].sum()) if len(sl) else 1
+            by_sig[st] = {
+                "n": len(g), "win_pct": round(len(sw)/len(g)*100, 1),
+                "total_bps": round(float(g["net_profit_bps"].sum()), 1),
+                "pf": round(sgw/sgl, 2),
+            }
+
+        tdf["year"] = pd.to_datetime(tdf["entry_time"]).dt.year
+        per_year = {}
+        for y, yg in tdf.groupby("year"):
+            yw = yg[yg["net_profit_bps"] > 0]
+            yl = yg[yg["net_profit_bps"] <= 0]
+            ygw = yw["net_profit_bps"].sum() if len(yw) else 0
+            ygl = abs(yl["net_profit_bps"].sum()) if len(yl) else 1
+            per_year[str(y)] = {
+                "n": len(yg), "total_bps": round(float(yg["net_profit_bps"].sum()), 1),
+                "pf": round(ygw/ygl, 2),
+            }
+
+        report = {
+            "model": args.model,
+            "exit_version": args.exit_version,
+            "window": {"start": args.start, "end": args.end},
+            "metrics": {
+                "n_trades": len(tdf),
+                "total_bps": round(float(tdf["net_profit_bps"].sum()), 1),
+                "pf": round(gw/gl, 2),
+                "win_pct": round(len(wins)/len(tdf)*100, 1),
+                "stop_rate": round(len(stops)/len(tdf)*100, 1),
+                "max_dd_bps": round(max_dd, 1),
+                "avg_trade_bps": round(float(tdf["net_profit_bps"].mean()), 1),
+                "by_signal_type": by_sig,
+                "per_year": per_year,
+            },
+        }
+
+        suffix = f"_{args.model}" if args.model != "ml_v1" else ""
+        json_path = report_dir / f"backtest_staging{suffix}.json"
+        parquet_path = report_dir / f"backtest_staging_trades{suffix}.parquet"
+
+        with open(json_path, "w") as f:
+            json.dump(report, f, indent=2)
+        tdf.drop(columns=["year"], errors="ignore").to_parquet(parquet_path)
+        logger.info("Saved: %s + %s", json_path, parquet_path)
+
 
 if __name__ == "__main__":
     main()

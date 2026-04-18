@@ -13,7 +13,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-V3_BACKTEST = REPO_ROOT / "data/reports/backtest_staging_v3.json"
+V3_BACKTEST = REPO_ROOT / "data/reports/backtest_staging_ml_v3.json"
 V2_BASELINE = REPO_ROOT / "data/reports/backtest_staging_ml_v2_attention_exitv2.json"
 OUTPUT_PATH = REPO_ROOT / "data/reports/v3_backtest_verification.json"
 

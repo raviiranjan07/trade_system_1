@@ -107,8 +107,8 @@ stages:
       size: 7987
     - path: src/engine/backtest.py
       hash: md5
-      md5: d74374822ce126dc27b406556f918478
-      size: 12351
+      md5: f41516e90471b6130cbd82abc45b3cbd
+      size: 15282
     - path: src/engine/signals/ml_v1.py
       hash: md5
       md5: 2ce660d58aa2fc5f87ea3499fb47ca8f
@@ -220,7 +220,7 @@ stages:
       md5: c23e2361d31b3f901d1376448d16df00
       size: 1546
   train_v3:
-    cmd: python -m engine.train_v3
+    cmd: cmd /c "set PYTHONIOENCODING=utf-8 && python -m engine.train_v3"
     deps:
     - path: ../data/features/direction_prediction/exit_aware_labels.parquet
       hash: md5
@@ -236,8 +236,8 @@ stages:
       size: 1546
     - path: engine/train_v3.py
       hash: md5
-      md5: 2a574981a2e0781128468062c5409db8
-      size: 16752
+      md5: afca199f7f265fe021e747a997271707
+      size: 20012
     params:
       ../configs/params.yaml:
         ml_v3.split:
@@ -261,10 +261,116 @@ stages:
     outs:
     - path: ../data/reports/v3_train_metrics.json
       hash: md5
-      md5: db1c6ab6b70949db25ab09d9fa02ea31
+      md5: 3e5daa1c8f0d3d1dfbc27dafbbd73b13
       size: 1336
     - path: ../models/ML_V3_staging
       hash: md5
-      md5: 0694f3b0f29858d6d499335260a363ec.dir
-      size: 607335
+      md5: 32dc49fe966b818e99b1dd8555146e54.dir
+      size: 609739
       nfiles: 4
+  verify_v3_model:
+    cmd: python -m engine.verify_v3_model
+    deps:
+    - path: ../data/features/direction_prediction/exit_aware_labels.parquet
+      hash: md5
+      md5: 5e517d67c113f77e08788879e707a8f2
+      size: 3219123
+    - path: ../data/features/direction_prediction/feature_cache.parquet
+      hash: md5
+      md5: e78134d5a94a39dfc609b9f18b03cc4d
+      size: 39641806
+    - path: ../models/ML_V3_staging
+      hash: md5
+      md5: 32dc49fe966b818e99b1dd8555146e54.dir
+      size: 609739
+      nfiles: 4
+    - path: engine/verify_v3_model.py
+      hash: md5
+      md5: 3d44944a8c8beb1d73679910c53035ef
+      size: 8339
+    outs:
+    - path: ../data/reports/v3_model_verification.json
+      hash: md5
+      md5: 81f099c37bd06a40e839106a27f56d49
+      size: 774
+  backtest_v3:
+    cmd: cmd /c "set PYTHONPATH=src && python -m engine.backtest --model ml_v3"
+    deps:
+    - path: data/raw/BTCUSDT_15m_ohlcv.parquet
+      hash: md5
+      md5: 80dddbc50f8fce723e9c9fbb8d48a32a
+      size: 9061640
+    - path: data/raw/BTCUSDT_1m_ohlcv.parquet
+      hash: md5
+      md5: d172da1885489670d63173b1c4badc86
+      size: 110075967
+    - path: data/reports/v3_model_verification.json
+      hash: md5
+      md5: 81f099c37bd06a40e839106a27f56d49
+      size: 774
+    - path: models/ML_V3_staging
+      hash: md5
+      md5: 32dc49fe966b818e99b1dd8555146e54.dir
+      size: 609739
+      nfiles: 4
+    - path: src/engine/backtest.py
+      hash: md5
+      md5: f41516e90471b6130cbd82abc45b3cbd
+      size: 15282
+    - path: src/engine/signals/ml_v3.py
+      hash: md5
+      md5: 83c37f6bb24d79d9238c988b32b6af3c
+      size: 7471
+    outs:
+    - path: data/reports/backtest_staging_ml_v3.json
+      hash: md5
+      md5: 866db1327007a8d26745794840d294a0
+      size: 1322
+    - path: data/reports/backtest_staging_trades_ml_v3.parquet
+      hash: md5
+      md5: 48b2c5a1db20a4fc9085b205103d7fe9
+      size: 127699
+  verify_v3_backtest:
+    cmd: cmd /c "set PYTHONPATH=src && python -m engine.verify_v3_backtest"
+    deps:
+    - path: data/reports/backtest_staging_ml_v2_attention_exitv2.json
+      hash: md5
+      md5: 388ce1985b2a8ce7cb650087013af6fc
+      size: 1588
+    - path: data/reports/backtest_staging_ml_v3.json
+      hash: md5
+      md5: 866db1327007a8d26745794840d294a0
+      size: 1322
+    - path: src/engine/verify_v3_backtest.py
+      hash: md5
+      md5: 0b337db04aea4c85274eea6b37897c8b
+      size: 4490
+    outs:
+    - path: data/reports/v3_backtest_verification.json
+      hash: md5
+      md5: beff156befd15c90592582b32df3e1d2
+      size: 1113
+  compare_v3:
+    cmd: cmd /c "set PYTHONPATH=src && python -m engine.compare_models"
+    deps:
+    - path: data/reports/backtest_staging_ml_v2_attention_exitv2.json
+      hash: md5
+      md5: 388ce1985b2a8ce7cb650087013af6fc
+      size: 1588
+    - path: data/reports/backtest_staging_ml_v3.json
+      hash: md5
+      md5: 866db1327007a8d26745794840d294a0
+      size: 1322
+    - path: data/reports/v3_backtest_verification.json
+      hash: md5
+      md5: beff156befd15c90592582b32df3e1d2
+      size: 1113
+    - path: src/engine/compare_models.py
+      hash: md5
+      md5: 54ce9a75efa523197fa64ed47989ba76
+      size: 3887
+    outs:
+    - path: data/reports/v3_vs_v2_comparison.json
+      hash: md5
+      md5: fe73a90cd1bf304fb5c172aff43bac85
+      size: 1619

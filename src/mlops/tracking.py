@@ -12,14 +12,15 @@ from typing import Any
 import mlflow
 
 
-# Default backend: SQLite (file-store is deprecated as of MLflow 3.x, Feb 2026)
-DEFAULT_TRACKING_URI = "sqlite:///mlflow.db"
+# Default backend: SQLite — uses absolute path so it works regardless of wdir.
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_TRACKING_URI = f"sqlite:///{_REPO_ROOT / 'mlflow.db'}"
 
 
 def init(tracking_uri: str = DEFAULT_TRACKING_URI) -> None:
     """Point MLflow at a tracking store. Idempotent.
 
-    Default: sqlite:///mlflow.db in the current working directory.
+    Default: sqlite:///<repo_root>/mlflow.db (absolute, wdir-safe).
     Pass a different URI to override (e.g., for tests).
     """
     mlflow.set_tracking_uri(tracking_uri)

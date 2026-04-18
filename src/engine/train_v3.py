@@ -72,31 +72,47 @@ EXPERIMENT = "ml_v3_exit_aware"
 # MODEL
 # =====================================================================
 
-class LSTMAttentionV3(nn.Module):
-    """LSTM + Attention + PnL heads + 3-class direction."""
+N_SNAPSHOT = 4  # absolute features: rsi7, range_position, sma200_dist_pct, atr_percentile
 
-    def __init__(self, input_size=4, hidden=128, dropout=0.5, temperature=0.5):
+
+class LSTMAttentionV3(nn.Module):
+    """LSTM + Attention + snapshot (position) + PnL heads + 3-class direction.
+
+    Diff features [8, 4] → LSTM → attention → attended (velocity)
+    Snapshot features [4] → concatenated with attended (position)
+    Combined → PnL heads → direction head
+    """
+
+    def __init__(self, input_size=4, hidden=128, n_snapshot=N_SNAPSHOT,
+                 dropout=0.5, temperature=0.5):
         super().__init__()
         self.hidden = hidden
         self.temperature = temperature
+        self.n_snapshot = n_snapshot
         self.lstm = nn.LSTM(input_size, hidden, num_layers=1, batch_first=True)
         self.dropout = nn.Dropout(dropout)
         self.attn_score = nn.Linear(hidden, 1)
-        self.h_long_pnl = nn.Linear(hidden, 1)
-        self.h_short_pnl = nn.Linear(hidden, 1)
-        self.h_dir = nn.Linear(hidden + 2, N_CLASSES)
+        combined = hidden + n_snapshot  # 128 + 4 = 132
+        self.h_long_pnl = nn.Linear(combined, 1)
+        self.h_short_pnl = nn.Linear(combined, 1)
+        self.h_dir = nn.Linear(combined + 2, N_CLASSES)
 
-    def forward(self, x):
-        all_h, _ = self.lstm(x)
+    def forward(self, x_seq, x_snap):
+        # x_seq: [batch, 8, 4] — diff features (velocity)
+        # x_snap: [batch, 4] — absolute features (position)
+        all_h, _ = self.lstm(x_seq)
         scores = self.attn_score(all_h).squeeze(-1)
         attn_w = torch.softmax(scores / self.temperature, dim=1)
         attended = torch.bmm(attn_w.unsqueeze(1), all_h).squeeze(1)
         attended = self.dropout(attended)
 
-        p_long = self.h_long_pnl(attended).squeeze(-1)
-        p_short = self.h_short_pnl(attended).squeeze(-1)
+        # Combine velocity (LSTM) + position (snapshot)
+        combined = torch.cat([attended, x_snap], dim=1)  # [batch, 132]
 
-        dir_input = torch.cat([attended, p_long.unsqueeze(1), p_short.unsqueeze(1)], dim=1)
+        p_long = self.h_long_pnl(combined).squeeze(-1)
+        p_short = self.h_short_pnl(combined).squeeze(-1)
+
+        dir_input = torch.cat([combined, p_long.unsqueeze(1), p_short.unsqueeze(1)], dim=1)
         p_dir = self.h_dir(dir_input)
 
         return p_long, p_short, p_dir
@@ -109,8 +125,8 @@ class V3DirectionOnly(nn.Module):
         super().__init__()
         self.model = full_model
 
-    def forward(self, x):
-        p_long, p_short, p_dir = self.model(x)
+    def forward(self, x_seq, x_snap):
+        p_long, p_short, p_dir = self.model(x_seq, x_snap)
         return p_long, p_short, p_dir
 
 
@@ -119,8 +135,9 @@ class V3DirectionOnly(nn.Module):
 # =====================================================================
 
 class V3Dataset(Dataset):
-    def __init__(self, X, y_long_pnl, y_short_pnl, y_dir):
-        self.X = torch.from_numpy(X)
+    def __init__(self, X_seq, X_snap, y_long_pnl, y_short_pnl, y_dir):
+        self.X_seq = torch.from_numpy(X_seq)
+        self.X_snap = torch.from_numpy(X_snap)
         self.y_long = torch.from_numpy(y_long_pnl)
         self.y_short = torch.from_numpy(y_short_pnl)
         self.y_dir = torch.from_numpy(y_dir)
@@ -129,7 +146,7 @@ class V3Dataset(Dataset):
         return len(self.y_dir)
 
     def __getitem__(self, i):
-        return self.X[i], self.y_long[i], self.y_short[i], self.y_dir[i]
+        return self.X_seq[i], self.X_snap[i], self.y_long[i], self.y_short[i], self.y_dir[i]
 
 
 # =====================================================================
@@ -137,11 +154,14 @@ class V3Dataset(Dataset):
 # =====================================================================
 
 def compute_features(fc):
+    """Returns (diff_features [N, 32], snapshot_features [N, 4])."""
     close = fc["close"].values.astype(np.float64)
     rsi7 = fc["rsi7"].values.astype(np.float64)
     rp = fc["range_position"].values.astype(np.float64)
     sma200 = fc["sma200_dist_pct"].values.astype(np.float64)
+    atr_pctl = fc["atr_percentile"].values.astype(np.float64) if "atr_percentile" in fc.columns else np.full(len(close), 50.0)
 
+    # Diff features (velocity) — 32 values per bar
     diff_list = []
     for n in LOOKBACKS:
         roc_d = np.zeros(len(close), dtype=np.float32)
@@ -153,28 +173,38 @@ def compute_features(fc):
         sma_d = np.zeros(len(close), dtype=np.float32)
         sma_d[n:] = (sma200[n:] - sma200[:-n]).astype(np.float32)
         diff_list.extend([roc_d, rsi_d, rp_d, sma_d])
-    return np.column_stack(diff_list).astype(np.float32)
+    diffs = np.column_stack(diff_list).astype(np.float32)
+
+    # Snapshot features (position) — 4 values per bar
+    snapshot = np.column_stack([
+        rsi7.astype(np.float32),       # where is RSI? (0-100)
+        rp.astype(np.float32),         # where in range? (0-1)
+        sma200.astype(np.float32),     # distance from SMA200 (%)
+        atr_pctl.astype(np.float32),   # volatility percentile (0-100)
+    ])
+
+    return diffs, snapshot
 
 
 # =====================================================================
 # TRAINING
 # =====================================================================
 
-def train_once(X_tr, yl_tr, ys_tr, yd_tr, X_va, yl_va, ys_va, yd_va):
-    model = LSTMAttentionV3(input_size=4, hidden=HIDDEN, dropout=DROPOUT, temperature=TEMPERATURE)
+def train_once(Xseq_tr, Xsnap_tr, yl_tr, ys_tr, yd_tr,
+               Xseq_va, Xsnap_va, yl_va, ys_va, yd_va):
+    model = LSTMAttentionV3(input_size=4, hidden=HIDDEN, n_snapshot=N_SNAPSHOT,
+                            dropout=DROPOUT, temperature=TEMPERATURE)
     mse = nn.MSELoss()
-    # Class weights: penalize SKIP over-prediction. SKIP is ~35% of labels
-    # but model defaults to predicting it ~58%. Upweight LONG/SHORT to force
-    # the model to learn directional patterns instead of the easy SKIP path.
+    # Class weights: penalize SKIP over-prediction
     dir_counts = np.bincount(yd_tr.astype(int), minlength=3).astype(np.float32)
     dir_weights = 1.0 / (dir_counts + 1)
-    dir_weights = dir_weights / dir_weights.min()  # normalize so smallest = 1.0
+    dir_weights = dir_weights / dir_weights.min()
     logger.info("  Class weights: LONG=%.2f SHORT=%.2f SKIP=%.2f", *dir_weights)
     ce = nn.CrossEntropyLoss(weight=torch.from_numpy(dir_weights))
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, factor=0.5)
 
-    loader = DataLoader(V3Dataset(X_tr, yl_tr, ys_tr, yd_tr),
+    loader = DataLoader(V3Dataset(Xseq_tr, Xsnap_tr, yl_tr, ys_tr, yd_tr),
                         batch_size=BATCH_SIZE, shuffle=True)
 
     best_vl = float("inf")
@@ -186,8 +216,8 @@ def train_once(X_tr, yl_tr, ys_tr, yd_tr, X_va, yl_va, ys_va, yd_va):
         epochs_used = epoch
         model.train()
         tr_sum = 0.0
-        for xb, yl, ys, yd in loader:
-            p_long, p_short, p_dir = model(xb)
+        for xseq, xsnap, yl, ys, yd in loader:
+            p_long, p_short, p_dir = model(xseq, xsnap)
             loss = (LOSS_W_PNL * (mse(p_long, yl) + mse(p_short, ys))
                     + LOSS_W_DIR * ce(p_dir, yd.long()))
             optimizer.zero_grad()
@@ -196,13 +226,19 @@ def train_once(X_tr, yl_tr, ys_tr, yd_tr, X_va, yl_va, ys_va, yd_va):
             optimizer.step()
             tr_sum += loss.item()
 
-        # Validation
+        # Validation (batched to avoid OOM)
         model.eval()
         with torch.no_grad():
-            p_l_v, p_s_v, p_d_v = model(torch.from_numpy(X_va))
-            vl = (LOSS_W_PNL * (mse(p_l_v, torch.from_numpy(yl_va))
-                                + mse(p_s_v, torch.from_numpy(ys_va)))
-                  + LOSS_W_DIR * ce(p_d_v, torch.from_numpy(yd_va).long())).item()
+            vl_parts = []
+            for i in range(0, len(Xseq_va), 4096):
+                xsq = torch.from_numpy(Xseq_va[i:i+4096])
+                xsn = torch.from_numpy(Xsnap_va[i:i+4096])
+                pl, ps, pd = model(xsq, xsn)
+                part = (LOSS_W_PNL * (mse(pl, torch.from_numpy(yl_va[i:i+4096]))
+                                      + mse(ps, torch.from_numpy(ys_va[i:i+4096])))
+                        + LOSS_W_DIR * ce(pd, torch.from_numpy(yd_va[i:i+4096]).long())).item()
+                vl_parts.append(part)
+            vl = np.mean(vl_parts)
 
         scheduler.step(vl)
 
@@ -223,15 +259,15 @@ def train_once(X_tr, yl_tr, ys_tr, yd_tr, X_va, yl_va, ys_va, yd_va):
 # EVALUATION
 # =====================================================================
 
-def evaluate(model, X, y_long, y_short, y_dir, prefix="test"):
+def evaluate(model, X_seq, X_snap, y_long, y_short, y_dir, prefix="test"):
     model.eval()
-    # Batch inference to avoid OOM on large datasets
     batch_size = 4096
     all_long, all_short, all_dir = [], [], []
     with torch.no_grad():
-        for i in range(0, len(X), batch_size):
-            xb = torch.from_numpy(X[i:i + batch_size])
-            pl, ps, pd = model(xb)
+        for i in range(0, len(X_seq), batch_size):
+            xsq = torch.from_numpy(X_seq[i:i + batch_size])
+            xsn = torch.from_numpy(X_snap[i:i + batch_size])
+            pl, ps, pd = model(xsq, xsn)
             all_long.append(pl)
             all_short.append(ps)
             all_dir.append(pd)
@@ -285,28 +321,31 @@ def evaluate(model, X, y_long, y_short, y_dir, prefix="test"):
 # EXPORT
 # =====================================================================
 
-def export(model, scaler_mean, scaler_std, out_dir):
+def export(model, scaler_mean, scaler_std, snap_mean, snap_std, out_dir):
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Save torch checkpoint
     torch.save({"model_state_dict": model.state_dict()}, out_dir / "v3_model.pt")
 
-    # ONNX export with all 3 outputs
+    # ONNX export with two inputs, 3 outputs
     model.eval()
     wrapper = V3DirectionOnly(model)
     wrapper.eval()
-    dummy = torch.randn(1, 8, 4)
+    dummy_seq = torch.randn(1, 8, 4)
+    dummy_snap = torch.randn(1, N_SNAPSHOT)
     torch.onnx.export(
-        wrapper, dummy, str(out_dir / "v3_model.onnx"),
-        input_names=["features"],
+        wrapper, (dummy_seq, dummy_snap), str(out_dir / "v3_model.onnx"),
+        input_names=["features", "snapshot"],
         output_names=["long_pnl", "short_pnl", "direction"],
-        dynamic_axes={"features": {0: "batch"}, "long_pnl": {0: "batch"},
-                       "short_pnl": {0: "batch"}, "direction": {0: "batch"}},
+        dynamic_axes={"features": {0: "batch"}, "snapshot": {0: "batch"},
+                       "long_pnl": {0: "batch"}, "short_pnl": {0: "batch"},
+                       "direction": {0: "batch"}},
         opset_version=14,
     )
 
-    # Scaler
-    np.savez(out_dir / "scaler.npz", mean=scaler_mean, std=scaler_std)
+    # Scalers — separate for diffs and snapshot
+    np.savez(out_dir / "scaler.npz", mean=scaler_mean, std=scaler_std,
+             snap_mean=snap_mean, snap_std=snap_std)
     logger.info("Exported to %s", out_dir)
 
 
@@ -325,14 +364,16 @@ def main():
     lb = pd.read_parquet(LABELS_PATH)
 
     logger.info("Computing features...")
-    diff_raw = compute_features(fc)
+    diff_raw, snap_raw = compute_features(fc)
     diff_raw = np.nan_to_num(diff_raw, nan=0.0, posinf=0.0, neginf=0.0)
+    snap_raw = np.nan_to_num(snap_raw, nan=0.0, posinf=0.0, neginf=0.0)
 
     # Align features and labels
     common_idx = lb.index.intersection(fc.index)
     fc_pos = fc.index.get_indexer(common_idx)
     lb = lb.loc[common_idx]
     diff_raw = diff_raw[fc_pos]
+    snap_raw = snap_raw[fc_pos]
     dates = common_idx
 
     # Labels
@@ -356,20 +397,29 @@ def main():
     logger.info("  train %d | val %d | test %d",
                 len(splits["train"]), len(splits["val"]), len(splits["test"]))
 
-    # Scaler (train only)
+    # Scaler for diffs (train only)
     scaler_mean = diff_raw[splits["train"]].mean(axis=0)
     scaler_std = diff_raw[splits["train"]].std(axis=0)
     scaler_std[scaler_std < 1e-8] = 1.0
     diff = (diff_raw - scaler_mean) / scaler_std
     diff = np.nan_to_num(diff, nan=0.0, posinf=0.0, neginf=0.0)
 
+    # Scaler for snapshot (train only)
+    snap_mean = snap_raw[splits["train"]].mean(axis=0)
+    snap_std = snap_raw[splits["train"]].std(axis=0)
+    snap_std[snap_std < 1e-8] = 1.0
+    snap = (snap_raw - snap_mean) / snap_std
+    snap = np.nan_to_num(snap, nan=0.0, posinf=0.0, neginf=0.0)
+
+    logger.info("  Snapshot features: %s (scaled)", ["rsi7", "range_pos", "sma200_dist", "atr_pctl"])
+
     def get_split(idx):
-        return (diff[idx].reshape(-1, 8, 4),
+        return (diff[idx].reshape(-1, 8, 4), snap[idx].astype(np.float32),
                 y_long_pnl[idx], y_short_pnl[idx], y_dir[idx])
 
-    X_tr, yl_tr, ys_tr, yd_tr = get_split(splits["train"])
-    X_va, yl_va, ys_va, yd_va = get_split(splits["val"])
-    X_te, yl_te, ys_te, yd_te = get_split(splits["test"])
+    Xseq_tr, Xsnap_tr, yl_tr, ys_tr, yd_tr = get_split(splits["train"])
+    Xseq_va, Xsnap_va, yl_va, ys_va, yd_va = get_split(splits["val"])
+    Xseq_te, Xsnap_te, yl_te, ys_te, yd_te = get_split(splits["test"])
 
     # Label distribution
     for name, idx in splits.items():
@@ -378,19 +428,19 @@ def main():
                     (d == LONG).sum(), (d == SHORT).sum(), (d == SKIP).sum())
 
     # Train
-    logger.info("\nTraining LSTMAttentionV3 (hidden=%d, temp=%.1f, loss_pnl=%.1f, loss_dir=%.1f)...",
+    logger.info("\nTraining LSTMAttentionV3 + snapshot (hidden=%d, temp=%.1f, loss_pnl=%.1f, loss_dir=%.1f)...",
                 HIDDEN, TEMPERATURE, LOSS_W_PNL, LOSS_W_DIR)
     model, epochs_used, val_loss = train_once(
-        X_tr, yl_tr, ys_tr, yd_tr,
-        X_va, yl_va, ys_va, yd_va,
+        Xseq_tr, Xsnap_tr, yl_tr, ys_tr, yd_tr,
+        Xseq_va, Xsnap_va, yl_va, ys_va, yd_va,
     )
     logger.info("  Best val loss: %.4f after %d epochs", val_loss, epochs_used)
 
     # Evaluate
     logger.info("\nEvaluating...")
-    m_train = evaluate(model, X_tr, yl_tr, ys_tr, yd_tr, "train")
-    m_val = evaluate(model, X_va, yl_va, ys_va, yd_va, "val")
-    m_test = evaluate(model, X_te, yl_te, ys_te, yd_te, "test")
+    m_train = evaluate(model, Xseq_tr, Xsnap_tr, yl_tr, ys_tr, yd_tr, "train")
+    m_val = evaluate(model, Xseq_va, Xsnap_va, yl_va, ys_va, yd_va, "val")
+    m_test = evaluate(model, Xseq_te, Xsnap_te, yl_te, ys_te, yd_te, "test")
 
     logger.info("  Train: acc=%.1f%% | conf_acc=%.1f%% (%d signals)",
                 m_train["train_accuracy_3class"] * 100,
@@ -407,7 +457,7 @@ def main():
 
     # Export
     logger.info("\nExporting to %s", OUT_DIR.relative_to(REPO_ROOT))
-    export(model, scaler_mean, scaler_std, OUT_DIR)
+    export(model, scaler_mean, scaler_std, snap_mean, snap_std, OUT_DIR)
 
     # MLflow logging
     logger.info("\nLogging to MLflow...")
@@ -416,12 +466,12 @@ def main():
     all_metrics = {**m_train, **m_val, **m_test,
                    "epochs": epochs_used, "val_loss": round(val_loss, 4)}
 
-    with mlflow.start_run(run_name=f"v3_{date.today().isoformat()}"):
+    with mlflow.start_run(run_name=f"v3_{date.today().isoformat()}") as run:
         mlflow.set_experiment(EXPERIMENT)
         mlflow.log_params({
             "model_type": "LSTMAttentionV3",
-            "architecture": f"LSTM({HIDDEN}) + attention(temp={TEMPERATURE}) + PnL heads + 3-class dir",
-            "features": "32 diffs (roc/rsi/rp/sma200) x 8 lookbacks",
+            "architecture": f"LSTM({HIDDEN}) + attention(temp={TEMPERATURE}) + snapshot(4) + PnL heads + 3-class dir",
+            "features": "32 diffs + 4 snapshot (rsi7, range_pos, sma200_dist, atr_pctl)",
             "labels": "exit_aware (V2 rules, 1m tick simulation)",
             "hidden": HIDDEN,
             "dropout": DROPOUT,
@@ -436,6 +486,21 @@ def main():
         })
         mlflow.log_metrics(all_metrics)
         mlflow.log_artifacts(str(OUT_DIR), artifact_path="model")
+        run_id = run.info.run_id
+
+    # Register model in MLflow registry
+    client = mlflow.tracking.MlflowClient()
+    try:
+        client.get_registered_model(MODEL_NAME)
+    except mlflow.exceptions.MlflowException:
+        client.create_registered_model(MODEL_NAME)
+    mv = client.create_model_version(
+        name=MODEL_NAME,
+        source=f"runs:/{run_id}/model",
+        run_id=run_id,
+    )
+    client.set_registered_model_alias(name=MODEL_NAME, alias="staging", version=mv.version)
+    logger.info("Registered %s v%s @staging", MODEL_NAME, mv.version)
 
     # Save metrics JSON for DVC
     METRICS_PATH.parent.mkdir(parents=True, exist_ok=True)

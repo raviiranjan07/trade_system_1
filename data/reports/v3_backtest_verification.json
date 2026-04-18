@@ -1,0 +1,57 @@
+{
+  "status": "PASS",
+  "checks": {
+    "total_trades": {
+      "value": 1772,
+      "threshold": "> 50",
+      "pass": true
+    },
+    "profit_factor": {
+      "value": 2.39,
+      "threshold": "> 1.0",
+      "pass": true
+    },
+    "stop_rate": {
+      "value": 46.4,
+      "threshold": "< 50.4",
+      "pass": true
+    },
+    "max_drawdown": {
+      "value": -359.7,
+      "threshold": "> -2000",
+      "pass": true
+    },
+    "both_years": {
+      "value": 2,
+      "threshold": ">= 2",
+      "pass": true
+    },
+    "no_nan": {
+      "value": "OK",
+      "threshold": "no NaN",
+      "pass": true
+    }
+  },
+  "v3_metrics": {
+    "n_trades": 1772,
+    "total_bps": 21106.2,
+    "pf": 2.39,
+    "win_pct": 49.9,
+    "stop_rate": 46.4,
+    "max_dd_bps": -359.7,
+    "avg_trade_bps": 11.9
+  },
+  "v2_baseline": {
+    "n_trades": 276,
+    "total_bps": -1195.3,
+    "win_pct": 41.7,
+    "pf": 0.81,
+    "max_dd_bps": -1586.0,
+    "avg_trade_bps": -4.33
+  },
+  "comparison": {
+    "bps_delta": 22301.5,
+    "pf_delta": 1.58,
+    "stop_rate_delta": -4.0
+  }
+}

@@ -48,8 +48,17 @@ class MLV3(BaseSignalGenerator):
             signal_type_short=SignalType.ML_V3_SHORT,
         )
         self._diff_arr = None
+        self._snap_arr = None
         self._df_index = None
         self._is_v3 = True
+        # Load snapshot scaler
+        self._snap_mean = None
+        self._snap_std = None
+        if scaler_path.exists():
+            s = np.load(scaler_path)
+            if "snap_mean" in s:
+                self._snap_mean = s["snap_mean"]
+                self._snap_std = s["snap_std"]
 
     def compute_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """Same diff features as V2 Attention."""
@@ -101,6 +110,21 @@ class MLV3(BaseSignalGenerator):
             diff_arr = np.nan_to_num(diff_arr, nan=0.0, posinf=0.0, neginf=0.0)
 
         self._diff_arr = diff_arr
+
+        # Snapshot features (position)
+        atr_pctl = df["atr_percentile"].values.astype(np.float32) if "atr_percentile" in df.columns else np.full(len(close), 50.0, dtype=np.float32)
+        snap_arr = np.column_stack([
+            rsi7.astype(np.float32),
+            rp.astype(np.float32),
+            sma200.astype(np.float32),
+            atr_pctl,
+        ])
+        snap_arr = np.nan_to_num(snap_arr, nan=0.0, posinf=0.0, neginf=0.0)
+        if self._snap_mean is not None:
+            snap_arr = (snap_arr - self._snap_mean) / self._snap_std
+            snap_arr = np.nan_to_num(snap_arr, nan=0.0, posinf=0.0, neginf=0.0)
+        self._snap_arr = snap_arr
+
         self._df_index = df.index
         return df
 
@@ -120,12 +144,16 @@ class MLV3(BaseSignalGenerator):
         features = self.get_features_for_bar(df, bar_idx)
         if features is None:
             return None
+        if self._snap_arr is None or bar_idx >= len(self._snap_arr):
+            return None
 
         if not self.loaded:
             return None
 
-        # V3 ONNX has 3 outputs: long_pnl, short_pnl, direction_logits
-        outputs = self.session.run(None, {"features": features})
+        snapshot = self._snap_arr[bar_idx].reshape(1, -1)
+
+        # V3 ONNX has 2 inputs (features, snapshot), 3 outputs
+        outputs = self.session.run(None, {"features": features, "snapshot": snapshot})
 
         if len(outputs) == 3:
             long_pnl, short_pnl, dir_logits = outputs

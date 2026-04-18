@@ -1,0 +1,67 @@
+{
+  "model": "ml_v3",
+  "exit_version": "v1",
+  "window": {
+    "start": "2024-01-01",
+    "end": "2025-12-31"
+  },
+  "metrics": {
+    "n_trades": 1772,
+    "total_bps": 21106.2,
+    "pf": 2.39,
+    "win_pct": 49.9,
+    "stop_rate": 46.4,
+    "max_dd_bps": -359.7,
+    "avg_trade_bps": 11.9,
+    "by_signal_type": {
+      "BEAR_LONG": {
+        "n": 22,
+        "win_pct": 54.5,
+        "total_bps": 254.7,
+        "pf": 2.41
+      },
+      "BULL_SHORT": {
+        "n": 22,
+        "win_pct": 54.5,
+        "total_bps": 235.6,
+        "pf": 2.44
+      },
+      "ML_V3_LONG": {
+        "n": 996,
+        "win_pct": 51.6,
+        "total_bps": 14283.0,
+        "pf": 2.74
+      },
+      "ML_V3_SHORT": {
+        "n": 550,
+        "win_pct": 45.8,
+        "total_bps": 5807.6,
+        "pf": 2.13
+      },
+      "V12_LONG": {
+        "n": 56,
+        "win_pct": 51.8,
+        "total_bps": 432.1,
+        "pf": 1.95
+      },
+      "V12_SHORT": {
+        "n": 126,
+        "win_pct": 51.6,
+        "total_bps": 93.2,
+        "pf": 1.09
+      }
+    },
+    "per_year": {
+      "2024": {
+        "n": 1050,
+        "total_bps": 13551.7,
+        "pf": 2.55
+      },
+      "2025": {
+        "n": 722,
+        "total_bps": 7554.5,
+        "pf": 2.16
+      }
+    }
+  }
+}

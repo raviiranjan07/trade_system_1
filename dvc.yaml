@@ -122,7 +122,7 @@ stages:
           cache: false
 
   train_v3:
-    cmd: python -m engine.train_v3
+    cmd: cmd /c "set PYTHONIOENCODING=utf-8 && python -m engine.train_v3"
     wdir: src
     deps:
       - ../data/features/direction_prediction/feature_cache.parquet
@@ -153,40 +153,37 @@ stages:
           cache: false
 
   backtest_v3:
-    cmd: python -m engine.backtest --model v3
-    wdir: src
+    cmd: cmd /c "set PYTHONPATH=src && python -m engine.backtest --model ml_v3"
     deps:
-      - ../models/ML_V3_staging
-      - ../data/reports/v3_model_verification.json
-      - ../data/raw/BTCUSDT_15m_ohlcv.parquet
-      - ../data/raw/BTCUSDT_1m_ohlcv.parquet
-      - engine/backtest.py
-      - engine/signals/ml_v3.py
+      - models/ML_V3_staging
+      - data/reports/v3_model_verification.json
+      - data/raw/BTCUSDT_15m_ohlcv.parquet
+      - data/raw/BTCUSDT_1m_ohlcv.parquet
+      - src/engine/backtest.py
+      - src/engine/signals/ml_v3.py
     outs:
-      - ../data/reports/backtest_staging_v3.json:
+      - data/reports/backtest_staging_ml_v3.json:
           cache: false
-      - ../data/reports/backtest_staging_v3_trades.parquet:
+      - data/reports/backtest_staging_trades_ml_v3.parquet:
           cache: false
 
   verify_v3_backtest:
-    cmd: python -m engine.verify_v3_backtest
-    wdir: src
+    cmd: cmd /c "set PYTHONPATH=src && python -m engine.verify_v3_backtest"
     deps:
-      - ../data/reports/backtest_staging_v3.json
-      - ../data/reports/backtest_staging_ml_v2_attention_exitv2.json
-      - engine/verify_v3_backtest.py
+      - data/reports/backtest_staging_ml_v3.json
+      - data/reports/backtest_staging_ml_v2_attention_exitv2.json
+      - src/engine/verify_v3_backtest.py
     outs:
-      - ../data/reports/v3_backtest_verification.json:
+      - data/reports/v3_backtest_verification.json:
           cache: false
 
   compare_v3:
-    cmd: python -m engine.compare_models
-    wdir: src
+    cmd: cmd /c "set PYTHONPATH=src && python -m engine.compare_models"
     deps:
-      - ../data/reports/backtest_staging_v3.json
-      - ../data/reports/backtest_staging_ml_v2_attention_exitv2.json
-      - ../data/reports/v3_backtest_verification.json
-      - engine/compare_models.py
+      - data/reports/backtest_staging_ml_v3.json
+      - data/reports/backtest_staging_ml_v2_attention_exitv2.json
+      - data/reports/v3_backtest_verification.json
+      - src/engine/compare_models.py
     outs:
-      - ../data/reports/v3_vs_v2_comparison.json:
+      - data/reports/v3_vs_v2_comparison.json:
           cache: false
