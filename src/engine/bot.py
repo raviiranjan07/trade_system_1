@@ -24,7 +24,7 @@ from .config.loader import load_config
 from .config.schema import AppConfig
 from .position_manager import V12PositionManager, TradeRecord
 from .signals.ml_v1 import MLV1 as MLSignalGenerator
-from .signals.direction_attention import DirectionAttention as MLAttnSignalGenerator
+from .signals.ml_v3 import MLV3 as MLAttnSignalGenerator
 from .strategy import V12Strategy, Direction, Signal, SignalType
 from .risk.risk_calculator import RiskCalculator, RiskConfig, RiskDecision
 from .risk.account_health import AccountHealthMonitor, HealthConfig
@@ -112,8 +112,8 @@ class V12Bot:
 
         # ML Attention signal generator — A/B test alongside V1.5
         self._ml_attn_gen = MLAttnSignalGenerator(
-            model_path=PROJECT_ROOT / "models" / "ML_V2_ATTENTION" / "attention_model.onnx",
-            scaler_path=PROJECT_ROOT / "models" / "ML_V2_ATTENTION" / "scaler.npz",
+            model_path=PROJECT_ROOT / "models" / "ML_V3" / "v3_model.onnx",
+            scaler_path=PROJECT_ROOT / "models" / "ML_V3" / "scaler.npz",
         )
         self._ml_attn_pm = V12PositionManager(config)
         self._ml_attn_wallet = DEFAULT_CAPITAL
@@ -1501,28 +1501,39 @@ class V12Bot:
             except Exception as e:
                 logger.warning("[ML_ATTN] compute_features failed: %s", e)
                 df_attn = df.copy()
-            # Push prediction to dashboard
-            attn_features = self._ml_attn_gen.get_features_for_bar(df_attn, latest_idx)
-            if attn_features is None:
-                logger.debug("[ML_ATTN] Features unavailable for bar %d (NaN or missing)", latest_idx)
-            if attn_features is not None and self._dashboard:
-                attn_prob = self._ml_attn_gen.predict(attn_features)
-                attn_long_pct = attn_prob * 100
-                attn_short_pct = (1 - attn_prob) * 100
-                if attn_prob > 0.60:
-                    attn_status = ">>> ML_ATTN_LONG SIGNAL <<<"
-                elif attn_prob < 0.40:
-                    attn_status = ">>> ML_ATTN_SHORT SIGNAL <<<"
-                else:
-                    attn_status = "NO TRADE (not confident)"
+            # Push prediction to dashboard (V3: 3-class output)
+            if self._dashboard:
+                attn_long_pct = 33.0
+                attn_short_pct = 33.0
+                attn_status = "LOADING"
+                try:
+                    import onnxruntime
+                    feats = self._ml_attn_gen.get_features_for_bar(df_attn, latest_idx)
+                    if feats is not None and self._ml_attn_gen._snap_arr is not None and latest_idx < len(self._ml_attn_gen._snap_arr):
+                        snap = self._ml_attn_gen._snap_arr[latest_idx].reshape(1, -1)
+                        outs = self._ml_attn_gen.session.run(None, {"features": feats, "snapshot": snap})
+                        import numpy as _np
+                        dir_logits = outs[2][0]
+                        exp_l = _np.exp(dir_logits - dir_logits.max())
+                        probs = exp_l / exp_l.sum()
+                        attn_long_pct = float(probs[0]) * 100
+                        attn_short_pct = float(probs[1]) * 100
+                        if probs[0] >= 0.40:
+                            attn_status = ">>> ML_V3_LONG SIGNAL <<<"
+                        elif probs[1] >= 0.40:
+                            attn_status = ">>> ML_V3_SHORT SIGNAL <<<"
+                        else:
+                            attn_status = "SKIP (%.0f%%)" % (probs[2] * 100)
+                except Exception as e:
+                    logger.debug("[ML_V3] Dashboard prob failed: %s", e)
                 self._dashboard.update_ml_attn(
-                    ml_attn_last_prob=attn_prob,
+                    ml_attn_last_prob=attn_long_pct / 100,
                     ml_attn_long_pct=round(attn_long_pct, 1),
                     ml_attn_short_pct=round(attn_short_pct, 1),
                     ml_attn_signal_status=attn_status,
                 )
                 logger.info(
-                    "[ML_ATTN] LONG=%.1f%% SHORT=%.1f%% | %s",
+                    "[ML_V3] LONG=%.1f%% SHORT=%.1f%% | %s",
                     attn_long_pct, attn_short_pct, attn_status,
                 )
             attn_signal = self._ml_attn_gen.predict_bar(df_attn, latest_idx)
