@@ -1,6 +1,7 @@
 backtest:
   start: '2025-01-01'
   end: '2025-12-31'
+  exit_version: v2
 ml_v2_attention:
   inference:
     conf_long: 0.6

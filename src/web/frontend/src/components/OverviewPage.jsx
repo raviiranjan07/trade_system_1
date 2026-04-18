@@ -496,7 +496,7 @@ function OverviewPage({ stats, risk, ml, mlAttn, mlV3, trades, mlTrades, mlAttnT
           lastTrade={v14LastTrade}
           accentColor="#3b82f6"
           tradeHistory={trades}
-          exitVersion="V1"
+          exitVersion="V2"
           onTradesClick={() => onTradesNavigate?.('V1.4')}
         />
         <BotCard

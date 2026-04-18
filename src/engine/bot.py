@@ -69,11 +69,12 @@ class V12Bot:
         _params_path = PROJECT_ROOT / "configs" / "params.yaml"
         with open(_params_path) as _f:
             _params = yaml.safe_load(_f)
+        _ev_v14 = _params.get("backtest", {}).get("exit_version", "v1")
         _ev_v1 = _params.get("ml_v1", {}).get("inference", {}).get("exit_version", "v1")
         _ev_v2 = _params.get("ml_v2_attention", {}).get("inference", {}).get("exit_version", "v1")
         _ev_v3 = _params.get("ml_v3", {}).get("inference", {}).get("exit_version", "v1")
 
-        self.pm = V12PositionManager(config)
+        self.pm = V12PositionManager(config, exit_version=_ev_v14)
 
         # Track bar index for position manager
         self._bar_count = 0
@@ -165,7 +166,7 @@ class V12Bot:
         else:
             logger.warning("ML V3 model not found — ML_V3 signals disabled")
 
-        logger.info("Exit versions: ML_V1=%s | ML_V2=%s | ML_V3=%s", _ev_v1, _ev_v2, _ev_v3)
+        logger.info("Exit versions: V1.4=%s | ML_V1=%s | ML_V2=%s | ML_V3=%s", _ev_v14, _ev_v1, _ev_v2, _ev_v3)
 
         # Session state
         self._running = False
