@@ -204,7 +204,9 @@ def _regime_valid(signal_type: SignalType, bull, bear, idx: int) -> bool:
       V12_SHORT / BEAR_LONG -> needs bear (price < SMA200)
       ML_LONG / ML_SHORT -> no regime requirement (always valid)
     """
-    if signal_type in (SignalType.ML_LONG, SignalType.ML_SHORT):
+    if signal_type in (SignalType.ML_LONG, SignalType.ML_SHORT,
+                       SignalType.ML_ATTN_LONG, SignalType.ML_ATTN_SHORT,
+                       SignalType.ML_V3_LONG, SignalType.ML_V3_SHORT):
         return True  # ML signals don't require regime validation
     if signal_type in (SignalType.V12_LONG, SignalType.BULL_SHORT):
         return bool(bull[idx])

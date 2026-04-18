@@ -203,6 +203,49 @@ class MLAttnData:
 
 
 @dataclass
+class MLV3Data:
+    """ML V3 model state for dashboard display (exit-aware labels + snapshot features)."""
+    ml_v3_wallet_usd: float = 0.0
+    ml_v3_total_trades: int = 0
+    ml_v3_wins: int = 0
+    ml_v3_losses: int = 0
+    ml_v3_win_rate: float = 0.0
+    ml_v3_total_bps: float = 0.0
+    ml_v3_avg_bps: float = 0.0
+    ml_v3_has_position: bool = False
+    ml_v3_position_side: Optional[str] = None
+    ml_v3_position_pnl_bps: float = 0.0
+    ml_v3_position_entry_price: float = 0.0
+    ml_v3_position_trailing_stop_bps: float = 0.0
+    ml_v3_position_highest_profit_bps: float = 0.0
+    ml_v3_position_bars_held: int = 0
+    ml_v3_position_max_bars: int = 6
+    ml_v3_position_mfe_bps: float = 0.0
+    ml_v3_position_mae_bps: float = 0.0
+    ml_v3_position_liq_price: float = 0.0
+    ml_v3_model_loaded: bool = False
+    ml_v3_drawdown_pct: float = 0.0
+    ml_v3_last_pnl_usd: float = 0.0
+    ml_v3_last_qty: float = 0.0
+    ml_v3_last_prob: float = 0.5
+    ml_v3_long_pct: float = 33.0
+    ml_v3_short_pct: float = 33.0
+    ml_v3_signal_status: str = ""
+    # Expected vs Actual monitoring
+    # ML V3 backtest 2024-2025: 1546 ML_V3 trades, +20091 bps over 730 days = 27.5 bps/day
+    ml_v3_daily_expected_bps: float = 27.5
+    ml_v3_7d_actual_bps: float = 0.0
+    ml_v3_7d_expected_bps: float = 0.0
+    ml_v3_7d_delta_pct: float = 0.0
+    ml_v3_7d_status: str = "pending"
+    ml_v3_cum_actual_bps: float = 0.0
+    ml_v3_cum_expected_bps: float = 0.0
+    ml_v3_cum_delta_pct: float = 0.0
+    ml_v3_cum_status: str = "pending"
+    ml_v3_days_elapsed: float = 0.0
+
+
+@dataclass
 class ConfigData:
     """V1.2 trading configuration."""
     pair: str = "BTCUSDT"
@@ -245,8 +288,10 @@ class DashboardState:
         self._risk = RiskData()
         self._ml = MLData()
         self._ml_attn = MLAttnData()
+        self._ml_v3 = MLV3Data()
         self._ml_trades: List[TradeData] = []
         self._ml_attn_trades: List[TradeData] = []
+        self._ml_v3_trades: List[TradeData] = []
         self._trades: List[TradeData] = []
         self._signals: List[SignalData] = []
         self._start_time: Optional[datetime] = None
@@ -782,6 +827,83 @@ class DashboardState:
             trades = self._ml_trades if limit <= 0 else self._ml_trades[:limit]
             return [asdict(t) for t in trades]
 
+    # ML V3 state
+    def _refresh_ml_v3_monitoring(self) -> None:
+        now = datetime.now(timezone.utc)
+        anchor = self._earliest_trade_time(self._ml_v3_trades) or self._start_time
+        days_elapsed = ((now - anchor).total_seconds() / 86400.0) if anchor else 0.0
+        days_elapsed = max(days_elapsed, 0.0)
+        self._ml_v3.ml_v3_days_elapsed = round(days_elapsed, 2)
+        daily_exp = self._ml_v3.ml_v3_daily_expected_bps
+
+        cutoff_7d = now - timedelta(days=7)
+        actual_7d = self._sum_bps_since(self._ml_v3_trades, cutoff_7d)
+        window_days = min(days_elapsed, 7.0)
+        expected_7d = window_days * daily_exp
+        self._ml_v3.ml_v3_7d_actual_bps = round(actual_7d, 1)
+        self._ml_v3.ml_v3_7d_expected_bps = round(expected_7d, 1)
+        if expected_7d <= 0 or days_elapsed < 1.0:
+            self._ml_v3.ml_v3_7d_delta_pct = 0.0
+            self._ml_v3.ml_v3_7d_status = "pending"
+        else:
+            delta_7d = (actual_7d - expected_7d) / abs(expected_7d) * 100.0
+            self._ml_v3.ml_v3_7d_delta_pct = round(delta_7d, 1)
+            self._ml_v3.ml_v3_7d_status = self._status_from_delta(delta_7d, pending=False)
+
+        actual_cum = self._ml_v3.ml_v3_total_bps
+        expected_cum = days_elapsed * daily_exp
+        self._ml_v3.ml_v3_cum_actual_bps = round(actual_cum, 1)
+        self._ml_v3.ml_v3_cum_expected_bps = round(expected_cum, 1)
+        if expected_cum <= 0 or days_elapsed < 1.0:
+            self._ml_v3.ml_v3_cum_delta_pct = 0.0
+            self._ml_v3.ml_v3_cum_status = "pending"
+        else:
+            delta_cum = (actual_cum - expected_cum) / abs(expected_cum) * 100.0
+            self._ml_v3.ml_v3_cum_delta_pct = round(delta_cum, 1)
+            self._ml_v3.ml_v3_cum_status = self._status_from_delta(delta_cum, pending=False)
+
+    def update_ml_v3(self, **kwargs) -> None:
+        """Update ML V3 model state."""
+        with self._lock:
+            for k, v in kwargs.items():
+                if hasattr(self._ml_v3, k):
+                    setattr(self._ml_v3, k, v)
+            self._refresh_ml_v3_monitoring()
+        self._broadcast_update()
+
+    def get_ml_v3(self) -> Dict[str, Any]:
+        with self._lock:
+            return asdict(self._ml_v3)
+
+    def add_ml_v3_trade(self, trade_dict: Dict[str, Any]) -> None:
+        """Add a completed ML V3 trade."""
+        with self._lock:
+            td = TradeData(
+                trade_id=str(len(self._ml_v3_trades) + 1),
+                direction=trade_dict.get("direction", ""),
+                signal_type=trade_dict.get("signal_type", ""),
+                entry_price=trade_dict.get("entry_price", 0),
+                exit_price=trade_dict.get("exit_price", 0),
+                net_profit_bps=trade_dict.get("net_profit_bps", 0),
+                mfe_bps=trade_dict.get("mfe_bps", 0),
+                mae_bps=trade_dict.get("mae_bps", 0),
+                exit_bar=trade_dict.get("exit_bar", 0),
+                exit_reason=trade_dict.get("exit_reason", ""),
+                is_reentry=trade_dict.get("is_reentry", False),
+                exit_time=trade_dict.get("exit_time", ""),
+                entry_time=trade_dict.get("entry_time", ""),
+                qty=trade_dict.get("qty", 0.0),
+                liq_price=trade_dict.get("liq_price", 0.0),
+            )
+            self._ml_v3_trades.insert(0, td)
+            self._refresh_ml_v3_monitoring()
+        self._broadcast_update()
+
+    def get_ml_v3_trades(self, limit: int = 10) -> List[Dict[str, Any]]:
+        with self._lock:
+            trades = self._ml_v3_trades[:limit] if limit > 0 else self._ml_v3_trades
+            return [asdict(t) for t in trades]
+
     def get_all(self) -> Dict[str, Any]:
         """Get all dashboard data. Excludes candles (too large for WS broadcast)."""
         return {
@@ -798,6 +920,8 @@ class DashboardState:
             "ml_trades": self.get_ml_trades(limit=0),
             "ml_attn": self.get_ml_attn(),
             "ml_attn_trades": self.get_ml_attn_trades(limit=0),
+            "ml_v3": self.get_ml_v3(),
+            "ml_v3_trades": self.get_ml_v3_trades(limit=0),
         }
 
     def register_ws_client(self, queue: asyncio.Queue) -> None:

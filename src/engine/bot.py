@@ -25,6 +25,7 @@ from .config.schema import AppConfig
 from .position_manager import V12PositionManager, TradeRecord
 from .signals.ml_v1 import MLV1 as MLSignalGenerator
 from .signals.direction_attention import DirectionAttention as MLAttnSignalGenerator
+from .signals.ml_v3 import MLV3 as MLV3SignalGenerator
 from .strategy import V12Strategy, Direction, Signal, SignalType
 from .risk.risk_calculator import RiskCalculator, RiskConfig, RiskDecision
 from .risk.account_health import AccountHealthMonitor, HealthConfig
@@ -131,6 +132,28 @@ class V12Bot:
             logger.info("ML Attention model loaded — ML_ATTN_LONG/ML_ATTN_SHORT signals enabled")
         else:
             logger.warning("ML Attention model not found — ML_ATTN signals disabled")
+
+        # ML V3 signal generator — exit-aware labels + snapshot features
+        self._ml_v3_gen = MLV3SignalGenerator(
+            model_path=PROJECT_ROOT / "models" / "ML_V3" / "v3_model.onnx",
+            scaler_path=PROJECT_ROOT / "models" / "ML_V3" / "scaler.npz",
+        )
+        self._ml_v3_pm = V12PositionManager(config)
+        self._ml_v3_wallet = DEFAULT_CAPITAL
+        self._ml_v3_health = AccountHealthMonitor()
+        self._ml_v3_risk_calc = RiskCalculator(worst_loss_bps=865, health=self._ml_v3_health)
+        self._ml_v3_decision_logger = DecisionLogger(
+            log_dir=str(PROJECT_ROOT / "data" / "trades" / "risk_logs" / "ml_v3")
+        )
+        self._ml_v3_qty = 0.0
+        self._ml_v3_trades_csv = self._trades_dir / f"trades_ml_v3_{config.execution.mode}.csv"
+        self._init_ml_v3_csv()
+        self._ml_v3_risk_state_path = PROJECT_ROOT / "data" / "trades" / "risk_state_ml_v3.json"
+        self._load_ml_v3_risk_state()
+        if self._ml_v3_gen.loaded:
+            logger.info("ML V3 model loaded — ML_V3_LONG/ML_V3_SHORT signals enabled")
+        else:
+            logger.warning("ML V3 model not found — ML_V3 signals disabled")
 
         # Session state
         self._running = False
@@ -617,6 +640,11 @@ class V12Bot:
                 daily_exp = self._dashboard._ml_attn.ml_attn_daily_expected_bps
                 wallet = self._ml_attn_wallet
                 dd = self._ml_attn_health.get_drawdown_pct(self._ml_attn_wallet)
+            elif model == "ML_V3":
+                trades = [asdict(t) for t in self._ml_v3_pm.trades]
+                daily_exp = self._dashboard._ml_v3.ml_v3_daily_expected_bps
+                wallet = self._ml_v3_wallet
+                dd = self._ml_v3_health.get_drawdown_pct(self._ml_v3_wallet)
             else:
                 return
             _monitoring.snapshot(
@@ -1059,6 +1087,152 @@ class V12Bot:
             ml_attn_position_liq_price=liq_price,
         )
 
+    # =================================================================
+    # ML V3 — exit-aware labels + snapshot features
+    # =================================================================
+
+    def _init_ml_v3_csv(self) -> None:
+        if not self._ml_v3_trades_csv.exists():
+            headers = [
+                "signal_time", "entry_time", "exit_time", "direction", "signal_type",
+                "entry_price", "exit_price", "gross_profit_bps", "net_profit_bps",
+                "mfe_bps", "mae_bps", "exit_bar", "exit_reason", "is_reentry",
+                "config_hash", "qty",
+            ]
+            with open(self._ml_v3_trades_csv, "w", newline="") as f:
+                csv.writer(f).writerow(headers)
+            logger.info("Created ML V3 trades CSV: %s", self._ml_v3_trades_csv)
+
+    def _load_ml_v3_risk_state(self) -> None:
+        if not self._ml_v3_risk_state_path.exists():
+            self._ml_v3_health.update(self._ml_v3_wallet)
+            logger.info("No ML V3 risk state — starting fresh: wallet=$%.2f", self._ml_v3_wallet)
+            return
+        import json
+        try:
+            with open(self._ml_v3_risk_state_path) as f:
+                state = json.load(f)
+            self._ml_v3_wallet = state.get('wallet', DEFAULT_CAPITAL)
+            health_data = state.get('health', {})
+            if health_data:
+                self._ml_v3_health = AccountHealthMonitor.from_dict(health_data)
+                self._ml_v3_risk_calc = RiskCalculator(worst_loss_bps=865, health=self._ml_v3_health)
+            self._ml_v3_health.update(self._ml_v3_wallet)
+            logger.info("Loaded ML V3 risk state: wallet=$%.2f", self._ml_v3_wallet)
+        except Exception as e:
+            logger.warning("Failed to load ML V3 risk state: %s — starting fresh", e)
+            self._ml_v3_health.update(self._ml_v3_wallet)
+
+    def _save_ml_v3_risk_state(self) -> None:
+        import json
+        state = {'wallet': self._ml_v3_wallet, 'health': self._ml_v3_health.to_dict()}
+        with open(self._ml_v3_risk_state_path, 'w') as f:
+            json.dump(state, f, indent=2)
+
+    def _update_ml_v3_risk_after_trade(self, trade):
+        if self._ml_v3_qty > 0:
+            pnl_usd = self._ml_v3_qty * trade.entry_price * (trade.net_profit_bps / 10000)
+            self._ml_v3_wallet += pnl_usd
+            self._ml_v3_wallet = max(self._ml_v3_wallet, 0.01)
+            self._ml_v3_health.update(self._ml_v3_wallet, trade.net_profit_bps)
+            self._ml_v3_decision_logger.log_outcome(trade.net_profit_bps, pnl_usd)
+            self._save_ml_v3_risk_state()
+            logger.info("ML_V3 Risk: wallet=$%.2f | pnl=%+.2f", self._ml_v3_wallet, pnl_usd)
+
+    def _log_ml_v3_trade(self, trade: TradeRecord) -> None:
+        row = [
+            trade.signal_time, trade.entry_time, trade.exit_time,
+            trade.direction, trade.signal_type,
+            f"{trade.entry_price:.2f}", f"{trade.exit_price:.2f}",
+            f"{trade.gross_profit_bps:.1f}", f"{trade.net_profit_bps:.1f}",
+            f"{trade.mfe_bps:.1f}", f"{trade.mae_bps:.1f}",
+            trade.exit_bar, trade.exit_reason, trade.is_reentry,
+            self.cfg.config_hash(), f"{self._ml_v3_qty:.4f}",
+        ]
+        with open(self._ml_v3_trades_csv, "a", newline="") as f:
+            csv.writer(f).writerow(row)
+
+    def _push_ml_v3_to_dashboard(self) -> None:
+        if not self._dashboard:
+            return
+        v3_trades = self._ml_v3_pm.trades
+        wins = sum(1 for t in v3_trades if t.net_profit_bps > 0)
+        total = len(v3_trades)
+        total_bps = sum(t.net_profit_bps for t in v3_trades)
+        self._dashboard.update_ml_v3(
+            ml_v3_wallet_usd=round(self._ml_v3_wallet, 2),
+            ml_v3_total_trades=total,
+            ml_v3_wins=wins,
+            ml_v3_losses=total - wins,
+            ml_v3_win_rate=round(wins / total, 3) if total > 0 else 0,
+            ml_v3_total_bps=round(total_bps, 1),
+            ml_v3_avg_bps=round(total_bps / total, 1) if total > 0 else 0,
+            ml_v3_has_position=self._ml_v3_pm.is_in_position,
+            ml_v3_model_loaded=self._ml_v3_gen.loaded,
+            ml_v3_drawdown_pct=self._ml_v3_health.get_drawdown_pct(self._ml_v3_wallet),
+        )
+
+    def _push_ml_v3_trade_to_dashboard(self, trade: TradeRecord) -> None:
+        if not self._dashboard:
+            return
+        liq_price = _calc_liq_price(trade.entry_price, trade.direction, self._ml_v3_wallet, self._ml_v3_qty)
+        self._dashboard.add_ml_v3_trade({
+            "direction": trade.direction,
+            "signal_type": trade.signal_type,
+            "entry_price": trade.entry_price,
+            "exit_price": trade.exit_price,
+            "net_profit_bps": trade.net_profit_bps,
+            "mfe_bps": trade.mfe_bps,
+            "mae_bps": trade.mae_bps,
+            "exit_bar": trade.exit_bar,
+            "exit_reason": trade.exit_reason,
+            "is_reentry": trade.is_reentry,
+            "exit_time": str(trade.exit_time),
+            "entry_time": str(trade.entry_time),
+            "qty": self._ml_v3_qty,
+            "liq_price": liq_price,
+        })
+        v3_trades = self._ml_v3_pm.trades
+        if v3_trades:
+            wins = sum(1 for t in v3_trades if t.net_profit_bps > 0)
+            total = len(v3_trades)
+            total_bps = sum(t.net_profit_bps for t in v3_trades)
+            self._dashboard.update_ml_v3(
+                ml_v3_wallet_usd=round(self._ml_v3_wallet, 2),
+                ml_v3_total_trades=total,
+                ml_v3_wins=wins,
+                ml_v3_losses=total - wins,
+                ml_v3_win_rate=round(wins / total, 3) if total > 0 else 0,
+                ml_v3_total_bps=round(total_bps, 1),
+                ml_v3_avg_bps=round(total_bps / total, 1) if total > 0 else 0,
+                ml_v3_has_position=False,
+                ml_v3_model_loaded=True,
+            )
+        self._snapshot_monitoring("ML_V3")
+
+    def _push_ml_v3_position_to_dashboard(self, close_price: float) -> None:
+        if not self._dashboard or not self._ml_v3_pm.position:
+            return
+        pos = self._ml_v3_pm.position
+        if pos.direction == Direction.LONG:
+            current_pnl = (close_price - pos.entry_price) / pos.entry_price * 10000
+        else:
+            current_pnl = (pos.entry_price - close_price) / pos.entry_price * 10000
+        liq_price = _calc_liq_price(pos.entry_price, pos.direction.value, self._ml_v3_wallet, self._ml_v3_qty)
+        self._dashboard.update_ml_v3(
+            ml_v3_has_position=True,
+            ml_v3_position_side=pos.direction.value,
+            ml_v3_position_pnl_bps=round(current_pnl, 1),
+            ml_v3_position_entry_price=pos.entry_price,
+            ml_v3_position_trailing_stop_bps=0,
+            ml_v3_position_highest_profit_bps=round(pos.highest_profit_bps, 1),
+            ml_v3_position_bars_held=pos.bars_held,
+            ml_v3_position_max_bars=pos.max_bars,
+            ml_v3_position_mfe_bps=round(pos.mfe_bps, 1),
+            ml_v3_position_mae_bps=round(pos.mae_bps, 1),
+            ml_v3_position_liq_price=liq_price,
+        )
+
     async def start(self) -> None:
         """Start the bot with Binance WebSocket."""
         # Load connector directly — bypass live/__init__.py (old orchestrator imports)
@@ -1281,6 +1455,35 @@ class V12Bot:
             elif self._dashboard and self._ml_attn_pm.is_in_position:
                 # Live ML V2 position push
                 self._push_ml_attn_position_to_dashboard(price)
+
+        # ML V3 position
+        if self._ml_v3_gen.loaded and self._ml_v3_pm.is_in_position:
+            trade = self._ml_v3_pm.on_tick(price, tick_time)
+            if trade is not None:
+                logger.info("[%s] ML_V3 TICK-EXIT %s @ %.2f | %s | %+.1f bps",
+                            self.cfg.execution.mode.upper(), trade.exit_reason,
+                            trade.exit_price, trade.direction, trade.net_profit_bps)
+                self._log_ml_v3_trade(trade)
+                v3_trade_qty = self._ml_v3_qty
+                self._update_ml_v3_risk_after_trade(trade)
+                if self._dashboard:
+                    v3_liq = _calc_liq_price(trade.entry_price, trade.direction, self._ml_v3_wallet, v3_trade_qty)
+                    self._dashboard.add_ml_v3_trade({
+                        "direction": trade.direction, "signal_type": trade.signal_type,
+                        "entry_price": trade.entry_price, "exit_price": trade.exit_price,
+                        "net_profit_bps": trade.net_profit_bps,
+                        "mfe_bps": trade.mfe_bps, "mae_bps": trade.mae_bps,
+                        "exit_bar": trade.exit_bar, "exit_reason": trade.exit_reason,
+                        "exit_time": str(trade.exit_time), "entry_time": str(trade.entry_time),
+                        "qty": v3_trade_qty, "liq_price": v3_liq,
+                    })
+                    self._dashboard.update_ml_v3(
+                        ml_v3_has_position=False, ml_v3_position_side=None, ml_v3_position_pnl_bps=0.0,
+                    )
+                    self._snapshot_monitoring("ML_V3")
+                self._ml_v3_qty = 0.0
+            elif self._dashboard and self._ml_v3_pm.is_in_position:
+                self._push_ml_v3_position_to_dashboard(price)
 
     async def _on_candle_close(self, candle: dict) -> None:
         """Called on each 15m candle close. Core bot logic."""
@@ -1565,6 +1768,112 @@ class V12Bot:
                         current_price,
                         attn_signal.rsi,
                         bar_time,
+                    )
+
+        # === ML V3: If in position, update with new bar ===
+        if self._ml_v3_gen.loaded and self._ml_v3_pm.is_in_position:
+            ml_v3_trade = self._ml_v3_pm.on_bar(
+                high=candle["high"], low=candle["low"],
+                close=candle["close"], bar_time=bar_time, bar_index=self._bar_count,
+            )
+            if ml_v3_trade:
+                self._log_ml_v3_trade(ml_v3_trade)
+                v3_trade_qty = self._ml_v3_qty
+                v3_liq = _calc_liq_price(ml_v3_trade.entry_price, ml_v3_trade.direction, self._ml_v3_wallet, v3_trade_qty)
+                self._update_ml_v3_risk_after_trade(ml_v3_trade)
+                if self._dashboard:
+                    self._dashboard.add_ml_v3_trade({
+                        "direction": ml_v3_trade.direction,
+                        "signal_type": ml_v3_trade.signal_type,
+                        "entry_price": ml_v3_trade.entry_price,
+                        "exit_price": ml_v3_trade.exit_price,
+                        "net_profit_bps": ml_v3_trade.net_profit_bps,
+                        "mfe_bps": ml_v3_trade.mfe_bps, "mae_bps": ml_v3_trade.mae_bps,
+                        "exit_bar": ml_v3_trade.exit_bar, "exit_reason": ml_v3_trade.exit_reason,
+                        "exit_time": str(ml_v3_trade.exit_time), "entry_time": str(ml_v3_trade.entry_time),
+                        "qty": v3_trade_qty, "liq_price": v3_liq,
+                    })
+                    self._dashboard.update_ml_v3(
+                        ml_v3_has_position=False, ml_v3_position_side=None, ml_v3_position_pnl_bps=0.0,
+                    )
+                self._snapshot_monitoring("ML_V3")
+                logger.info(
+                    "[ML_V3] CLOSED %s (%s) | %s | %+.1f bps | bar %d | %s",
+                    ml_v3_trade.direction, ml_v3_trade.signal_type, ml_v3_trade.exit_reason,
+                    ml_v3_trade.net_profit_bps, ml_v3_trade.exit_bar, bar_time,
+                )
+            else:
+                if self._dashboard and self._ml_v3_pm.position:
+                    self._push_ml_v3_position_to_dashboard(candle["close"])
+
+        # === ML V3: Signal generation (if not in position) ===
+        if self._ml_v3_gen.loaded and not self._ml_v3_pm.is_in_position:
+            try:
+                df_v3 = self._ml_v3_gen.compute_features(df.copy())
+            except Exception as e:
+                logger.warning("[ML_V3] compute_features failed: %s", e)
+                df_v3 = df.copy()
+            if self._dashboard:
+                try:
+                    import numpy as _np
+                    feats = self._ml_v3_gen.get_features_for_bar(df_v3, latest_idx)
+                    if feats is not None and self._ml_v3_gen._snap_arr is not None and latest_idx < len(self._ml_v3_gen._snap_arr):
+                        snap = self._ml_v3_gen._snap_arr[latest_idx].reshape(1, -1)
+                        outs = self._ml_v3_gen.session.run(None, {"features": feats, "snapshot": snap})
+                        dir_logits = outs[2][0]
+                        exp_l = _np.exp(dir_logits - dir_logits.max())
+                        probs = exp_l / exp_l.sum()
+                        v3_long_pct = float(probs[0]) * 100
+                        v3_short_pct = float(probs[1]) * 100
+                        if probs[0] >= 0.40:
+                            v3_status = ">>> ML_V3_LONG SIGNAL <<<"
+                        elif probs[1] >= 0.40:
+                            v3_status = ">>> ML_V3_SHORT SIGNAL <<<"
+                        else:
+                            v3_status = "SKIP (%.0f%%)" % (probs[2] * 100)
+                        self._dashboard.update_ml_v3(
+                            ml_v3_last_prob=v3_long_pct / 100,
+                            ml_v3_long_pct=round(v3_long_pct, 1),
+                            ml_v3_short_pct=round(v3_short_pct, 1),
+                            ml_v3_signal_status=v3_status,
+                        )
+                        logger.info("[ML_V3] LONG=%.1f%% SHORT=%.1f%% | %s", v3_long_pct, v3_short_pct, v3_status)
+                except Exception as e:
+                    logger.debug("[ML_V3] Dashboard prob failed: %s", e)
+            v3_signal = self._ml_v3_gen.predict_bar(df_v3, latest_idx)
+            if v3_signal is not None:
+                v3_decision = self._ml_v3_risk_calc.calculate(self._ml_v3_wallet, current_price)
+                self._ml_v3_decision_logger.log_decision(
+                    v3_decision, self._ml_v3_wallet, current_price, v3_signal.signal_type.value,
+                )
+                if v3_decision.action != "SKIP":
+                    self._ml_v3_qty = v3_decision.qty
+                    self._ml_v3_pm.reset_reentry()
+                    self._ml_v3_pm.open_position(
+                        direction=v3_signal.direction, signal_type=v3_signal.signal_type,
+                        entry_price=current_price, entry_time=bar_time,
+                        signal_time=v3_signal.timestamp,
+                    )
+                    self._push_ml_v3_to_dashboard()
+                    if self._dashboard:
+                        self._dashboard.update_ml_v3(
+                            ml_v3_has_position=True,
+                            ml_v3_position_side=v3_signal.direction.value,
+                            ml_v3_position_pnl_bps=0.0,
+                            ml_v3_position_entry_price=current_price,
+                            ml_v3_position_trailing_stop_bps=0,
+                            ml_v3_position_highest_profit_bps=0.0,
+                            ml_v3_position_bars_held=0,
+                            ml_v3_position_max_bars=self.cfg.exit.v1_max_bars,
+                            ml_v3_position_mfe_bps=0.0,
+                            ml_v3_position_mae_bps=0.0,
+                            ml_v3_position_liq_price=_calc_liq_price(current_price, v3_signal.direction.value, self._ml_v3_wallet, self._ml_v3_qty),
+                            ml_v3_last_qty=self._ml_v3_qty,
+                        )
+                    logger.info(
+                        "[ML_V3] ENTRY %s (%s) @ %.2f | prob=%.3f | %s",
+                        v3_signal.direction.value, v3_signal.signal_type.value,
+                        current_price, v3_signal.rsi, bar_time,
                     )
 
         # === V1.4: If in position, update with new bar ===

@@ -457,9 +457,11 @@ function App() {
             risk={data?.risk}
             ml={data?.ml}
             mlAttn={data?.ml_attn}
+            mlV3={data?.ml_v3}
             trades={trades}
             mlTrades={data?.ml_trades}
             mlAttnTrades={data?.ml_attn_trades}
+            mlV3Trades={data?.ml_v3_trades}
             status={status}
             position={position}
             onTradesNavigate={(model) => { setTradesFilter(model); setActivePage('trades') }}
@@ -576,11 +578,11 @@ function App() {
       {/* ========== TRADES PAGE (full-width) ========== */}
       {activePage === 'trades' && (
         <div className="page-content page-trades">
-          <StatsSection stats={stats} risk={data?.risk} ml={data?.ml} trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} activeFilter={tradesFilter} onFilterChange={setTradesFilter} />
+          <StatsSection stats={stats} risk={data?.risk} ml={data?.ml} trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} mlV3Trades={data?.ml_v3_trades} activeFilter={tradesFilter} onFilterChange={setTradesFilter} />
 
           <BpsDistribution trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} />
 
-          <TradesList trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} filter={tradesFilter} onFilterChange={setTradesFilter} />
+          <TradesList trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} mlV3Trades={data?.ml_v3_trades} filter={tradesFilter} onFilterChange={setTradesFilter} />
 
           <div className="card signals-full-container">
             <div className="card-header">Signal Log</div>

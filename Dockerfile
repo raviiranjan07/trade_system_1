@@ -32,8 +32,13 @@ COPY models/ML_V2_ATTENTION/attention_model.onnx models/ML_V2_ATTENTION/
 COPY models/ML_V2_ATTENTION/attention_model.onnx.data models/ML_V2_ATTENTION/
 COPY models/ML_V2_ATTENTION/scaler.npz models/ML_V2_ATTENTION/
 
+# ML_V3 (LSTM+Attention+Snapshot, exit-aware labels). New model running alongside V1+V2.
+COPY models/ML_V3/v3_model.onnx models/ML_V3/
+COPY models/ML_V3/v3_model.onnx.data models/ML_V3/
+COPY models/ML_V3/scaler.npz models/ML_V3/
+
 # Create data directories (persistent volume mounted here)
-RUN mkdir -p data/trades/risk_logs/ml data/trades/risk_logs/ml_attn
+RUN mkdir -p data/trades/risk_logs/ml data/trades/risk_logs/ml_attn data/trades/risk_logs/ml_v3
 
 # Expose dashboard port
 EXPOSE 8080

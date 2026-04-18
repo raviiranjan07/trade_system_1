@@ -375,22 +375,25 @@ function PositionBlock({ label, accentColor, side, entryPrice, currentPrice, pnl
   )
 }
 
-function OverviewPage({ stats, risk, ml, mlAttn, trades, mlTrades, mlAttnTrades, status, position, onTradesNavigate }) {
+function OverviewPage({ stats, risk, ml, mlAttn, mlV3, trades, mlTrades, mlAttnTrades, mlV3Trades, status, position, onTradesNavigate }) {
   const v14Wallet = risk?.wallet_usd ?? 0
   const mlWallet = ml?.ml_wallet_usd ?? 0
   const mlAttnWallet = mlAttn?.ml_attn_wallet_usd ?? 0
-  const totalBalance = v14Wallet + mlWallet + mlAttnWallet
+  const mlV3Wallet = mlV3?.ml_v3_wallet_usd ?? 0
+  const totalBalance = v14Wallet + mlWallet + mlAttnWallet + mlV3Wallet
 
   const todayV14Bps = (trades || []).filter(t => isToday(t.exit_time)).reduce((s, t) => s + (t.net_profit_bps || 0), 0)
   const todayMlBps = (mlTrades || []).filter(t => isToday(t.exit_time)).reduce((s, t) => s + (t.net_profit_bps || 0), 0)
   const todayMlAttnBps = (mlAttnTrades || []).filter(t => isToday(t.exit_time)).reduce((s, t) => s + (t.net_profit_bps || 0), 0)
-  const todayTotalBps = todayV14Bps + todayMlBps + todayMlAttnBps
-  const todayTrades = (trades || []).filter(t => isToday(t.exit_time)).length + (mlTrades || []).filter(t => isToday(t.exit_time)).length + (mlAttnTrades || []).filter(t => isToday(t.exit_time)).length
+  const todayMlV3Bps = (mlV3Trades || []).filter(t => isToday(t.exit_time)).reduce((s, t) => s + (t.net_profit_bps || 0), 0)
+  const todayTotalBps = todayV14Bps + todayMlBps + todayMlAttnBps + todayMlV3Bps
+  const todayTrades = (trades || []).filter(t => isToday(t.exit_time)).length + (mlTrades || []).filter(t => isToday(t.exit_time)).length + (mlAttnTrades || []).filter(t => isToday(t.exit_time)).length + (mlV3Trades || []).filter(t => isToday(t.exit_time)).length
 
   const v14HasPos = position?.has_position ?? false
   const mlHasPos = ml?.ml_has_position ?? false
   const mlAttnHasPos_ = mlAttn?.ml_attn_has_position ?? false
-  const activePositions = (v14HasPos ? 1 : 0) + (mlHasPos ? 1 : 0) + (mlAttnHasPos_ ? 1 : 0)
+  const mlV3HasPos_ = mlV3?.ml_v3_has_position ?? false
+  const activePositions = (v14HasPos ? 1 : 0) + (mlHasPos ? 1 : 0) + (mlAttnHasPos_ ? 1 : 0) + (mlV3HasPos_ ? 1 : 0)
 
   const v14TotalBps = stats?.total_bps ?? 0
   const v14Trades = stats?.total_trades ?? 0
@@ -413,6 +416,13 @@ function OverviewPage({ stats, risk, ml, mlAttn, trades, mlTrades, mlAttnTrades,
   const mlAttnGrowth = mlAttnWallet > 0 ? ((mlAttnWallet - DEFAULT_CAPITAL) / DEFAULT_CAPITAL * 100).toFixed(0) : '0'
   const mlAttnActive = mlAttn?.ml_attn_model_loaded ?? false
   const mlAttnHasPos = mlAttn?.ml_attn_has_position ?? false
+
+  const mlV3TotalBps = mlV3?.ml_v3_total_bps ?? 0
+  const mlV3TotalTrades = mlV3?.ml_v3_total_trades ?? 0
+  const mlV3WinRate = mlV3?.ml_v3_win_rate ? (mlV3.ml_v3_win_rate * 100).toFixed(0) : '0'
+  const mlV3Growth = mlV3Wallet > 0 ? ((mlV3Wallet - DEFAULT_CAPITAL) / DEFAULT_CAPITAL * 100).toFixed(0) : '0'
+  const mlV3Active = mlV3?.ml_v3_model_loaded ?? false
+  const mlV3HasPos = mlV3?.ml_v3_has_position ?? false
 
   // V1.4 position
   const pos = position || {}
@@ -561,12 +571,48 @@ function OverviewPage({ stats, risk, ml, mlAttn, trades, mlTrades, mlAttnTrades,
           }}
           onTradesClick={() => onTradesNavigate?.('ML V2')}
         />
+        <BotCard
+          title="ML V3"
+          active={mlV3Active}
+          wallet={mlV3Wallet}
+          growth={mlV3Growth}
+          totalBps={mlV3TotalBps}
+          trades={mlV3TotalTrades}
+          winRate={mlV3WinRate}
+          drawdown={mlV3?.ml_v3_drawdown_pct ?? 0}
+          lastTrade={mlV3Trades && mlV3Trades.length > 0 ? mlV3Trades[0] : null}
+          accentColor="#10b981"
+          tradeHistory={mlV3Trades}
+          exitVersion="V1"
+          prediction={{
+            longPct: mlV3?.ml_v3_long_pct ?? 33,
+            shortPct: mlV3?.ml_v3_short_pct ?? 33,
+            status: mlV3?.ml_v3_signal_status ?? '',
+          }}
+          monitoring={{
+            dailyExpected: mlV3?.ml_v3_daily_expected_bps ?? 0,
+            daysElapsed: mlV3?.ml_v3_days_elapsed ?? 0,
+            window7d: {
+              actual: mlV3?.ml_v3_7d_actual_bps ?? 0,
+              expected: mlV3?.ml_v3_7d_expected_bps ?? 0,
+              delta: mlV3?.ml_v3_7d_delta_pct ?? 0,
+              status: mlV3?.ml_v3_7d_status ?? 'pending',
+            },
+            cum: {
+              actual: mlV3?.ml_v3_cum_actual_bps ?? 0,
+              expected: mlV3?.ml_v3_cum_expected_bps ?? 0,
+              delta: mlV3?.ml_v3_cum_delta_pct ?? 0,
+              status: mlV3?.ml_v3_cum_status ?? 'pending',
+            },
+          }}
+          onTradesClick={() => onTradesNavigate?.('ML V3')}
+        />
       </div>
 
       {/* Active Positions */}
       <div className="db-trades-card">
         <div className="db-trades-header">Active Positions</div>
-        {!v14HasPos && !mlHasPos && !mlAttnHasPos ? (
+        {!v14HasPos && !mlHasPos && !mlAttnHasPos && !mlV3HasPos ? (
           <div className="db-trades-empty">No open positions</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -618,6 +664,22 @@ function OverviewPage({ stats, risk, ml, mlAttn, trades, mlTrades, mlAttnTrades,
                 barsHeld={mlAttn?.ml_attn_position_bars_held ?? 0}
                 maxBars={mlAttn?.ml_attn_position_max_bars ?? 10}
                 liqPrice={mlAttn?.ml_attn_position_liq_price ?? 0}
+              />
+            )}
+            {mlV3HasPos && (
+              <PositionBlock
+                label="ML V3"
+                accentColor="#10b981"
+                side={mlV3?.ml_v3_position_side}
+                entryPrice={mlV3?.ml_v3_position_entry_price ?? 0}
+                pnlBps={mlV3?.ml_v3_position_pnl_bps ?? 0}
+                mfeBps={mlV3?.ml_v3_position_mfe_bps ?? 0}
+                maeBps={mlV3?.ml_v3_position_mae_bps ?? 0}
+                trailingStopBps={mlV3?.ml_v3_position_trailing_stop_bps ?? 0}
+                highestProfitBps={mlV3?.ml_v3_position_highest_profit_bps ?? 0}
+                barsHeld={mlV3?.ml_v3_position_bars_held ?? 0}
+                maxBars={mlV3?.ml_v3_position_max_bars ?? 6}
+                liqPrice={mlV3?.ml_v3_position_liq_price ?? 0}
               />
             )}
           </div>

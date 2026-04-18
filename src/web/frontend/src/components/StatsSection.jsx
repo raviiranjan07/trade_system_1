@@ -1,8 +1,8 @@
 import React from 'react'
 
-const FILTER_TO_VIEW = { 'Combined': 'combined', 'V1.4': 'v14', 'ML': 'ml', 'ML V2': 'mlv2' }
+const FILTER_TO_VIEW = { 'Combined': 'combined', 'V1.4': 'v14', 'ML': 'ml', 'ML V2': 'mlv2', 'ML V3': 'mlv3' }
 
-function StatsSection({ stats, risk, ml, trades, mlTrades, mlAttnTrades, activeFilter, onFilterChange }) {
+function StatsSection({ stats, risk, ml, trades, mlTrades, mlAttnTrades, mlV3Trades, activeFilter, onFilterChange }) {
   const view = FILTER_TO_VIEW[activeFilter] || 'combined'
 
   // Compute stats based on view
@@ -41,11 +41,25 @@ function StatsSection({ stats, risk, ml, trades, mlTrades, mlAttnTrades, activeF
       profit_factor: grossLoss > 0 ? grossWin / grossLoss : 0,
     }
     walletUsd = 0  // will be updated when ml_attn wallet is available
+  } else if (view === 'mlv3' && mlV3Trades && mlV3Trades.length > 0) {
+    const wins = mlV3Trades.filter(t => (t.net_profit_bps || 0) > 0).length
+    const losses = mlV3Trades.length - wins
+    const totalBps = mlV3Trades.reduce((s, t) => s + (t.net_profit_bps || 0), 0)
+    const grossWin = mlV3Trades.filter(t => (t.net_profit_bps || 0) > 0).reduce((s, t) => s + (t.net_profit_bps || 0), 0)
+    const grossLoss = Math.abs(mlV3Trades.filter(t => (t.net_profit_bps || 0) <= 0).reduce((s, t) => s + (t.net_profit_bps || 0), 0))
+    displayStats = {
+      total_trades: mlV3Trades.length, wins, losses,
+      win_rate: mlV3Trades.length > 0 ? wins / mlV3Trades.length : 0,
+      total_bps: totalBps,
+      avg_bps: mlV3Trades.length > 0 ? totalBps / mlV3Trades.length : 0,
+      profit_factor: grossLoss > 0 ? grossWin / grossLoss : 0,
+    }
+    walletUsd = 0
   } else if (view === 'v14') {
     walletUsd = risk?.wallet_usd ?? 0
   } else {
-    // combined — merge V1.4 + ML + ML V2
-    const allTrades = [...(trades || []), ...(mlTrades || []), ...(mlAttnTrades || [])]
+    // combined — merge V1.4 + ML + ML V2 + ML V3
+    const allTrades = [...(trades || []), ...(mlTrades || []), ...(mlAttnTrades || []), ...(mlV3Trades || [])]
     if (allTrades.length > 0 && stats) {
       const totalWins = allTrades.filter(t => (t.net_profit_bps || 0) > 0).length
       const totalLosses = allTrades.length - totalWins
@@ -75,7 +89,7 @@ function StatsSection({ stats, risk, ml, trades, mlTrades, mlAttnTrades, activeF
   return (
     <div>
       <div className="stats-filter-bar">
-        {['Combined', 'V1.4', 'ML', 'ML V2'].map(f => {
+        {['Combined', 'V1.4', 'ML', 'ML V2', 'ML V3'].map(f => {
           const viewKey = FILTER_TO_VIEW[f]
           return (
             <button key={f} className={`stats-filter-btn ${view === viewKey ? 'active' : ''}`} onClick={() => onFilterChange?.(f)}>{f}</button>
