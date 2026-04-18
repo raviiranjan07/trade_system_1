@@ -187,6 +187,26 @@ stages:
       - data/reports/ml_v3/threshold_sweep.json:
           cache: false
 
+  # Training hyperparameter sweep (Level 2/3) — frozen by default, run manually
+  # Usage: dvc repro sweep_training_ml_v3
+  sweep_training_ml_v3:
+    cmd: cmd /c "set PYTHONPATH=src && set PYTHONIOENCODING=utf-8 && python -m engine.sweep_training --model ml_v3 --level 2"
+    deps:
+      - data/features/direction_prediction/feature_cache.parquet
+      - data/features/direction_prediction/exit_aware_labels.parquet
+      - data/raw/BTCUSDT_15m_ohlcv.parquet
+      - data/raw/BTCUSDT_1m_ohlcv.parquet
+      - src/engine/sweep_training.py
+      - src/engine/train_v3.py
+    params:
+      - configs/params.yaml:
+          - ml_v3.sweep
+          - ml_v3.training
+    outs:
+      - data/reports/ml_v3/training_sweep.json:
+          cache: false
+    frozen: true
+
   backtest_ml_v3:
     cmd: cmd /c "set PYTHONPATH=src && python -m engine.backtest --model ml_v3 --independent --exit-version v1 --start 2025-01-01 --end 2025-12-31"
     deps:
