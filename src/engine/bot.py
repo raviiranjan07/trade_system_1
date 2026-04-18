@@ -63,6 +63,16 @@ class V12Bot:
     def __init__(self, config: AppConfig):
         self.cfg = config
         self.strategy = V12Strategy(config)
+
+        # Load exit versions from params.yaml
+        import yaml
+        _params_path = PROJECT_ROOT / "configs" / "params.yaml"
+        with open(_params_path) as _f:
+            _params = yaml.safe_load(_f)
+        _ev_v1 = _params.get("ml_v1", {}).get("inference", {}).get("exit_version", "v1")
+        _ev_v2 = _params.get("ml_v2_attention", {}).get("inference", {}).get("exit_version", "v1")
+        _ev_v3 = _params.get("ml_v3", {}).get("inference", {}).get("exit_version", "v1")
+
         self.pm = V12PositionManager(config)
 
         # Track bar index for position manager
@@ -94,7 +104,7 @@ class V12Bot:
             model_path=PROJECT_ROOT / "models" / "ML_V1" / "direction_model.onnx",
             scaler_path=PROJECT_ROOT / "models" / "ML_V1" / "scaler.npz",
         )
-        self._ml_pm = V12PositionManager(config)
+        self._ml_pm = V12PositionManager(config, exit_version=_ev_v1)
         self._ml_wallet = DEFAULT_CAPITAL
         self._ml_health = AccountHealthMonitor()
         self._ml_risk_calc = RiskCalculator(worst_loss_bps=865, health=self._ml_health)
@@ -116,7 +126,7 @@ class V12Bot:
             model_path=PROJECT_ROOT / "models" / "ML_V2_ATTENTION" / "attention_model.onnx",
             scaler_path=PROJECT_ROOT / "models" / "ML_V2_ATTENTION" / "scaler.npz",
         )
-        self._ml_attn_pm = V12PositionManager(config)
+        self._ml_attn_pm = V12PositionManager(config, exit_version=_ev_v2)
         self._ml_attn_wallet = DEFAULT_CAPITAL
         self._ml_attn_health = AccountHealthMonitor()
         self._ml_attn_risk_calc = RiskCalculator(worst_loss_bps=865, health=self._ml_attn_health)
@@ -138,7 +148,7 @@ class V12Bot:
             model_path=PROJECT_ROOT / "models" / "ML_V3" / "v3_model.onnx",
             scaler_path=PROJECT_ROOT / "models" / "ML_V3" / "scaler.npz",
         )
-        self._ml_v3_pm = V12PositionManager(config)
+        self._ml_v3_pm = V12PositionManager(config, exit_version=_ev_v3)
         self._ml_v3_wallet = DEFAULT_CAPITAL
         self._ml_v3_health = AccountHealthMonitor()
         self._ml_v3_risk_calc = RiskCalculator(worst_loss_bps=865, health=self._ml_v3_health)
@@ -154,6 +164,8 @@ class V12Bot:
             logger.info("ML V3 model loaded — ML_V3_LONG/ML_V3_SHORT signals enabled")
         else:
             logger.warning("ML V3 model not found — ML_V3 signals disabled")
+
+        logger.info("Exit versions: ML_V1=%s | ML_V2=%s | ML_V3=%s", _ev_v1, _ev_v2, _ev_v3)
 
         # Session state
         self._running = False

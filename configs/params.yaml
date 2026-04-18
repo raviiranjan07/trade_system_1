@@ -5,7 +5,7 @@ ml_v2_attention:
   inference:
     conf_long: 0.6
     conf_short: 0.58
-    exit_version: v1
+    exit_version: v2
   training:
     lr: 0.001
     batch_size: 2048
@@ -28,7 +28,7 @@ ml_v3:
   inference:
     conf_long: 0.4
     conf_short: 0.4
-    exit_version: v1
+    exit_version: v2
   training:
     hidden: 128
     dropout: 0.5
@@ -99,7 +99,7 @@ ml_v1:
   inference:
     conf_long: 0.6
     conf_short: 0.58
-    exit_version: v1
+    exit_version: v2
   training:
     lr: 0.001
     weight_decay: 0.0001
