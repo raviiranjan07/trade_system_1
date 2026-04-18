@@ -1,0 +1,87 @@
+# Backtest Report Schema v2.0
+# Every backtest report MUST conform to this schema.
+# verify_backtest.py validates against it.
+# compare_models.py refuses to compare reports with mismatched scope fields.
+
+schema_version: "2.0"
+
+required_fields:
+  # SCOPE — what was tested
+  - name: model
+    type: string
+    description: "Model identifier (ml_v1, ml_v2_attention, ml_v3, v14)"
+    allowed: [ml_v1, ml_v2_attention, ml_v3, v14]
+
+  - name: mode
+    type: string
+    description: "independent = ML-only, own PM. mixed = V1.4 + ML shared PM"
+    allowed: [independent, mixed, v14_only]
+
+  - name: signals_included
+    type: list
+    description: "Exact signal types in this report"
+    examples:
+      - [ML_V3_LONG, ML_V3_SHORT]
+      - [ML_LONG, ML_SHORT]
+      - [V12_LONG, V12_SHORT, BEAR_LONG, BULL_SHORT]
+
+  - name: v14_included
+    type: boolean
+    description: "Were V1.4 signals in the same PM?"
+
+  - name: exit_version
+    type: string
+    description: "Which exit rules were used"
+    allowed: [v1, v2]
+
+  # PERIOD
+  - name: start
+    type: string
+    description: "Backtest start date (YYYY-MM-DD)"
+
+  - name: end
+    type: string
+    description: "Backtest end date (YYYY-MM-DD)"
+
+  - name: period_type
+    type: string
+    description: "Which data split this covers"
+    allowed: [train, val, test, full]
+
+  # METRICS — must include all, long, short separately
+  - name: metrics.all
+    type: object
+    required_keys: [n, bps, pf, win_pct, stop_pct, dd, avg]
+
+  - name: metrics.long
+    type: object
+    required_keys: [n, bps, pf, win_pct, stop_pct, dd, avg]
+
+  - name: metrics.short
+    type: object
+    required_keys: [n, bps, pf, win_pct, stop_pct, dd, avg]
+
+  # EXIT BREAKDOWN
+  - name: exit_distribution
+    type: object
+    description: "Per exit-reason: {n, bps, avg}"
+
+  # META
+  - name: schema_version
+    type: string
+    description: "Must be 2.0"
+
+  - name: generated_at
+    type: string
+    description: "ISO timestamp when report was generated"
+
+# COMPARISON RULES
+# compare_models.py enforces these before comparing:
+comparison_rules:
+  must_match:
+    - mode            # cannot compare independent vs mixed
+    - exit_version    # cannot compare v1 vs v2 exits
+    - start           # same time window
+    - end
+  warn_if_different:
+    - period_type     # comparing val vs test is allowed but flagged

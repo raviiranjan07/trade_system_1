@@ -36,19 +36,52 @@ def load_metrics(path, fallback=None):
 def main():
     logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 
+    import sys
+    sys.path.insert(0, str(REPO_ROOT / "src"))
+    from mlops.backtest_report import validate_report, validate_comparable
+
     # Load all model results
+    all_reports = {}
     all_data = {}
     for name, path in MODELS.items():
-        all_data[name] = load_metrics(path)
+        if not path.exists():
+            logger.warning("Missing: %s — skipping %s", path, name)
+            continue
+        with open(path) as f:
+            report = json.load(f)
+        # Validate schema
+        errors = validate_report(report)
+        if errors:
+            logger.error("INVALID REPORT %s: %s", name, errors)
+            continue
+        all_reports[name] = report
+        all_data[name] = report.get("metrics", {}).get("all", {})
+
+    # Validate comparability
+    if len(all_reports) >= 2:
+        comp_errors = validate_comparable(list(all_reports.values()))
+        if comp_errors:
+            for err in comp_errors:
+                logger.error("COMPARISON ERROR: %s", err)
+            logger.error("REFUSING to compare incompatible reports. Fix scope first.")
+            sys.exit(1)
+
+    if not all_data:
+        logger.error("No valid reports to compare")
+        sys.exit(1)
+
+    # Show scope
+    ref = list(all_reports.values())[0]
+    print(f"\n  Scope: mode={ref['mode']} | exit={ref['exit_version']} | {ref['start']} to {ref['end']}")
 
     metric_keys = [
-        ("Trades", "n_trades", "{:.0f}"),
-        ("Total bps", "total_bps", "{:+.0f}"),
+        ("Trades", "n", "{:.0f}"),
+        ("Total bps", "bps", "{:+.0f}"),
         ("Profit Factor", "pf", "{:.2f}"),
         ("Win Rate %", "win_pct", "{:.1f}"),
-        ("Stop Rate %", "stop_rate", "{:.1f}"),
-        ("Max DD bps", "max_dd_bps", "{:.0f}"),
-        ("Avg bps/trade", "avg_trade_bps", "{:+.1f}"),
+        ("Stop Rate %", "stop_pct", "{:.1f}"),
+        ("Max DD bps", "dd", "{:.0f}"),
+        ("Avg bps/trade", "avg", "{:+.1f}"),
     ]
 
     print()
