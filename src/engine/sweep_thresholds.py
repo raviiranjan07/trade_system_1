@@ -157,6 +157,33 @@ def main():
     config = load_config()
     results = []
 
+    # Init MLflow for sweep tracking
+    try:
+        import mlflow
+        from mlops import tracking as _tracking
+        _tracking.init()
+        mlflow_experiment = f"{model_name}_threshold_sweep"
+        mlflow.set_experiment(mlflow_experiment)
+        _use_mlflow = True
+        logger.info("MLflow experiment: %s", mlflow_experiment)
+    except Exception as e:
+        logger.warning("MLflow not available: %s", e)
+        _use_mlflow = False
+
+    def _log_to_mlflow(cl, cs, metrics, period):
+        if not _use_mlflow:
+            return
+        try:
+            run_name = f"{period}_cl{cl:.2f}_cs{cs:.2f}"
+            with mlflow.start_run(run_name=run_name):
+                mlflow.set_tags({"model": model_name, "period": period,
+                                  "conf_long": str(cl), "conf_short": str(cs)})
+                for split in ["all", "long", "short"]:
+                    for k, v in metrics[split].items():
+                        mlflow.log_metric(f"{period}_{split}_{k}", v)
+        except Exception:
+            pass
+
     if strategy == "grid":
         combos = [(l, s) for l in long_values for s in short_values]
     else:
@@ -182,6 +209,7 @@ def main():
         result = {"conf_long": cl, "conf_short": cs, "period": "val", **metrics}
         results.append(result)
         _log_metrics(cl, cs, metrics)
+        _log_to_mlflow(cl, cs, metrics, "val")
 
     # If independent: find best long, then sweep short
     if strategy == "independent":
@@ -204,6 +232,7 @@ def main():
             result = {"conf_long": best_long, "conf_short": cs, "period": "val", **metrics}
             results.append(result)
             _log_metrics(best_long, cs, metrics)
+            _log_to_mlflow(best_long, cs, metrics, "val")
 
     # Rank by PF (min 100 trades)
     valid = [r for r in results if r["all"]["n"] >= 100]
@@ -237,6 +266,7 @@ def main():
                        "val_pf": r["all"]["pf"], "val_bps": r["all"]["bps"], **metrics}
         test_results.append(test_result)
         _log_metrics(cl, cs, metrics)
+        _log_to_mlflow(cl, cs, metrics, "test")
 
     # Pick best on test (that also had good val)
     test_valid = [r for r in test_results if r["all"]["n"] >= 50]
