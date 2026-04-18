@@ -6,7 +6,6 @@ ml_v2_attention:
     conf_long: 0.6
     conf_short: 0.58
     exit_version: v1
-    exit_version: v1
   training:
     lr: 0.001
     batch_size: 2048
@@ -63,7 +62,7 @@ ml_v3:
     - 0.42
     - 0.45
     - 0.5
-    strategy: independent
+    strategy: grid
     learning_rate:
     - 0.0005
     - 0.001

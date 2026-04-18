@@ -1,0 +1,66 @@
+{
+  "model": "ml_v3",
+  "mode": "independent",
+  "signals_included": [
+    "ML_V3_LONG",
+    "ML_V3_SHORT"
+  ],
+  "v14_included": false,
+  "exit_version": "v2",
+  "start": "2025-01-01",
+  "end": "2025-12-31",
+  "period_type": "test",
+  "metrics": {
+    "all": {
+      "n": 623,
+      "bps": 8709.8,
+      "pf": 2.522,
+      "win_pct": 49.0,
+      "stop_pct": 51.0,
+      "dd": -200.9,
+      "avg": 14.0
+    },
+    "long": {
+      "n": 405,
+      "bps": 6344.8,
+      "pf": 2.711,
+      "win_pct": 49.1,
+      "stop_pct": 50.9,
+      "dd": -183.7,
+      "avg": 15.7
+    },
+    "short": {
+      "n": 218,
+      "bps": 2365.0,
+      "pf": 2.173,
+      "win_pct": 48.6,
+      "stop_pct": 51.4,
+      "dd": -192.1,
+      "avg": 10.8
+    }
+  },
+  "exit_distribution": {
+    "MID_TRAIL": {
+      "n": 173,
+      "bps": 3880.3,
+      "avg": 22.4
+    },
+    "PT_LOCK": {
+      "n": 51,
+      "bps": 2652.0,
+      "avg": 52.0
+    },
+    "PT_TARGET": {
+      "n": 81,
+      "bps": 7901.5,
+      "avg": 97.5
+    },
+    "STOP_LOSS": {
+      "n": 318,
+      "bps": -5724.0,
+      "avg": -18.0
+    }
+  },
+  "schema_version": "2.0",
+  "generated_at": "2026-04-18T14:11:02.991657+00:00"
+}

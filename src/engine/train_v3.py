@@ -485,22 +485,95 @@ def main():
             "seed": SEED,
         })
         mlflow.log_metrics(all_metrics)
-        mlflow.log_artifacts(str(OUT_DIR), artifact_path="model")
+        try:
+            mlflow.log_artifacts(str(OUT_DIR), artifact_path="model")
+        except Exception as e:
+            logger.warning("Could not log artifacts to MLflow (SQLite backend?): %s", e)
         run_id = run.info.run_id
 
     # Register model in MLflow registry
-    client = mlflow.tracking.MlflowClient()
     try:
-        client.get_registered_model(MODEL_NAME)
-    except mlflow.exceptions.MlflowException:
-        client.create_registered_model(MODEL_NAME)
-    mv = client.create_model_version(
-        name=MODEL_NAME,
-        source=f"runs:/{run_id}/model",
-        run_id=run_id,
-    )
-    client.set_registered_model_alias(name=MODEL_NAME, alias="staging", version=mv.version)
-    logger.info("Registered %s v%s @staging", MODEL_NAME, mv.version)
+        client = mlflow.tracking.MlflowClient()
+        try:
+            client.get_registered_model(MODEL_NAME)
+        except mlflow.exceptions.MlflowException:
+            client.create_registered_model(MODEL_NAME)
+        mv = client.create_model_version(
+            name=MODEL_NAME,
+            source=str(OUT_DIR),
+            run_id=run_id,
+        )
+        client.set_registered_model_alias(name=MODEL_NAME, alias="staging", version=mv.version)
+        logger.info("Registered %s v%s @staging", MODEL_NAME, mv.version)
+    except Exception as e:
+        logger.warning("Could not register model in MLflow: %s", e)
+
+    # Training manifest — contract read by src/mlops/verify.py
+    import hashlib
+    from datetime import datetime as _dt
+
+    def _md5_of(path: Path) -> str:
+        h = hashlib.md5()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1 << 20), b""):
+                h.update(chunk)
+        return h.hexdigest()
+
+    manifest = {
+        "schema_version": 1,
+        "model_name": MODEL_NAME,
+        "trained_at": _dt.now().isoformat(timespec="seconds"),
+        "git_commit": subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, text=True
+        ).strip(),
+        "data": {
+            "feature_cache_path": str(CACHE_PATH.relative_to(REPO_ROOT)),
+            "feature_cache_md5": _md5_of(CACHE_PATH),
+            "labels_path": str(LABELS_PATH.relative_to(REPO_ROOT)),
+            "labels_md5": _md5_of(LABELS_PATH),
+        },
+        "split": {
+            "method": "date_based",
+            "train": list(TRAIN_RANGE),
+            "val": list(VAL_RANGE),
+            "test": list(TEST_RANGE),
+        },
+        "scaler": {"fit_on": "train_only"},
+        "feature_recipe": {
+            "compute_fn": "engine.train_v3.compute_features",
+            "source_parquet": str(CACHE_PATH.relative_to(REPO_ROOT)),
+        },
+        "features": ["roc_d", "rsi_d", "rp_d", "sma_d"] * len(LOOKBACKS),
+        "snapshot_features": ["rsi7", "range_pos", "sma200_dist", "atr_pctl"],
+        "label": "exit_aware_direction (LONG/SHORT/SKIP)",
+        "hyperparams": {
+            "hidden": HIDDEN,
+            "dropout": DROPOUT,
+            "temperature": TEMPERATURE,
+            "lr": LR,
+            "batch_size": BATCH_SIZE,
+            "loss_weight_pnl": LOSS_W_PNL,
+            "loss_weight_dir": LOSS_W_DIR,
+            "seed": SEED,
+        },
+        "inference_params": {
+            "conf_long": CONF_LONG,
+            "conf_short": CONF_SHORT,
+        },
+        "metrics": {
+            "train_accuracy_3class": m_train.get("train_accuracy_3class"),
+            "train_confident_accuracy": m_train.get("train_confident_accuracy"),
+            "val_accuracy_3class": m_val.get("val_accuracy_3class"),
+            "val_confident_accuracy": m_val.get("val_confident_accuracy"),
+            "test_accuracy_3class": m_test.get("test_accuracy_3class"),
+            "test_confident_accuracy": m_test.get("test_confident_accuracy"),
+        },
+        "mlflow": {
+            "run_id": run_id,
+        },
+    }
+    (OUT_DIR / "training_manifest.json").write_text(json.dumps(manifest, indent=2))
+    logger.info("Manifest: %s", (OUT_DIR / "training_manifest.json").relative_to(REPO_ROOT))
 
     # Save metrics JSON for DVC
     METRICS_PATH.parent.mkdir(parents=True, exist_ok=True)

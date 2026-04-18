@@ -9,62 +9,62 @@
   ],
   "v14_included": true,
   "exit_version": "v1",
-  "start": "2025-01-01",
+  "start": "2024-01-01",
   "end": "2025-12-31",
   "period_type": "test",
   "metrics": {
     "all": {
-      "n": 111,
-      "bps": -41.2,
-      "pf": 0.962,
-      "win_pct": 43.2,
-      "stop_pct": 53.2,
+      "n": 239,
+      "bps": 1343.1,
+      "pf": 1.667,
+      "win_pct": 51.0,
+      "stop_pct": 45.6,
       "dd": -330.5,
-      "avg": -0.4
+      "avg": 5.6
     },
     "long": {
-      "n": 42,
-      "bps": 64.0,
-      "pf": 1.16,
-      "win_pct": 42.9,
-      "stop_pct": 52.4,
+      "n": 85,
+      "bps": 726.8,
+      "pf": 1.981,
+      "win_pct": 49.4,
+      "stop_pct": 48.2,
       "dd": -233.4,
-      "avg": 1.5
+      "avg": 8.6
     },
     "short": {
-      "n": 69,
-      "bps": -105.2,
-      "pf": 0.847,
-      "win_pct": 43.5,
-      "stop_pct": 53.6,
-      "dd": -359.3,
-      "avg": -1.5
+      "n": 154,
+      "bps": 616.3,
+      "pf": 1.484,
+      "win_pct": 51.9,
+      "stop_pct": 44.2,
+      "dd": -359.8,
+      "avg": 4.0
     }
   },
   "exit_distribution": {
     "LOCKED_PROFIT": {
-      "n": 25,
-      "bps": 94.0,
-      "avg": 3.8
+      "n": 47,
+      "bps": 153.9,
+      "avg": 3.3
     },
     "MID_TRAIL": {
-      "n": 17,
-      "bps": 285.8,
-      "avg": 16.8
+      "n": 56,
+      "bps": 1094.4,
+      "avg": 19.5
     },
     "PT_LOCK": {
-      "n": 2,
-      "bps": 104.0,
+      "n": 8,
+      "bps": 416.0,
       "avg": 52.0
     },
     "PT_TARGET": {
-      "n": 7,
-      "bps": 548.1,
-      "avg": 78.3
+      "n": 18,
+      "bps": 1651.9,
+      "avg": 91.8
     },
     "STOP_LOSS": {
-      "n": 59,
-      "bps": -1062.0,
+      "n": 109,
+      "bps": -1962.0,
       "avg": -18.0
     },
     "TIME_EXIT": {
@@ -74,5 +74,5 @@
     }
   },
   "schema_version": "2.0",
-  "generated_at": "2026-04-18T11:01:57.327093+00:00"
+  "generated_at": "2026-04-18T14:09:30.995287+00:00"
 }

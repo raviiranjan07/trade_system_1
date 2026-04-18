@@ -298,9 +298,29 @@ def main():
                         help="v1 = full V1 (default). v2 = V1 minus LOCKED_PROFIT.")
     parser.add_argument("--model", choices=list(ML_GENERATORS.keys()), default="ml_v1",
                         help="Which ML model to use for signals (default: ml_v1)")
-    parser.add_argument("--start", default="2024-01-01")
-    parser.add_argument("--end", default="2025-12-31")
+    parser.add_argument("--start", default=None)
+    parser.add_argument("--end", default=None)
+    parser.add_argument("--output-dir", default=None,
+                        help="Override report output directory (default: data/reports/{model})")
     args = parser.parse_args()
+
+    # Resolve dates: ML models default to test period from params.yaml split config
+    # V1.4 defaults to full OOS (2024-2025) since it has no ML optimization
+    if args.start is None or args.end is None:
+        import yaml
+        params_path = Path(__file__).resolve().parents[2] / "configs/params.yaml"
+        with open(params_path) as f:
+            params = yaml.safe_load(f)
+        if args.v14_only:
+            # V1.4: no ML leakage risk — use full backtest period
+            bt_cfg = params.get("backtest", {})
+            args.start = args.start or bt_cfg.get("start", "2024-01-01")
+            args.end = args.end or bt_cfg.get("end", "2025-12-31")
+        else:
+            # ML models: must use TEST period only (val was used for sweep)
+            model_split = params.get(args.model, {}).get("split", {})
+            args.start = args.start or model_split.get("test_start", "2025-01-01")
+            args.end = args.end or model_split.get("test_end", "2025-12-31")
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
     config = load_config()
@@ -343,10 +363,13 @@ def main():
             period_type="test",
         )
 
-        model_dir = report_dir / model_key
-        model_dir.mkdir(parents=True, exist_ok=True)
-        json_path = model_dir / "backtest.json"
-        parquet_path = model_dir / "trades.parquet"
+        if args.output_dir:
+            out_dir = Path(args.output_dir)
+        else:
+            out_dir = report_dir / model_key
+        out_dir.mkdir(parents=True, exist_ok=True)
+        json_path = out_dir / "backtest.json"
+        parquet_path = out_dir / "trades.parquet"
 
         save_report(report, json_path)
         tdf.to_parquet(parquet_path)

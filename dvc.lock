@@ -139,7 +139,7 @@ stages:
     deps:
     - path: models/ML_V1_staging
       hash: md5
-      md5: df9f02023587508f7b51f5d558ae41cf.dir
+      md5: 6250eaadcd8abb4612140bc46585b637.dir
       size: 156643
       nfiles: 5
     - path: src/mlops/verify.py
@@ -149,7 +149,7 @@ stages:
     outs:
     - path: data/reports/verification_ML_V1_staging.json
       hash: md5
-      md5: 4eabd02a0b1f32d76c09714d4f794e40
+      md5: d2a504d5c2d8ebea0c90013716ef6f14
       size: 2053
   verify_backtest:
     cmd: python scripts/mlops/verify_backtest.py
@@ -236,8 +236,8 @@ stages:
       size: 1546
     - path: engine/train_v3.py
       hash: md5
-      md5: afca199f7f265fe021e747a997271707
-      size: 20012
+      md5: 9ed4e49a3e7991232c4bc469082d4060
+      size: 22945
     params:
       ../configs/params.yaml:
         ml_v3.split:
@@ -265,9 +265,9 @@ stages:
       size: 1336
     - path: ../models/ML_V3_staging
       hash: md5
-      md5: 32dc49fe966b818e99b1dd8555146e54.dir
-      size: 609739
-      nfiles: 4
+      md5: b1cee83fb94d1a1e826543d2c76ece10.dir
+      size: 611886
+      nfiles: 5
   verify_v3_model:
     cmd: python -m engine.verify_v3_model
     deps:
@@ -281,9 +281,9 @@ stages:
       size: 39641806
     - path: ../models/ML_V3_staging
       hash: md5
-      md5: 32dc49fe966b818e99b1dd8555146e54.dir
-      size: 609739
-      nfiles: 4
+      md5: b1cee83fb94d1a1e826543d2c76ece10.dir
+      size: 611886
+      nfiles: 5
     - path: engine/verify_v3_model.py
       hash: md5
       md5: 3d44944a8c8beb1d73679910c53035ef
@@ -374,3 +374,486 @@ stages:
       hash: md5
       md5: fe73a90cd1bf304fb5c172aff43bac85
       size: 1619
+  backtest_v14:
+    cmd: cmd /c "set PYTHONPATH=src && python -m engine.backtest --v14-only 
+      --exit-version v1 --start 2024-01-01 --end 2025-12-31"
+    deps:
+    - path: data/raw/BTCUSDT_15m_ohlcv.parquet
+      hash: md5
+      md5: 80dddbc50f8fce723e9c9fbb8d48a32a
+      size: 9061640
+    - path: data/raw/BTCUSDT_1m_ohlcv.parquet
+      hash: md5
+      md5: d172da1885489670d63173b1c4badc86
+      size: 110075967
+    - path: src/engine/backtest.py
+      hash: md5
+      md5: daa019cb98dc49fcdf2e9b4a881d5e6b
+      size: 16941
+    - path: src/engine/strategy.py
+      hash: md5
+      md5: 3799824960489dc1571c113185acbc03
+      size: 7940
+    outs:
+    - path: data/reports/v14/backtest.json
+      hash: md5
+      md5: 4d98f2abbfd1e2c1669bf266ab1e793f
+      size: 1425
+    - path: data/reports/v14/trades.parquet
+      hash: md5
+      md5: b0537c9e51e8f08328733f1d5ca26566
+      size: 25207
+  train_ml_v1:
+    cmd: cmd /c "set PYTHONIOENCODING=utf-8 && python src/engine/ml_train.py"
+    deps:
+    - path: data/features/direction_prediction/feature_cache.parquet
+      hash: md5
+      md5: e78134d5a94a39dfc609b9f18b03cc4d
+      size: 39641806
+    - path: data/features/direction_prediction/labels.parquet
+      hash: md5
+      md5: 2b95e64e723b960ddc59a9bf9ce5d468
+      size: 32889487
+    - path: src/engine/ml_train.py
+      hash: md5
+      md5: 9c9d5f436c7240ef4f54398563101541
+      size: 17072
+    params:
+      configs/params.yaml:
+        ml_v1.split:
+          train_start: '2020-01-01'
+          train_end: '2023-12-31'
+          val_start: '2024-01-01'
+          val_end: '2024-12-31'
+          test_start: '2025-01-01'
+          test_end: '2025-12-31'
+        ml_v1.training:
+          lr: 0.001
+          weight_decay: 0.0001
+          batch_size: 512
+          max_epochs: 100
+          patience: 10
+          hidden: 128
+          seed: 42
+          conf_long: 0.6
+          conf_short: 0.4
+    outs:
+    - path: models/ML_V1_staging
+      hash: md5
+      md5: 6250eaadcd8abb4612140bc46585b637.dir
+      size: 156643
+      nfiles: 5
+  backtest_ml_v1:
+    cmd: cmd /c "set PYTHONPATH=src && python -m engine.backtest --model ml_v1 
+      --independent --exit-version v1 --start 2025-01-01 --end 2025-12-31"
+    deps:
+    - path: data/raw/BTCUSDT_15m_ohlcv.parquet
+      hash: md5
+      md5: 80dddbc50f8fce723e9c9fbb8d48a32a
+      size: 9061640
+    - path: data/raw/BTCUSDT_1m_ohlcv.parquet
+      hash: md5
+      md5: d172da1885489670d63173b1c4badc86
+      size: 110075967
+    - path: data/reports/verification_ML_V1_staging.json
+      hash: md5
+      md5: d2a504d5c2d8ebea0c90013716ef6f14
+      size: 2053
+    - path: models/ML_V1_staging
+      hash: md5
+      md5: 6250eaadcd8abb4612140bc46585b637.dir
+      size: 156643
+      nfiles: 5
+    - path: src/engine/backtest.py
+      hash: md5
+      md5: daa019cb98dc49fcdf2e9b4a881d5e6b
+      size: 16941
+    - path: src/engine/signals/ml_v1.py
+      hash: md5
+      md5: 2ce660d58aa2fc5f87ea3499fb47ca8f
+      size: 5278
+    params:
+      configs/params.yaml:
+        ml_v1.inference:
+          conf_long: 0.6
+          conf_short: 0.58
+          exit_version: v1
+    outs:
+    - path: data/reports/ml_v1/backtest.json
+      hash: md5
+      md5: 6fcf3c9ab9893a156de09fc8c1f7ea93
+      size: 1312
+    - path: data/reports/ml_v1/trades.parquet
+      hash: md5
+      md5: 38e0e984d7b77e7bb09c9f76813759aa
+      size: 39957
+  backtest_ml_v2:
+    cmd: cmd /c "set PYTHONPATH=src && python -m engine.backtest --model 
+      ml_v2_attention --independent --exit-version v1 --start 2025-01-01 --end 
+      2025-12-31"
+    deps:
+    - path: data/raw/BTCUSDT_15m_ohlcv.parquet
+      hash: md5
+      md5: 80dddbc50f8fce723e9c9fbb8d48a32a
+      size: 9061640
+    - path: data/raw/BTCUSDT_1m_ohlcv.parquet
+      hash: md5
+      md5: d172da1885489670d63173b1c4badc86
+      size: 110075967
+    - path: models/ML_V2_ATTENTION
+      hash: md5
+      md5: 7302e937e3b77c45db1ae5f404e51ed2.dir
+      size: 618841
+      nfiles: 5
+    - path: src/engine/backtest.py
+      hash: md5
+      md5: daa019cb98dc49fcdf2e9b4a881d5e6b
+      size: 16941
+    - path: src/engine/signals/direction_attention.py
+      hash: md5
+      md5: 88ba8ec2430c74e76032d2bbb4b7c6bd
+      size: 5424
+    params:
+      configs/params.yaml:
+        ml_v2_attention.inference:
+          conf_long: 0.6
+          conf_short: 0.58
+          exit_version: v1
+    outs:
+    - path: data/reports/ml_v2_attention/backtest.json
+      hash: md5
+      md5: 2f9454645d59dd7e2b9fa3dc66c78e8e
+      size: 1334
+    - path: data/reports/ml_v2_attention/trades.parquet
+      hash: md5
+      md5: 93f34196487cbd65a80cb2dc9b296166
+      size: 31463
+  sweep_thresholds_ml_v3:
+    cmd: cmd /c "set PYTHONPATH=src && python -m engine.sweep_thresholds --model
+      ml_v3"
+    deps:
+    - path: data/raw/BTCUSDT_15m_ohlcv.parquet
+      hash: md5
+      md5: 80dddbc50f8fce723e9c9fbb8d48a32a
+      size: 9061640
+    - path: data/raw/BTCUSDT_1m_ohlcv.parquet
+      hash: md5
+      md5: d172da1885489670d63173b1c4badc86
+      size: 110075967
+    - path: data/reports/v3_model_verification.json
+      hash: md5
+      md5: 81f099c37bd06a40e839106a27f56d49
+      size: 774
+    - path: models/ML_V3_staging
+      hash: md5
+      md5: b1cee83fb94d1a1e826543d2c76ece10.dir
+      size: 611886
+      nfiles: 5
+    - path: src/engine/sweep_thresholds.py
+      hash: md5
+      md5: 03e9f8abdf20ff4ef2a10bb12fd49430
+      size: 13592
+    params:
+      configs/params.yaml:
+        ml_v3.sweep:
+          conf_long:
+          - 0.35
+          - 0.37
+          - 0.4
+          - 0.42
+          - 0.45
+          - 0.5
+          conf_short:
+          - 0.35
+          - 0.37
+          - 0.4
+          - 0.42
+          - 0.45
+          - 0.5
+          strategy: grid
+          learning_rate:
+          - 0.0005
+          - 0.001
+          - 0.002
+          loss_weight_pnl:
+          - 0.5
+          - 1.0
+          - 2.0
+          loss_weight_dir:
+          - 0.5
+          - 1.0
+          - 2.0
+          batch_size:
+          - 512
+          - 1024
+          - 2048
+          hidden_size:
+          - 64
+          - 128
+          - 180
+          - 256
+          temperature:
+          - 0.1
+          - 0.3
+          - 0.5
+          - 0.7
+          - 1.0
+          dropout:
+          - 0.3
+          - 0.4
+          - 0.5
+          - 0.6
+    outs:
+    - path: data/reports/ml_v3/threshold_sweep.json
+      hash: md5
+      md5: 8760266aca57798954d944fc380b06bb
+      size: 46945
+  backtest_ml_v3:
+    cmd: cmd /c "set PYTHONPATH=src && python -m engine.backtest --model ml_v3 
+      --independent --exit-version v1 --start 2025-01-01 --end 2025-12-31"
+    deps:
+    - path: data/raw/BTCUSDT_15m_ohlcv.parquet
+      hash: md5
+      md5: 80dddbc50f8fce723e9c9fbb8d48a32a
+      size: 9061640
+    - path: data/raw/BTCUSDT_1m_ohlcv.parquet
+      hash: md5
+      md5: d172da1885489670d63173b1c4badc86
+      size: 110075967
+    - path: data/reports/v3_model_verification.json
+      hash: md5
+      md5: 81f099c37bd06a40e839106a27f56d49
+      size: 774
+    - path: models/ML_V3_staging
+      hash: md5
+      md5: b1cee83fb94d1a1e826543d2c76ece10.dir
+      size: 611886
+      nfiles: 5
+    - path: src/engine/backtest.py
+      hash: md5
+      md5: daa019cb98dc49fcdf2e9b4a881d5e6b
+      size: 16941
+    - path: src/engine/signals/ml_v3.py
+      hash: md5
+      md5: 83c37f6bb24d79d9238c988b32b6af3c
+      size: 7471
+    params:
+      configs/params.yaml:
+        ml_v3.inference:
+          conf_long: 0.4
+          conf_short: 0.4
+          exit_version: v1
+    outs:
+    - path: data/reports/ml_v3/backtest.json
+      hash: md5
+      md5: 2628b3cc05def8a426eda1001fe3128a
+      size: 1321
+    - path: data/reports/ml_v3/trades.parquet
+      hash: md5
+      md5: 8b688b2e91105a7523e3f2c8c7063dd8
+      size: 49998
+  compare_all:
+    cmd: cmd /c "set PYTHONPATH=src && python -m engine.compare_models"
+    deps:
+    - path: data/reports/ml_v1/backtest.json
+      hash: md5
+      md5: 6fcf3c9ab9893a156de09fc8c1f7ea93
+      size: 1312
+    - path: data/reports/ml_v1_v2/backtest.json
+      hash: md5
+      md5: b6af444a5e0932700fd99fa851121546
+      size: 1312
+    - path: data/reports/ml_v2_attention/backtest.json
+      hash: md5
+      md5: 2f9454645d59dd7e2b9fa3dc66c78e8e
+      size: 1334
+    - path: data/reports/ml_v2_attention_v2/backtest.json
+      hash: md5
+      md5: 9144bdd872304f04421a40c9bb320a3e
+      size: 1249
+    - path: data/reports/ml_v3/backtest.json
+      hash: md5
+      md5: 2628b3cc05def8a426eda1001fe3128a
+      size: 1321
+    - path: data/reports/ml_v3_v2/backtest.json
+      hash: md5
+      md5: 8cef3bfbf3310214c242d18272cb8f51
+      size: 1236
+    - path: data/reports/v14/backtest.json
+      hash: md5
+      md5: 4d98f2abbfd1e2c1669bf266ab1e793f
+      size: 1425
+    - path: data/reports/v14_v2/backtest.json
+      hash: md5
+      md5: e1fa14104cd8eba9bfcb85d71f008b33
+      size: 1417
+    - path: src/engine/compare_models.py
+      hash: md5
+      md5: 61eeb8401171f6975a9de360888c171d
+      size: 5721
+    outs:
+    - path: data/reports/comparison.json
+      hash: md5
+      md5: 070e328c5e2c9d485edcd27b7c159b01
+      size: 1596
+  backtest_v14_v2:
+    cmd: cmd /c "set PYTHONPATH=src && python -m engine.backtest --v14-only 
+      --exit-version v2 --start 2024-01-01 --end 2025-12-31 --output-dir 
+      data/reports/v14_v2"
+    deps:
+    - path: data/raw/BTCUSDT_15m_ohlcv.parquet
+      hash: md5
+      md5: 80dddbc50f8fce723e9c9fbb8d48a32a
+      size: 9061640
+    - path: data/raw/BTCUSDT_1m_ohlcv.parquet
+      hash: md5
+      md5: d172da1885489670d63173b1c4badc86
+      size: 110075967
+    - path: src/engine/backtest.py
+      hash: md5
+      md5: daa019cb98dc49fcdf2e9b4a881d5e6b
+      size: 16941
+    - path: src/engine/strategy.py
+      hash: md5
+      md5: 3799824960489dc1571c113185acbc03
+      size: 7940
+    outs:
+    - path: data/reports/v14_v2/backtest.json
+      hash: md5
+      md5: e1fa14104cd8eba9bfcb85d71f008b33
+      size: 1417
+    - path: data/reports/v14_v2/trades.parquet
+      hash: md5
+      md5: 6ea2f5e4efe9e4ecdd97bfa677e0bc0e
+      size: 25025
+  backtest_ml_v1_v2:
+    cmd: cmd /c "set PYTHONPATH=src && python -m engine.backtest --model ml_v1 
+      --independent --exit-version v2 --start 2025-01-01 --end 2025-12-31 
+      --output-dir data/reports/ml_v1_v2"
+    deps:
+    - path: data/raw/BTCUSDT_15m_ohlcv.parquet
+      hash: md5
+      md5: 80dddbc50f8fce723e9c9fbb8d48a32a
+      size: 9061640
+    - path: data/raw/BTCUSDT_1m_ohlcv.parquet
+      hash: md5
+      md5: d172da1885489670d63173b1c4badc86
+      size: 110075967
+    - path: data/reports/verification_ML_V1_staging.json
+      hash: md5
+      md5: d2a504d5c2d8ebea0c90013716ef6f14
+      size: 2053
+    - path: models/ML_V1_staging
+      hash: md5
+      md5: 6250eaadcd8abb4612140bc46585b637.dir
+      size: 156643
+      nfiles: 5
+    - path: src/engine/backtest.py
+      hash: md5
+      md5: daa019cb98dc49fcdf2e9b4a881d5e6b
+      size: 16941
+    - path: src/engine/signals/ml_v1.py
+      hash: md5
+      md5: 2ce660d58aa2fc5f87ea3499fb47ca8f
+      size: 5278
+    params:
+      configs/params.yaml:
+        ml_v1.inference:
+          conf_long: 0.6
+          conf_short: 0.58
+          exit_version: v1
+    outs:
+    - path: data/reports/ml_v1_v2/backtest.json
+      hash: md5
+      md5: b6af444a5e0932700fd99fa851121546
+      size: 1312
+    - path: data/reports/ml_v1_v2/trades.parquet
+      hash: md5
+      md5: 6433d1b547711c9fe3d9799930684f4e
+      size: 39784
+  backtest_ml_v2_v2:
+    cmd: cmd /c "set PYTHONPATH=src && python -m engine.backtest --model 
+      ml_v2_attention --independent --exit-version v2 --start 2025-01-01 --end 
+      2025-12-31 --output-dir data/reports/ml_v2_attention_v2"
+    deps:
+    - path: data/raw/BTCUSDT_15m_ohlcv.parquet
+      hash: md5
+      md5: 80dddbc50f8fce723e9c9fbb8d48a32a
+      size: 9061640
+    - path: data/raw/BTCUSDT_1m_ohlcv.parquet
+      hash: md5
+      md5: d172da1885489670d63173b1c4badc86
+      size: 110075967
+    - path: models/ML_V2_ATTENTION
+      hash: md5
+      md5: 7302e937e3b77c45db1ae5f404e51ed2.dir
+      size: 618841
+      nfiles: 5
+    - path: src/engine/backtest.py
+      hash: md5
+      md5: daa019cb98dc49fcdf2e9b4a881d5e6b
+      size: 16941
+    - path: src/engine/signals/direction_attention.py
+      hash: md5
+      md5: 88ba8ec2430c74e76032d2bbb4b7c6bd
+      size: 5424
+    params:
+      configs/params.yaml:
+        ml_v2_attention.inference:
+          conf_long: 0.6
+          conf_short: 0.58
+          exit_version: v1
+    outs:
+    - path: data/reports/ml_v2_attention_v2/backtest.json
+      hash: md5
+      md5: 9144bdd872304f04421a40c9bb320a3e
+      size: 1249
+    - path: data/reports/ml_v2_attention_v2/trades.parquet
+      hash: md5
+      md5: b46207dcdb63d3a4cfc66f23036f6ccb
+      size: 31269
+  backtest_ml_v3_v2:
+    cmd: cmd /c "set PYTHONPATH=src && python -m engine.backtest --model ml_v3 
+      --independent --exit-version v2 --start 2025-01-01 --end 2025-12-31 
+      --output-dir data/reports/ml_v3_v2"
+    deps:
+    - path: data/raw/BTCUSDT_15m_ohlcv.parquet
+      hash: md5
+      md5: 80dddbc50f8fce723e9c9fbb8d48a32a
+      size: 9061640
+    - path: data/raw/BTCUSDT_1m_ohlcv.parquet
+      hash: md5
+      md5: d172da1885489670d63173b1c4badc86
+      size: 110075967
+    - path: data/reports/v3_model_verification.json
+      hash: md5
+      md5: 81f099c37bd06a40e839106a27f56d49
+      size: 774
+    - path: models/ML_V3_staging
+      hash: md5
+      md5: b1cee83fb94d1a1e826543d2c76ece10.dir
+      size: 611886
+      nfiles: 5
+    - path: src/engine/backtest.py
+      hash: md5
+      md5: daa019cb98dc49fcdf2e9b4a881d5e6b
+      size: 16941
+    - path: src/engine/signals/ml_v3.py
+      hash: md5
+      md5: 83c37f6bb24d79d9238c988b32b6af3c
+      size: 7471
+    params:
+      configs/params.yaml:
+        ml_v3.inference:
+          conf_long: 0.4
+          conf_short: 0.4
+          exit_version: v1
+    outs:
+    - path: data/reports/ml_v3_v2/backtest.json
+      hash: md5
+      md5: 8cef3bfbf3310214c242d18272cb8f51
+      size: 1236
+    - path: data/reports/ml_v3_v2/trades.parquet
+      hash: md5
+      md5: e347b04d7bf9a30e1530caf420cf4461
+      size: 49508

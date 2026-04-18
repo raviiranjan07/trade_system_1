@@ -41,6 +41,10 @@ MODELS = {
         "staging_dir": REPO_ROOT / "models/ML_V2_ATTENTION_staging",
         "production_dir": REPO_ROOT / "models/ML_V2_ATTENTION",
     },
+    "ML_V3": {
+        "staging_dir": REPO_ROOT / "models/ML_V3_staging",
+        "production_dir": REPO_ROOT / "models/ML_V3",
+    },
 }
 
 # Minimum metrics a @staging model must beat to be promotable.
@@ -70,18 +74,26 @@ def _run_verifier(staging_dir: Path) -> tuple[bool, str]:
 
 def _check_backtest_metrics(model_key: str) -> tuple[bool, str, dict | None]:
     """Read the latest backtest report for this model and check thresholds."""
-    candidates = [
-        REPO_ROOT / f"data/reports/backtest_staging_{model_key.lower()}_exitv1.json",
-        REPO_ROOT / f"data/reports/backtest_staging_{model_key.lower()}.json",
-    ]
-    report_path = next((p for p in candidates if p.exists()), None)
-    if report_path is None:
-        return False, "no backtest report found", None
+    # Map model names to report directory keys
+    dir_map = {
+        "ml_v1": "ml_v1",
+        "ml_v2_attention": "ml_v2_attention",
+        "ml_v3": "ml_v3",
+        "v14": "v14",
+    }
+    report_key = dir_map.get(model_key.lower(), model_key.lower())
+    report_path = REPO_ROOT / "data/reports" / report_key / "backtest.json"
+
+    if not report_path.exists():
+        return False, f"no backtest report found at {report_path.relative_to(REPO_ROOT)}", None
 
     report = json.loads(report_path.read_text())
-    m = report.get("metrics", {})
+
+    # Schema v2.0 reports have metrics.all.{pf, n, bps, ...}
+    m = report.get("metrics", {}).get("all", report.get("metrics", {}))
     pf = m.get("pf", 0)
-    n = m.get("n_trades", 0)
+    n = m.get("n", m.get("n_trades", 0))
+    bps = m.get("bps", m.get("total_bps", 0))
 
     failures = []
     if pf < GATE_THRESHOLDS["min_pf"]:
@@ -91,7 +103,7 @@ def _check_backtest_metrics(model_key: str) -> tuple[bool, str, dict | None]:
 
     if failures:
         return False, "; ".join(failures), m
-    return True, f"PF {pf}, {n} trades, {m.get('total_bps', 0):+.0f} bps", m
+    return True, f"PF {pf}, {n} trades, {bps:+.0f} bps", m
 
 
 def run_gates(model_name: str, mc: dict, model_key: str) -> tuple[bool, list[str]]:
@@ -157,28 +169,41 @@ def promote_one(model_name: str, model_key: str, dry_run: bool = False) -> dict:
 
     _, _, metrics = _check_backtest_metrics(model_key)
 
+    # Don't delete if staging == production (same version, nothing to retire)
+    should_delete_old = prod_version is not None and str(prod_version) != str(staging_version)
+
     if dry_run:
         print(f"[DRY RUN] would:")
         print(f"  - Copy {mc['staging_dir'].name}/* -> {mc['production_dir'].name}/")
         print(f"  - MLflow alias: v{staging_version} @staging -> @production")
-        if prod_version is not None:
-            print(f"  - DELETE MLflow version v{prod_version} (was @production, leaky)")
+        if should_delete_old:
+            print(f"  - DELETE MLflow version v{prod_version} (was @production)")
+        elif prod_version is not None:
+            print(f"  - @production already at v{prod_version} (same as staging, no deletion)")
         return {"model": model_name, "status": "dry_run", "would_promote_version": staging_version}
 
     # Step 1: copy files
     mc["production_dir"].mkdir(parents=True, exist_ok=True)
+    copied = 0
     for src_file in mc["staging_dir"].iterdir():
-        if src_file.is_file():
+        if src_file.is_file() and src_file.name != "desktop.ini":
             dst = mc["production_dir"] / src_file.name
-            shutil.copy2(src_file, dst)
-    print(f"Files copied: {mc['staging_dir'].name}/ -> {mc['production_dir'].name}/")
+            try:
+                shutil.copy2(src_file, dst)
+                copied += 1
+            except OSError:
+                # Fallback: binary copy for files Windows can't handle via copy2
+                with open(src_file, "rb") as fin, open(dst, "wb") as fout:
+                    fout.write(fin.read())
+                copied += 1
+    print(f"Files copied ({copied}): {mc['staging_dir'].name}/ -> {mc['production_dir'].name}/")
 
     # Step 2: alias swap + delete old
     client.set_registered_model_alias(model_name, "production", staging_version)
     print(f"MLflow: v{staging_version} -> @production")
-    if prod_version is not None:
+    if should_delete_old:
         client.delete_model_version(model_name, prod_version)
-        print(f"MLflow: v{prod_version} DELETED (was leaky)")
+        print(f"MLflow: v{prod_version} DELETED (was @production)")
 
     # Step 3: tag the run
     new_run_id = client.get_model_version_by_alias(model_name, "production").run_id
@@ -210,10 +235,13 @@ def append_audit_log(results: list[dict]) -> None:
             entry.append(f"- Retired: v{r['retired_version']}\n")
             entry.append(f"- New production: v{r['promoted_version']}\n")
             m = r.get("metrics") or {}
+            n = m.get("n", m.get("n_trades", 0))
+            bps = m.get("bps", m.get("total_bps", 0))
+            dd = m.get("dd", m.get("max_dd_bps", 0))
             entry.append(f"- Metrics: PF {m.get('pf')}, "
-                         f"{m.get('n_trades')} trades, "
-                         f"{m.get('total_bps', 0):+.0f} bps, "
-                         f"DD {m.get('max_dd_bps', 0):+.0f}\n")
+                         f"{n} trades, "
+                         f"{bps:+.0f} bps, "
+                         f"DD {dd:+.0f}\n")
         else:
             entry.append(f"### {r['model']}: {r['status']}\n")
             if "issues" in r:
@@ -242,7 +270,7 @@ def main() -> int:
         return 2
 
     # Key used for backtest report filename lookup (lowercase)
-    key_map = {"ML_V1": "ml_v1", "ML_V2_ATTENTION": "ml_v2_attention"}
+    key_map = {"ML_V1": "ml_v1", "ML_V2_ATTENTION": "ml_v2_attention", "ML_V3": "ml_v3"}
 
     if not args.force and not args.dry_run:
         print(f"About to promote: {', '.join(targets)}")

@@ -248,18 +248,19 @@ def main():
                     r["conf_long"], r["conf_short"],
                     l["n"], s["n"], l["bps"], s["bps"], l["pf"], s["pf"], a["pf"], a["dd"])
 
-    # Phase 2: Confirm top 3 on TEST
-    top3 = valid[:3]
-    if not top3:
+    # Phase 2: Test ALL valid configs on TEST (not just top 3)
+    if not valid:
         logger.error("No valid configs found on val!")
         return
 
-    logger.info("\n=== PHASE 2: Confirm top 3 on test (%s to %s) ===", test_start, test_end)
+    logger.info("\n=== PHASE 2: Test all %d valid configs on test (%s to %s) ===",
+                len(valid), test_start, test_end)
 
     test_results = []
-    for r in top3:
+    for i, r in enumerate(valid):
         cl, cs = r["conf_long"], r["conf_short"]
-        logger.info("  conf_long=%.2f conf_short=%.2f", cl, cs)
+        logger.info("  [%d/%d] conf_long=%.2f conf_short=%.2f (val PF=%.2f)",
+                    i + 1, len(valid), cl, cs, r["all"]["pf"])
         trades = backtest_at_threshold(config, model_name, cl, cs, test_start, test_end)
         metrics = evaluate_trades(trades, model_name)
         test_result = {"conf_long": cl, "conf_short": cs, "period": "test",
@@ -268,12 +269,25 @@ def main():
         _log_metrics(cl, cs, metrics)
         _log_to_mlflow(cl, cs, metrics, "test")
 
-    # Pick best on test (that also had good val)
+    # Rank test results
     test_valid = [r for r in test_results if r["all"]["n"] >= 50]
+    test_valid.sort(key=lambda r: r["all"]["pf"], reverse=True)
+
+    logger.info("\n=== TEST RESULTS (ranked by PF, min 50 trades) ===")
+    logger.info("  %-10s %-10s %5s %5s %8s %8s %6s %6s %7s %7s %7s", "conf_long", "conf_short",
+                "L_n", "S_n", "L_bps", "S_bps", "L_PF", "S_PF", "All_PF", "All_DD", "Val_PF")
+    logger.info("  " + "-" * 90)
+    for r in test_valid:
+        a, l, s = r["all"], r["long"], r["short"]
+        logger.info("  %-10.2f %-10.2f %5d %5d %+8.0f %+8.0f %6.2f %6.2f %7.2f %+7.0f %7.2f",
+                    r["conf_long"], r["conf_short"],
+                    l["n"], s["n"], l["bps"], s["bps"], l["pf"], s["pf"], a["pf"], a["dd"],
+                    r.get("val_pf", 0))
+
     if test_valid:
-        best = max(test_valid, key=lambda r: r["all"]["pf"])
+        best = test_valid[0]
     else:
-        best = test_results[0] if test_results else top3[0]
+        best = test_results[0] if test_results else valid[0]
 
     a, l, s = best["all"], best["long"], best["short"]
     logger.info("\n=== WINNER ===")
@@ -295,7 +309,7 @@ def main():
             "val_pf": best.get("val_pf", 0), "val_bps": best.get("val_bps", 0),
         },
         "all_val_results": [r for r in results if r["period"] == "val"],
-        "top3_test_results": test_results,
+        "all_test_results": test_results,
         "runtime_sec": round(time.time() - t0, 1),
     }
 

@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "model_name": "ML_V1",
-  "trained_at": "2026-04-18T00:19:11",
-  "git_commit": "4d524a06614e305e8c5f4275a8b6f0d748076d74",
+  "trained_at": "2026-04-18T17:21:09",
+  "git_commit": "207d8e12fbac8cccb4e3ccdf7a5935c5a6d62e8e",
   "data": {
     "feature_cache_path": "data\\features\\direction_prediction\\feature_cache.parquet",
     "feature_cache_md5": "e78134d5a94a39dfc609b9f18b03cc4d",
@@ -56,8 +56,8 @@
     "test_recall_long": 0.4029
   },
   "mlflow": {
-    "run_id": "6f21790a87c043bc916b6ddce27d4751",
-    "registered_version": 2,
+    "run_id": "8688250f9cad47beb9919f8d88055c30",
+    "registered_version": 3,
     "alias": "staging"
   }
 }
