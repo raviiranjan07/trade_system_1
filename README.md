@@ -1,553 +1,329 @@
-# Trading System - State-Driven Quantitative Trading
+# System 1 — Trading Stack
 
-A **state-based quantitative trading system** that trades only when historical market conditions show statistical edge. The system avoids prediction and overtrading by relying on **market memory, regimes, and expectancy**.
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-green)](#license)
+[![Status](https://img.shields.io/badge/status-internal-orange)]()
+
+A 15-minute BTCUSDT trading system. Four parallel models (one rule-based + three ML) share a single exit engine, an adaptive risk layer, and a real-time dashboard. Trained on 2020–2023, tested out-of-sample on 2024–2025.
+
+> **Min profitable move = 12 bps.** Fees = 8 bps round-trip (limit orders). Anything under 12 bps is noise. See [CLAUDE.md](CLAUDE.md) for the full rule set.
 
 ---
 
-## Core Philosophy
+## Table of Contents
 
-> **We do not predict price. We recognize market states and act only when history supports an asymmetric edge.**
+- [Status](#status)
+- [Architecture](#architecture)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Quick Start](#quick-start)
+- [Models](#models)
+- [Exit V2](#exit-v2-production-frozen-2026-03-29)
+- [Risk Layer 1](#risk-layer-1)
+- [MLOps](#mlops)
+- [Project Layout](#project-layout)
+- [Testing](#testing)
+- [Data Split](#data-split)
+- [Documentation](#documentation)
+- [License](#license)
 
-- Markets are probabilistic, not deterministic
-- Capital preservation comes first
-- Fewer high-quality trades > frequent trades
-- Decisions are statistics-driven, not indicator-driven
+---
+
+## Status
+
+| Layer | Status | Notes |
+|---|---|---|
+| Layer 0 — Foundation (V1.3.2) | DONE | V1 rule strategy locked |
+| Layer 1 — Risk Management | DONE, integrated | [src/engine/risk/](src/engine/risk/) |
+| Layer 2 — Direction (ML) | PARTIAL | V1, V2 Attention, V3 — all live (57–58% ceiling) |
+| Layer 2 — Regime Detection | NOT STARTED | original HMM/clustering plan unbuilt |
+| Layer 3–10 | NOT STARTED | see [docs/PROJECT_VISION.md](docs/PROJECT_VISION.md) |
+
+Live in the bot today: **4 models, all on Exit V2.**
 
 ---
 
 ## Architecture
 
 ```
-PostgreSQL / TimescaleDB (1m OHLCV)
-         |
-         v
-   Market State Vector Engine (10D normalized features)
-         |
-         v
-     Regime Detection (4 market regimes)
-         |
-         v
-   Outcome Labeling (MFE / MAE for multiple horizons)
-         |
-         v
-   Similarity Search (KNN Market Memory)
-         |
-         v
-   Decision Engine (Expectancy-based signals)
-         |
-         v
-   Risk & Exit Management (Stop Loss, Take Profit, Trailing Stop)
+                         ┌──────────────────────────────┐
+                         │  BTCUSDT 15m + 1m OHLCV      │
+                         │  (data/raw/*.parquet)        │
+                         └──────────────┬───────────────┘
+                                        │
+              ┌─────────────────────────┼─────────────────────────┐
+              ▼                         ▼                         ▼
+       ┌─────────────┐         ┌────────────────┐         ┌──────────────┐
+       │  V1.4       │         │  ML V1 / V2 /  │         │  Feature     │
+       │  Rule-based │         │  V3 (signals/) │         │  cache +     │
+       │  signals    │         │  ONNX runtime  │         │  labels      │
+       └──────┬──────┘         └────────┬───────┘         └──────────────┘
+              │                         │
+              └────────────┬────────────┘
+                           ▼
+                ┌──────────────────────┐
+                │  Risk Layer 1        │
+                │  (size, health,      │
+                │   preflight)         │
+                └──────────┬───────────┘
+                           ▼
+                ┌──────────────────────┐
+                │  Position Manager    │
+                │  Exit V2             │
+                │  (early cut, BE      │
+                │   lock, tighten,     │
+                │   time exit)         │
+                └──────────┬───────────┘
+                           ▼
+              ┌────────────┴────────────┐
+              ▼                         ▼
+       ┌─────────────┐          ┌──────────────────┐
+       │  Paper /    │          │  Dashboard       │
+       │  Live exec  │          │  (FastAPI + WS   │
+       │  (Binance)  │          │   + React)       │
+       └─────────────┘          └──────────────────┘
 ```
+
+---
+
+## Prerequisites
+
+- **Python 3.10+**
+- **Git + Git LFS** (large parquet/model files are LFS-tracked)
+- **DVC** for the data/model pipeline
+- **Node.js 18+** (only if rebuilding the React dashboard)
+- **Docker** (optional — bot can run containerized)
+- ~5 GB free disk for raw + feature data, more for `mlruns/`
+
+System tested on Windows 10 (PowerShell 5.1). Bash via WSL or Git Bash also works.
+
+---
+
+## Installation
+
+```powershell
+# 1. Clone (with LFS)
+git clone <repo-url>
+cd system_1
+git lfs pull
+
+# 2. Create a virtual environment
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
+# 3. Install runtime + research deps
+pip install -r requirements.txt
+pip install scipy matplotlib seaborn scikit-learn tqdm pyarrow xgboost mlflow numba
+pip install dvc
+
+# 4. (Optional) install the package in editable mode for imports
+pip install -e .
+
+# 5. Pull DVC-tracked data and models
+dvc pull
+```
+
+> **Note:** training stack (PyTorch, etc.) is intentionally not in `requirements.txt` — the bot only needs `onnxruntime` for inference. Install training deps manually when retraining.
+
+---
+
+## Configuration
+
+| File | Purpose |
+|---|---|
+| [configs/params.yaml](configs/params.yaml) | Per-model thresholds, training, split, sweep grid |
+| [src/engine/config/settings.yaml](src/engine/config/settings.yaml) | V1.4 strategy filters, exit V1 fallback params, re-entry, execution mode |
+| [src/engine/risk/config.yaml](src/engine/risk/config.yaml) | Risk Layer 1 (worst-loss baseline, sizing %, health thresholds) |
+| [configs/strategy_cards/exit_v2.yaml](configs/strategy_cards/exit_v2.yaml) | Exit V2 spec (production, frozen) |
+| [configs/data_cards/](configs/data_cards/) | Dataset specs (15m, 1m OHLCV, label sets) |
+| [configs/model_cards/](configs/model_cards/) | Model architecture cards |
+| [configs/protocols/](configs/protocols/) | Training/eval protocols |
+| [configs/schemas/backtest_report.yaml](configs/schemas/backtest_report.yaml) | Backtest report schema (v2.0) |
+| `.env` | Secrets — `DATABASE_URL`, exchange API keys (gitignored) |
+
+**Default execution mode is `paper`.** Set `execution.mode: live` in [settings.yaml](src/engine/config/settings.yaml) only after you understand the risk module and have real keys configured.
 
 ---
 
 ## Quick Start
 
-### 1. Prerequisites
+```powershell
+# Bot (paper trading by default)
+$env:PYTHONPATH="src"; python -m engine.bot
 
-- Python 3.9+
-- PostgreSQL with OHLCV data (or use parquet files)
-- Required packages: `pip install -r requirements.txt`
+# Backtest a single model independently
+$env:PYTHONPATH="src"; python -m engine.backtest --model ml_v3 --independent `
+    --exit-version v2 --start 2025-01-01 --end 2025-12-31
 
-### 2. Configuration
+# V1.4 only (rule-based, no ML)
+$env:PYTHONPATH="src"; python -m engine.backtest --v14-only --exit-version v2 `
+    --start 2024-01-01 --end 2025-12-31
 
-Create a `.env` file in the project root:
+# Full pipeline: features → train → verify → backtest all → compare
+dvc repro
 
-```bash
-DATABASE_URL=postgresql://user@host:5432/crypto_data
+# Only the comparison step (after individual backtests are current)
+dvc repro compare_all
+
+# Threshold sweep on a single model
+$env:PYTHONPATH="src"; python -m engine.sweep_thresholds --model ml_v3
+
+# Hyperparameter training sweep (frozen — manual trigger)
+dvc repro sweep_training_ml_v3
 ```
 
-All settings are in `config/config.yaml`. Key settings:
-
-```yaml
-data:
-  pair: "BTCUSDT"
-  timeframe: "1m"
-  start_date: "2020-01-01"
-  end_date: "2025-12-15"
-
-similarity:
-  k: 200                      # Number of similar states to find
-  backend: "faiss"       # or "faiss" for speed
-
-decision:
-  capital: 10000
-  risk_per_trade: 0.005       # 0.5% risk per trade
-  min_expectancy: -0.002      # Minimum expectancy to trade
-  blocked_regimes: ["TREND_LOW_VOL"]  # Skip unprofitable regimes
-```
-
-### 3. Run the Pipeline
-
-```bash
-# Run all stages
-python scripts/run_pipeline.py
-
-# Run specific stages
-python scripts/run_pipeline.py --stages state_vectors regime_labeling
-
-# Override pair and dates
-python scripts/run_pipeline.py --pair ETHUSDT --start 2023-06-01 --end 2023-09-01
-
-# Dry run (show plan without executing)
-python scripts/run_pipeline.py --dry-run
-```
-
-### 4. Run Backtest
-
-```bash
-# Default 70/30 train/test split
-python scripts/run_backtest.py
-
-# Custom split
-python scripts/run_backtest.py --train-ratio 0.80
-
-# Save trade log
-python scripts/run_backtest.py --save-trades
-```
-
-### 5. Run Grid Search (Parameter Optimization)
-
-```bash
-python scripts/run_grid_search.py
-```
+The dashboard auto-starts with the bot — open the URL printed at startup. WebSocket pushes wallet, drawdown, account-health multiplier, and per-model state in real time.
 
 ---
 
-## Pipeline Stages
+## Models
 
-| Stage | Description | Output |
-|-------|-------------|--------|
-| **state_vectors** | Fetch OHLCV, compute features, normalize, build 10D state vectors | `data/state_vectors/*.parquet` |
-| **regime_labeling** | Classify market regimes using trend strength + volatility | `data/regimes/*.parquet` |
-| **outcome_labeling** | Compute MFE/MAE outcomes for 10m, 15m, 30m, 120m horizons | `data/outcomes/*.parquet` |
-| **similarity** | Find K similar historical states using KNN | In-memory result |
-| **decision** | Generate trading decision based on expectancy | Trading signal |
+| Model | Type | Confidence (L / S) | Source |
+|---|---|---|---|
+| **V1.4** | Rule-based: RSI + SMA200 + counter-trend levels | n/a | [src/engine/strategy.py](src/engine/strategy.py) |
+| **ML V1** | MLP direction predictor | 0.60 / 0.58 | [src/engine/signals/ml_v1.py](src/engine/signals/ml_v1.py) |
+| **ML V2 Attention** | LSTM + Attention direction | 0.60 / 0.58 | [src/engine/signals/direction_attention.py](src/engine/signals/direction_attention.py) |
+| **ML V3** | Exit-aware labels + snapshot features | 0.40 / 0.40 | [src/engine/signals/ml_v3.py](src/engine/signals/ml_v3.py) |
 
----
+Thresholds and exit version are set in [configs/params.yaml](configs/params.yaml). ML models load from `models/<MODEL>/` (production) or `models/<MODEL>_staging/` (candidate from DVC).
 
-## Market State Vector
-
-A **10-dimensional normalized representation** of market conditions at each timestamp:
-
-| Dimension | Description | Normalization |
-|-----------|-------------|---------------|
-| `ema50_slope_z` | 5-bar momentum of EMA(50) | Z-score |
-| `ema200_slope_z` | 20-bar momentum of EMA(200) | Z-score |
-| `trend_alignment` | Sign(EMA50 - EMA200) | {-1, 0, +1} |
-| `return_5m_z` | 5-minute percent return | Z-score |
-| `return_15m_z` | 15-minute percent return | Z-score |
-| `rsi_z` | RSI(14) normalized | Z-score |
-| `atr_percentile` | ATR(14) volatility level | Percentile (0-1) |
-| `volume_z` | Volume relative to history | Z-score |
-| `vwap_distance_z` | Distance from VWAP | Z-score |
-| `range_position` | Position in 50-bar range | Ratio (0-1) |
-
-Normalization uses a **rolling window of 2000 bars** to prevent look-ahead bias.
+V1.4 signal types: `V12_LONG`, `V12_SHORT` (RSI cross-based) + `BEAR_LONG`, `BULL_SHORT` (level-based counter-trend from EXP-014). Pure V1.4 OOS 2024–2025 with V1 exits: 239 trades, 51.0 % win, +1,343 bps, PF 1.67, DD −330. V2 exit A/B in `memory/v14_exit_comparison.md`.
 
 ---
 
-## Market Regimes
+## Exit V2 (production, frozen 2026-03-29)
 
-The system classifies markets into 4 regimes:
-
-| Regime | Criteria | Description |
-|--------|----------|-------------|
-| `HIGH_VOL` | ATR percentile >= 0.85 | Volatility shock, no clear direction |
-| `TREND_HIGH_VOL` | Trend strength >= 0.7, ATR > 0.35 | Strong directional move with high volatility |
-| `TREND_LOW_VOL` | Trend strength >= 0.7, ATR <= 0.35 | Gradual trend with low volatility |
-| `RANGE_LOW_VOL` | Everything else | Consolidation, choppy markets |
-
-Regimes are **smoothed using 30-bar rolling majority vote** to prevent whipsaws.
-
----
-
-## Outcome Labels (MFE/MAE)
-
-For each historical state, the system computes forward-looking outcomes:
-
-- **MFE (Maximum Favorable Excursion)**: Best possible gain within horizon
-- **MAE (Maximum Adverse Excursion)**: Worst possible drawdown within horizon
-
-Horizons: **10, 15, 30, 120 minutes** (configurable)
-
-**Expectancy** = mean(MFE) + mean(MAE) *(MAE is negative)*
-
----
-
-## Similarity Engine
-
-Finds K similar historical states using KNN with two backends:
-
-| Backend | Accuracy | Speed | Use Case |
-|---------|----------|-------|----------|
-| `bruteforce` | 100% exact | ~50ms/query on 700K samples | Accuracy verification, smaller datasets |
-| `faiss` | ~95-99% approx | ~0.5ms/query | Production speed, large datasets |
-
-**FAISS requires**: `pip install faiss-cpu` (or `faiss-gpu`)
-
-Query process:
-1. Filter by current regime (prevents cross-regime matching)
-2. Enforce time boundary (backtesting: only use past data)
-3. Calculate Euclidean distance in 10D state space
-4. Return K=200 nearest neighbors
-5. Aggregate outcomes to compute expectancy
-
----
-
-## Decision Engine
-
-Generates trading signals based on expectancy analysis:
-
-### Trade Filters (no trade if any trigger)
-
-- Expectancy < `min_expectancy` (default: -0.002)
-- Current regime in `blocked_regimes` (default: TREND_LOW_VOL)
-- Average distance to neighbors > `max_distance` (default: 3.0)
-- Insufficient historical data
-
-### Direction Selection
-
-- **LONG** if mean_mfe > |mean_mae|
-- **SHORT** otherwise
-
-### Risk Sizing
-
-- Stop loss: 5th percentile of historical MAE outcomes
-- Take profit: Mean MFE outcome
-- Position size: `(capital * risk_per_trade) / stop_loss_pct`
-- Capped at `max_leverage` (default: 1.0x)
-
----
-
-## Backtesting Framework
-
-Implements **walk-forward backtesting** with proper train/test split:
+Applied identically to all four models. Spec: [configs/strategy_cards/exit_v2.yaml](configs/strategy_cards/exit_v2.yaml). Logic: [src/engine/position_manager.py](src/engine/position_manager.py).
 
 ```
-|------------ TRAINING (70%) ------------|---- TEST (30%) ----|
-start_date                          split_point           end_date
-
-Training: Build similarity database from historical states
-Test: Walk forward bar-by-bar, making decisions using ONLY past data
+Bar 1–2:  Wide trailing stop (LONG 20 / SHORT 30 bps)
+Bar 3:    MFE < 3 bps?   → EARLY CUT
+Bar 4:    MFE < 5 bps?   → EARLY CUT
+Bar 4+:   Trailing stop tightens to 6 bps
+Anytime:  MFE ≥ 15 bps?  → BE lock floor at 9 bps gross (+1 bps net)
+Bar 10:   Still open?    → TIME EXIT
 ```
 
-### Key Features
-
-- **No Look-Ahead Bias**: Similarity engine only searches states before current time
-- **Realistic Execution**: Entry at next bar's open with slippage (0.05%)
-- **Commission Modeling**: Configurable taker fee (0.04%)
-- **Trade Management**: Stop loss, take profit, trailing stop, timeout exits
-- **Performance Sampling**: Check for signals every N bars (configurable) for speed
-
-### Exit Reasons
-
-| Exit | Description |
-|------|-------------|
-| `TAKE_PROFIT` | Price reached target profit level |
-| `STOP_LOSS` | Price hit stop loss level |
-| `TRAILING_STOP` | Price fell from peak by trailing % |
-| `TIMEOUT` | Max bars in trade reached (default: 120 bars / 2 hours) |
-
-### Backtest Configuration
-
-```yaml
-backtest:
-  train_ratio: 0.70
-  slippage_pct: 0.0005        # 0.05%
-  commission_pct: 0.0004      # 0.04%
-  max_bars_in_trade: 120      # Force exit after 2 hours
-  trailing_stop_pct: 0.0      # Disabled by default
-  sample_interval: 60         # Check every 60 bars (hourly)
-```
-
-### Sample Output
-
-```
-================================================================================
-                         BACKTEST REPORT
-================================================================================
-
-  Pair: BTCUSDT
-  Test Period: 2023-02-01 to 2023-03-01 (28 days)
-  Starting Capital: $10,000.00
-
---------------------------------------------------------------------------------
-  TRADE SUMMARY
---------------------------------------------------------------------------------
-  Total Trades:      47
-  Winning Trades:    28 (59.6%)
-  Losing Trades:     19 (40.4%)
-
---------------------------------------------------------------------------------
-  PERFORMANCE
---------------------------------------------------------------------------------
-  Total P&L:         +$847.32 (+8.47%)
-  Avg Win:           $62.15
-  Avg Loss:          $-41.23
-  Profit Factor:     1.89
-  Expectancy:        $18.03 per trade
-
---------------------------------------------------------------------------------
-  RISK METRICS
---------------------------------------------------------------------------------
-  Max Drawdown:      $312.45 (3.12%)
-  Sharpe Ratio:      1.24
-  Sortino Ratio:     1.67
-================================================================================
-```
+OOS 2024–2025 on V1.5 signals (1,680 trades): **+33,062 bps, PF 4.66, DD −276 bps.** V1 exits comparison: +30,312 bps, PF 2.21, DD −774.
 
 ---
 
-## Grid Search (Parameter Optimization)
+## Risk Layer 1
 
-`run_grid_search.py` performs exhaustive search over parameter combinations:
+[src/engine/risk/](src/engine/risk/). Adaptive position sizer (`wallet × risk% / worst_loss`) plus account-health monitor (drawdown from peak, consecutive losses, recent win rate). Preflight runs 5 startup checks; the bot refuses to start if any fail. Every TRADE/SKIP decision is logged to `data/risk_logs/decisions.csv`. State persists across restarts via `risk_state.json`.
 
-- **k values**: 50, 100, 150, 200, 250, 300
-- **min_expectancy**: -0.01 to +0.01
-- **max_distance**: 0.5 to 3.0
-- **blocked_regimes**: Various combinations
-
-Reports: Total trades, P&L, win rate, profit factor, Sharpe ratio for each combo.
+At $5 wallet: exchange minimum (0.001 BTC) dominates — risk parameters are placeholders until the account reaches ~$173+. Worst-loss baseline `worst_loss_bps=865` comes from training stats.
 
 ---
 
-## Project Structure
+## MLOps
+
+- **DVC** ([dvc.yaml](dvc.yaml)) — pipeline graph: features → labels → train → verify → backtest (V1 + V2 exits) → compare.
+- **MLflow** — local tracking DB at [mlflow.db](mlflow.db), artifacts under [mlruns/](mlruns/). Threshold sweeps and backtest metrics logged with scope tags.
+- **Verification gates** — [src/mlops/verify.py](src/mlops/verify.py) writes `data/reports/verification_<model>.json`; backtest stage depends on it.
+- **Report schema v2.0** — [configs/schemas/backtest_report.yaml](configs/schemas/backtest_report.yaml). All reports validated.
+- **Promotion log** — [docs/PROMOTION_LOG.md](docs/PROMOTION_LOG.md).
+
+---
+
+## Project Layout
 
 ```
-trade_system_1/
+system_1/
+├── src/
+│   ├── engine/              # PRODUCTION trading engine
+│   │   ├── bot.py              # live/paper bot (entrypoint)
+│   │   ├── backtest.py         # backtester CLI
+│   │   ├── strategy.py         # V1.4 rule signals
+│   │   ├── position_manager.py # Exit V2 logic
+│   │   ├── ml_train.py         # ML V1 training
+│   │   ├── train_attention.py  # ML V2 training
+│   │   ├── train_v3.py         # ML V3 training (exit-aware)
+│   │   ├── build_features.py
+│   │   ├── build_exit_labels.py
+│   │   ├── sweep_thresholds.py
+│   │   ├── sweep_training.py
+│   │   ├── compare_models.py
+│   │   ├── monitoring.py       # expected vs actual + daily drift
+│   │   ├── signals/            # per-model signal adapters
+│   │   ├── risk/               # Layer 1 — sizing, health, preflight
+│   │   └── config/             # settings.yaml + schema + loader
+│   ├── mlops/               # MLflow tracking, DVC integration, gates
+│   ├── web/                 # FastAPI backend + React frontend
+│   ├── brain/               # SR / zones research module
+│   └── trade_system/        # LEGACY (old KNN/state-vector — not used)
 │
-├── src/trade_system/          # Main Python package
-│   ├── config/                # Configuration management
-│   │   ├── __init__.py        # Config loader with validation
-│   │   └── config.yaml        # Central configuration
-│   │
-│   ├── features/              # Feature computation
-│   │   ├── trend.py           # EMA slopes, trend alignment
-│   │   ├── momentum.py        # RSI, returns
-│   │   ├── volatility.py      # ATR
-│   │   ├── volume.py          # Volume analysis
-│   │   └── location.py        # VWAP distance, range position
-│   │
-│   ├── state/                 # Market State Vector Engine
-│   │   ├── state_schema.py    # MarketState dataclass
-│   │   ├── normalizer.py      # Rolling z-score normalization
-│   │   ├── state_builder.py   # State vector construction
-│   │   ├── state_store.py     # Parquet persistence
-│   │   └── state_validator.py # State validation
-│   │
-│   ├── regime/                # Market regime classification
-│   │   └── regime_labeler.py
-│   │
-│   ├── outcomes/              # MFE/MAE computation
-│   │   └── outcome_labeler.py
-│   │
-│   ├── similarity/            # KNN similarity search
-│   │   └── similarity_engine.py
-│   │
-│   ├── decision/              # Expectancy-based decisions
-│   │   └── decision_engine.py
-│   │
-│   ├── pipeline/              # Pipeline orchestration
-│   │   └── orchestrator.py
-│   │
-│   ├── backtest/              # Backtesting framework
-│   │   ├── backtester.py
-│   │   ├── trade_simulator.py
-│   │   └── metrics.py
-│   │
-│   ├── live/                  # Live trading
-│   │   ├── live_orchestrator.py
-│   │   ├── paper_executor.py
-│   │   └── binance_connector.py
-│   │
-│   ├── loader/                # Data loading
-│   │   └── ohlcv_loader.py
-│   │
-│   ├── validators/            # Data validation
-│   │   └── data_integrity.py
-│   │
-│   ├── visualizations/        # Charts and plots
-│   │   ├── plot_regimes.py
-│   │   ├── plot_outcomes.py
-│   │   └── plot_states.py
-│   │
-│   └── web/                   # Web dashboard
-│       ├── server.py          # FastAPI backend
-│       └── frontend/          # React frontend
-│
-├── scripts/                   # CLI scripts
-│   ├── run_pipeline.py        # Main pipeline CLI
-│   ├── run_backtest.py        # Backtesting CLI
-│   ├── run_grid_search.py     # Parameter optimization
-│   ├── run_paper_trade.py     # Paper trading CLI
-│   └── run_visualizations.py  # Visualization generator
-│
-├── data/                      # Generated data outputs
-│   ├── state_vectors/         # State vectors (parquet)
-│   ├── regimes/               # Regime labels (parquet)
-│   ├── outcomes/              # Outcome labels (parquet)
-│   └── backtest/              # Backtest results
-│
-├── docs/                      # Documentation
-│   ├── DOCUMENTATION.md
-│   ├── WEB_DASHBOARD.md
-│   └── PAPER_TRADING_SYSTEM.md
-│
-├── requirements.txt
+├── configs/                 # params, data/model/strategy cards, schemas
+├── models/                  # per-model production + staging artifacts
+├── data/
+│   ├── raw/                 # OHLCV parquet (LFS)
+│   ├── features/            # feature_cache, labels, exit-aware labels
+│   ├── reports/             # backtest.json + trades.parquet per model
+│   └── risk_logs/           # decisions.csv (every TRADE/SKIP)
+├── experiments/             # research (layer2/, exit_strategy/, etc.)
+├── docs/                    # planning + analysis
+├── scripts/                 # one-off CLIs, analysis, colab notebooks
+├── dvc.yaml                 # pipeline graph
 ├── pyproject.toml
-└── .env                       # Database URL (gitignored)
+├── requirements.txt
+├── Dockerfile
+└── CLAUDE.md                # development rules — READ FIRST
 ```
 
 ---
 
-## Visualizations
+## Testing
 
-```bash
-# Generate all visualizations
-python scripts/run_visualizations.py
+```powershell
+# Unit tests for the risk module (only first-class test suite)
+$env:PYTHONPATH="src"; pytest src/engine/risk/tests/test_unit.py -v
 
-# Generate specific chart types
-python scripts/run_visualizations.py --type regimes
-python scripts/run_visualizations.py --type outcomes
-python scripts/run_visualizations.py --type states
+# Stress + Monte Carlo + failure-mode tests (slower)
+$env:PYTHONPATH="src"; pytest src/engine/risk/tests/ -v
+
+# Standalone risk diagnostics (not pytest)
+python scripts/test_risk_calculator.py
+python scripts/test_risk_sweep.py
 ```
 
-### Available Charts
+`experiments/` contains historical research scripts named `test_*.py` — those are exploratory backtests, **not** unit tests, and may be slow / require data files.
 
-| Category | Chart | Description |
-|----------|-------|-------------|
-| **Regimes** | Regime Distribution | Pie/bar chart of regime proportions |
-| | Regime Transitions | Transition probability matrix |
-| **Outcomes** | MFE/MAE Distribution | Histograms for each horizon |
-| | Expectancy by Regime | Which regimes have positive edge |
-| | Horizon Comparison | Compare 10m, 15m, 30m, 120m outcomes |
-| **States** | State Heatmap | State vectors over time |
-| | State Correlation | Correlation between dimensions |
-| | PCA Projection | 2D visualization of state space |
-
-Charts are saved to `output/charts/` by default.
+Code style: `black` (line-length 100) + `isort`. Not currently enforced in CI.
 
 ---
 
-## Database Schema
+## Data Split
 
-```sql
-CREATE TABLE ohlcv_data (
-    time TIMESTAMPTZ NOT NULL,
-    pair TEXT NOT NULL,
-    open DOUBLE PRECISION,
-    high DOUBLE PRECISION,
-    low DOUBLE PRECISION,
-    close DOUBLE PRECISION,
-    volume DOUBLE PRECISION,
-    num_trades INTEGER
-);
+Memorize this — never say "2024 data" without qualifying:
 
--- Recommended: Use TimescaleDB hypertable for performance
-SELECT create_hypertable('ohlcv_data', 'time');
-CREATE INDEX ON ohlcv_data (pair, time DESC);
-```
+- **Train:** 2020-01-01 → 2023-12-31
+- **Val:**   2024-01-01 → 2024-12-31
+- **Test (OOS):** 2025-01-01 → 2025-12-31
+
+Always say "2024–2025 data" or "test data". See [CLAUDE.md](CLAUDE.md) for full data discipline rules.
 
 ---
 
-## Configuration Reference
+## Documentation
 
-### Data Settings
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `data.pair` | BTCUSDT | Trading pair |
-| `data.timeframe` | 1m | Candle timeframe |
-| `data.start_date` | 2020-01-01 | Data start date |
-| `data.end_date` | 2025-12-15 | Data end date |
-
-### Feature Settings
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `features.ema_fast_period` | 50 | Fast EMA period |
-| `features.ema_slow_period` | 200 | Slow EMA period |
-| `features.rsi_period` | 14 | RSI period |
-| `features.atr_period` | 14 | ATR period |
-| `features.range_lookback` | 50 | High/low range lookback |
-
-### Normalization
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `normalization.window` | 2000 | Rolling window for z-scores |
-
-### Regime Detection
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `regime.high_vol_threshold` | 0.85 | ATR percentile for HIGH_VOL |
-| `regime.low_vol_threshold` | 0.35 | ATR percentile for LOW_VOL |
-| `regime.trend_strength_threshold` | 0.7 | Min trend strength for TREND regimes |
-| `regime.smoothing_window` | 30 | Majority vote smoothing |
-
-### Similarity Engine
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `similarity.k` | 200 | Number of similar states |
-| `similarity.default_horizon` | 30 | Default outcome horizon (minutes) |
-| `similarity.max_distance` | 1.5 | Max distance to neighbors |
-| `similarity.backend` | bruteforce | bruteforce or faiss |
-
-### Decision Engine
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `decision.capital` | 10000 | Trading capital (USD) |
-| `decision.risk_per_trade` | 0.005 | Risk per trade (0.5%) |
-| `decision.min_expectancy` | -0.002 | Minimum expectancy to trade |
-| `decision.max_distance` | 3.0 | Max avg distance filter |
-| `decision.blocked_regimes` | [TREND_LOW_VOL] | Regimes to skip |
-
-### Backtest Settings
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `backtest.train_ratio` | 0.70 | Train/test split ratio |
-| `backtest.slippage_pct` | 0.0005 | Slippage per trade (0.05%) |
-| `backtest.commission_pct` | 0.0004 | Commission per trade (0.04%) |
-| `backtest.max_bars_in_trade` | 120 | Force exit after N bars |
-| `backtest.trailing_stop_pct` | 0.0 | Trailing stop % (0=disabled) |
-| `backtest.sample_interval` | 60 | Check signals every N bars |
-
----
-
-## Error Handling
-
-The system provides user-friendly error messages:
-
-- **DatabaseConnectionError**: Connection issues with troubleshooting steps
-- **ConfigurationError**: Invalid config with specific field errors
-- **DataValidationError**: Data quality issues
-- **MissingDataError**: Required data not found
-
----
-
-## Key Design Decisions
-
-### Look-Ahead Bias Prevention
-The similarity engine enforces `max_timestamp` during backtesting - only searches historical states BEFORE current time, preventing future information leakage.
-
-### Regime Isolation
-Similarity searches within the current regime only - prevents cross-regime pattern matching that might break down during regime transitions.
-
-### Blocking Unprofitable Regimes
-Default blocks `TREND_LOW_VOL` (empirically unprofitable) - this filter can be adjusted via configuration.
-
-### Performance Optimization
-- `sample_interval: 60` checks for signals every 60 bars (hourly) instead of every bar
-- FAISS backend reduces query time from ~50ms to ~0.5ms on 700K+ samples
-- Per-regime indexing reduces search space significantly
+| Doc | Topic |
+|---|---|
+| [docs/PROJECT_VISION.md](docs/PROJECT_VISION.md) | Layered roadmap |
+| [docs/MLOPS.md](docs/MLOPS.md) | MLOps architecture |
+| [docs/MLOPS_PLAN.md](docs/MLOPS_PLAN.md) | MLOps build plan |
+| [docs/RETRAIN_PIPELINE_PLAN.md](docs/RETRAIN_PIPELINE_PLAN.md) | Retrain workflow |
+| [docs/HYPERPARAMETER_TUNING_PLAN.md](docs/HYPERPARAMETER_TUNING_PLAN.md) | Hyperparameter sweep methodology |
+| [docs/ML_V3_MODEL_PLAN.md](docs/ML_V3_MODEL_PLAN.md) | ML V3 design |
+| [docs/WHAT_analysis.md](docs/WHAT_analysis.md) | "What happens in the market" findings |
+| [docs/WHEN_analysis.md](docs/WHEN_analysis.md) | "When do outcomes happen" findings |
+| [docs/FLAWS.md](docs/FLAWS.md) | Known limitations |
+| [docs/SCALPING_REQUIREMENTS.md](docs/SCALPING_REQUIREMENTS.md) | Scalping constraints |
+| [docs/PROMOTION_LOG.md](docs/PROMOTION_LOG.md) | Model promotion history |
+| [CLAUDE.md](CLAUDE.md) | Development rules + decision protocol |
 
 ---
 
 ## License
 
-MIT
+MIT — see [pyproject.toml](pyproject.toml). Internal project; not currently distributed.
