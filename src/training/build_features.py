@@ -3,8 +3,8 @@
 Computes 23 columns per bar matching the spec in
 configs/data_cards/direction_feature_cache.yaml.
 
-Run: python -m engine.build_features  (from repo root, after pip install -e .)
-Or:  python src/engine/build_features.py
+Run: python -m training.build_features  (from repo root, after pip install -e .)
+Or:  python src/training/build_features.py
 
 This is a "v2" build — formulas are documented here and will not match
 the existing feature_cache.parquet bit-for-bit. The old model (ML_V1

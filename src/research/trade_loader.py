@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from .exchange_constants import (
+from engine.risk.exchange_constants import (
     DATA_PATH, MIN_NOTIONAL, STEP_SIZE, MIN_QTY,
     TRAIN_START, TRAIN_END, OOS_START, OOS_END,
 )

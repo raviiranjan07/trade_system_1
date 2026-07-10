@@ -16,7 +16,7 @@ MLflow:
 - Tags capture git commit, data hash (from .dvc), train date
 
 Run:
-    python src/engine/ml_train.py
+    python src/training/ml_train.py
 """
 
 from __future__ import annotations
@@ -55,6 +55,12 @@ with open(REPO_ROOT / "configs/params.yaml") as _f:
     _params = yaml.safe_load(_f)
 
 _model_cfg = _params["ml_v1"]
+
+# Input spec — must match what signals/ml_v1.py reads (same params.yaml block).
+_feat = _model_cfg.get("features", {})
+ROC_PERIODS = list(_feat.get("roc_periods", range(1, 9)))
+RSI_PERIOD = int(_feat.get("rsi_period", 7))
+RANGE_WINDOW = int(_feat.get("range_position_window", 50))
 
 _split = _model_cfg["split"]
 TRAIN_RANGE = (_split["train_start"], _split["train_end"])
@@ -124,26 +130,26 @@ def compute_features(fc: pd.DataFrame) -> tuple[np.ndarray, list[str]]:
     high = fc["high"].values.astype(np.float64)
     low = fc["low"].values.astype(np.float64)
 
-    for n in range(1, 9):
+    for n in ROC_PERIODS:
         roc = np.zeros(len(close), dtype=np.float32)
         roc[n:] = ((close[n:] - close[:-n]) / close[:-n] * 10000).astype(np.float32)
         fc[f"roc{n}"] = roc
 
     delta = pd.Series(close).diff()
-    gain = delta.where(delta > 0, 0).rolling(7).mean()
-    loss_s = (-delta.where(delta < 0, 0)).rolling(7).mean()
+    gain = delta.where(delta > 0, 0).rolling(RSI_PERIOD).mean()
+    loss_s = (-delta.where(delta < 0, 0)).rolling(RSI_PERIOD).mean()
     rs = gain / loss_s
     fc["rsi7_mlp"] = (100 - (100 / (1 + rs))).values
 
     rp = np.zeros(len(close), dtype=np.float32)
-    for i in range(50, len(close)):
-        hh = np.max(high[i - 50 : i + 1])
-        ll = np.min(low[i - 50 : i + 1])
+    for i in range(RANGE_WINDOW, len(close)):
+        hh = np.max(high[i - RANGE_WINDOW : i + 1])
+        ll = np.min(low[i - RANGE_WINDOW : i + 1])
         rng = hh - ll
         rp[i] = (close[i] - ll) / rng if rng > 0 else 0.5
     fc["range_position_50_mlp"] = rp
 
-    feat_cols = [f"roc{n}" for n in range(1, 9)] + ["range_position_50_mlp", "rsi7_mlp"]
+    feat_cols = [f"roc{n}" for n in ROC_PERIODS] + ["range_position_50_mlp", "rsi7_mlp"]
     return fc[feat_cols].values.astype(np.float32), feat_cols
 
 
@@ -424,7 +430,7 @@ def main() -> None:
         },
         "scaler": {"fit_on": "train_only"},
         "feature_recipe": {
-            "compute_fn": "engine.ml_train.compute_features",
+            "compute_fn": "training.ml_train.compute_features",
             "source_parquet": str(CACHE_PATH.relative_to(REPO_ROOT)),
         },
         "features": feat_cols,

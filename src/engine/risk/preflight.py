@@ -4,7 +4,7 @@ Verifies the risk calculator is functioning correctly with known inputs.
 If any check fails, bot should refuse to start.
 
 Usage:
-    from engine.risk.tests.preflight import run_preflight
+    from engine.risk.preflight import run_preflight
     ok = run_preflight(wallet=10.0, btc_price=100000)
     if not ok:
         raise RuntimeError("Risk calculator preflight failed")

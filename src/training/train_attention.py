@@ -7,7 +7,7 @@ Same architecture as scripts/colab/train_attention_production.py but:
 - Auto-registers as ML_V2_ATTENTION @staging in MLflow
 - Writes training_manifest.json for the generic verifier
 
-Run: python src/engine/train_attention.py
+Run: python src/training/train_attention.py
 """
 
 from __future__ import annotations
@@ -66,7 +66,10 @@ _i = _cfg.get("inference", {})
 CONF_LONG = _i.get("conf_long", 0.60)
 CONF_SHORT = _i.get("conf_short", 0.60)
 
-LOOKBACKS = [1, 2, 3, 4, 5, 6, 7, 8]
+# Input spec from params.yaml — must match signals/direction_attention.py
+# (same ml_v2_attention.features block; changing it = new model, retrain required).
+_feat = _cfg.get("features", {})
+LOOKBACKS = list(_feat.get("lookbacks", range(1, 9)))
 MFE_HORIZONS = [1, 2, 3, 4, 5, 6, 7, 8]
 
 
@@ -428,7 +431,7 @@ def main():
         },
         "scaler": {"fit_on": "train_only"},
         "feature_recipe": {
-            "compute_fn": "engine.train_attention.compute_features",
+            "compute_fn": "training.train_attention.compute_features",
             "source_parquet": str(CACHE_PATH.relative_to(REPO_ROOT)),
         },
         "label": "direction_h8 (H8)",

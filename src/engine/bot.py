@@ -14,7 +14,7 @@ import logging
 
 from .config.loader import load_config
 from .orchestrator import Orchestrator, build_tracks
-from .risk.tests.preflight import run_preflight
+from .risk.preflight import run_preflight
 
 logger = logging.getLogger(__name__)
 

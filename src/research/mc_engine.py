@@ -7,7 +7,7 @@ from typing import Callable
 
 import numpy as np
 
-from .exchange_constants import LEVERAGE, MAINT_MARGIN_RATE, N_SIMS, DEFAULT_CAPITAL
+from engine.risk.exchange_constants import LEVERAGE, MAINT_MARGIN_RATE, N_SIMS, DEFAULT_CAPITAL
 
 
 @dataclass
@@ -195,7 +195,7 @@ def run_mc_fixed_step(
 
     qty = floor(wallet / dollars_per_step) * 0.001
     """
-    from .exchange_constants import STEP_SIZE
+    from engine.risk.exchange_constants import STEP_SIZE
 
     def fixed_step_fn(wallet: float, trade: dict, stats: dict) -> tuple[float, str]:
         steps = max(1, int(wallet / dollars_per_step))

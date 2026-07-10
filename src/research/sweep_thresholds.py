@@ -3,7 +3,7 @@
 Model-agnostic: reads sweep ranges from configs/params.yaml → {model}.sweep.
 No retraining needed — loads existing model and re-runs backtest at each threshold.
 
-Run: PYTHONPATH=src python -m engine.sweep_thresholds --model ml_v3
+Run: PYTHONPATH=src python -m research.sweep_thresholds --model ml_v3
 """
 
 import argparse
@@ -18,7 +18,7 @@ import pandas as pd
 import yaml
 
 from .backtest import run_backtest, ML_GENERATORS
-from .config.loader import load_config
+from engine.config.loader import load_config
 
 logger = logging.getLogger(__name__)
 

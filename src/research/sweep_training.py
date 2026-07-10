@@ -12,9 +12,9 @@ Levels:
   Level 3: architecture (hidden_size, dropout, temperature)
 
 Run:
-  PYTHONPATH=src python -m engine.sweep_training --model ml_v3 --level 2
-  PYTHONPATH=src python -m engine.sweep_training --model ml_v3 --level 3
-  PYTHONPATH=src python -m engine.sweep_training --model ml_v3 --level 2 --level 3
+  PYTHONPATH=src python -m research.sweep_training --model ml_v3 --level 2
+  PYTHONPATH=src python -m research.sweep_training --model ml_v3 --level 3
+  PYTHONPATH=src python -m research.sweep_training --model ml_v3 --level 2 --level 3
 """
 
 import argparse
@@ -29,7 +29,7 @@ from pathlib import Path
 import yaml
 
 from .backtest import run_backtest, ML_GENERATORS
-from .config.loader import load_config
+from engine.config.loader import load_config
 from .sweep_thresholds import evaluate_trades
 
 logger = logging.getLogger(__name__)
@@ -54,8 +54,8 @@ PARAM_KEY_MAP = {
 
 # Training commands per model (subprocess)
 TRAIN_COMMANDS = {
-    "ml_v1": [sys.executable, "src/engine/ml_train.py"],
-    "ml_v3": [sys.executable, "-m", "engine.train_v3"],
+    "ml_v1": [sys.executable, "src/training/ml_train.py"],
+    "ml_v3": [sys.executable, "-m", "training.train_v3"],
 }
 
 

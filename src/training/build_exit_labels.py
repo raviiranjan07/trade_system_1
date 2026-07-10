@@ -15,7 +15,7 @@ Labels:
 Uses the SAME V12PositionManager as backtest and live bot — labels are
 guaranteed to match real trading outcomes.
 
-Run: PYTHONPATH=src python -m engine.build_exit_labels
+Run: PYTHONPATH=src python -m training.build_exit_labels
 """
 
 import logging
@@ -26,10 +26,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .config.loader import load_config
-from .config.constants import FEES_BPS
-from .position_manager import V12PositionManager
-from .strategy import Direction, SignalType
+from engine.config.loader import load_config
+from engine.config.constants import FEES_BPS
+from engine.position_manager import V12PositionManager
+from engine.strategy import Direction, SignalType
 
 logger = logging.getLogger(__name__)
 

@@ -2,7 +2,7 @@
 
 Pipeline FAILS if backtest results don't meet minimum thresholds.
 
-Run: PYTHONPATH=src python -m engine.verify_v3_backtest
+Run: PYTHONPATH=src python -m research.verify_v3_backtest
 """
 
 import json

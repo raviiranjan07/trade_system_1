@@ -26,7 +26,7 @@ from .position_manager import V12PositionManager, TradeRecord
 from .risk.account_health import AccountHealthMonitor
 from .risk.exchange_constants import DEFAULT_CAPITAL
 from .risk.risk_calculator import RiskCalculator, RiskDecision
-from .risk.tests.decision_logger import DecisionLogger
+from .risk.decision_logger import DecisionLogger
 from .strategy import Signal, SignalType, V12Strategy
 
 logger = logging.getLogger(__name__)

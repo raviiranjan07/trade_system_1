@@ -3,7 +3,7 @@
 Logs to a single CSV file that persists across bot restarts.
 
 Usage in bot:
-    from engine.risk.tests.decision_logger import DecisionLogger
+    from engine.risk.decision_logger import DecisionLogger
 
     logger = DecisionLogger("data/trades/risk_logs")
     # Before trade:

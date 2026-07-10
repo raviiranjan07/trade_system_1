@@ -10,7 +10,7 @@ Run: python src/engine/risk/tests/test_hindsight.py
 import sys
 sys.path.insert(0, "src")
 
-from engine.risk.trade_loader import load_enriched_trades
+from research.trade_loader import load_enriched_trades
 from engine.risk.risk_calculator import RiskCalculator, RiskConfig
 from engine.risk.account_health import AccountHealthMonitor, HealthConfig
 from engine.risk.exchange_constants import DEFAULT_CAPITAL, MAINT_MARGIN_RATE

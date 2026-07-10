@@ -5,10 +5,10 @@ stages:
   # ================================================================
 
   build_features:
-    cmd: python src/engine/build_features.py
+    cmd: python src/training/build_features.py
     deps:
       - data/raw/BTCUSDT_15m_ohlcv.parquet
-      - src/engine/build_features.py
+      - src/training/build_features.py
     outs:
       - data/features/direction_prediction/feature_cache.parquet
 
@@ -17,11 +17,11 @@ stages:
   # ================================================================
 
   backtest_v14:
-    cmd: cmd /c "set PYTHONPATH=src && python -m engine.backtest --v14-only --exit-version v1 --start 2024-01-01 --end 2025-12-31"
+    cmd: cmd /c "set PYTHONPATH=src && python -m research.backtest --v14-only --exit-version v1 --start 2024-01-01 --end 2025-12-31"
     deps:
       - data/raw/BTCUSDT_15m_ohlcv.parquet
       - data/raw/BTCUSDT_1m_ohlcv.parquet
-      - src/engine/backtest.py
+      - src/research/backtest.py
       - src/engine/strategy.py
     outs:
       - data/reports/v14/backtest.json:
@@ -42,15 +42,16 @@ stages:
       - data/features/direction_prediction/labels.parquet
 
   train_ml_v1:
-    cmd: cmd /c "set PYTHONIOENCODING=utf-8 && python src/engine/ml_train.py"
+    cmd: cmd /c "set PYTHONIOENCODING=utf-8 && python src/training/ml_train.py"
     deps:
       - data/features/direction_prediction/feature_cache.parquet
       - data/features/direction_prediction/labels.parquet
-      - src/engine/ml_train.py
+      - src/training/ml_train.py
     params:
       - configs/params.yaml:
           - ml_v1.training
           - ml_v1.split
+          - ml_v1.features
     outs:
       - models/ML_V1_staging:
           cache: false
@@ -65,17 +66,18 @@ stages:
           cache: false
 
   backtest_ml_v1:
-    cmd: cmd /c "set PYTHONPATH=src && python -m engine.backtest --model ml_v1 --independent --exit-version v1 --start 2025-01-01 --end 2025-12-31"
+    cmd: cmd /c "set PYTHONPATH=src && python -m research.backtest --model ml_v1 --independent --exit-version v1 --start 2025-01-01 --end 2025-12-31"
     deps:
       - models/ML_V1_staging
       - data/reports/verification_ML_V1_staging.json
       - data/raw/BTCUSDT_15m_ohlcv.parquet
       - data/raw/BTCUSDT_1m_ohlcv.parquet
-      - src/engine/backtest.py
+      - src/research/backtest.py
       - src/engine/signals/ml_v1.py
     params:
       - configs/params.yaml:
           - ml_v1.inference
+          - ml_v1.features
     outs:
       - data/reports/ml_v1/backtest.json:
           cache: false
@@ -97,16 +99,17 @@ stages:
     frozen: true
 
   backtest_ml_v2:
-    cmd: cmd /c "set PYTHONPATH=src && python -m engine.backtest --model ml_v2_attention --independent --exit-version v1 --start 2025-01-01 --end 2025-12-31"
+    cmd: cmd /c "set PYTHONPATH=src && python -m research.backtest --model ml_v2_attention --independent --exit-version v1 --start 2025-01-01 --end 2025-12-31"
     deps:
       - models/ML_V2_ATTENTION
       - data/raw/BTCUSDT_15m_ohlcv.parquet
       - data/raw/BTCUSDT_1m_ohlcv.parquet
-      - src/engine/backtest.py
+      - src/research/backtest.py
       - src/engine/signals/direction_attention.py
     params:
       - configs/params.yaml:
           - ml_v2_attention.inference
+          - ml_v2_attention.features
     outs:
       - data/reports/ml_v2_attention/backtest.json:
           cache: false
@@ -118,7 +121,7 @@ stages:
   # ================================================================
 
   build_exit_labels:
-    cmd: python -m engine.build_exit_labels
+    cmd: python -m training.build_exit_labels
     wdir: src
     deps:
       - ../data/raw/BTCUSDT_15m_ohlcv.parquet
@@ -130,7 +133,7 @@ stages:
       - ../data/features/direction_prediction/exit_aware_labels.parquet
 
   verify_exit_labels:
-    cmd: python -m engine.verify_exit_labels
+    cmd: python -m training.verify_exit_labels
     wdir: src
     deps:
       - ../data/features/direction_prediction/exit_aware_labels.parquet
@@ -142,7 +145,7 @@ stages:
           cache: false
 
   train_v3:
-    cmd: cmd /c "set PYTHONIOENCODING=utf-8 && python -m engine.train_v3"
+    cmd: cmd /c "set PYTHONIOENCODING=utf-8 && python -m training.train_v3"
     wdir: src
     deps:
       - ../data/features/direction_prediction/feature_cache.parquet
@@ -153,6 +156,7 @@ stages:
       - ../configs/params.yaml:
           - ml_v3.training
           - ml_v3.split
+          - ml_v3.features
     outs:
       - ../models/ML_V3_staging:
           cache: false
@@ -161,7 +165,7 @@ stages:
           cache: false
 
   verify_v3_model:
-    cmd: python -m engine.verify_v3_model
+    cmd: python -m training.verify_v3_model
     wdir: src
     deps:
       - ../models/ML_V3_staging
@@ -173,13 +177,13 @@ stages:
           cache: false
 
   sweep_thresholds_ml_v3:
-    cmd: cmd /c "set PYTHONPATH=src && python -m engine.sweep_thresholds --model ml_v3"
+    cmd: cmd /c "set PYTHONPATH=src && python -m research.sweep_thresholds --model ml_v3"
     deps:
       - models/ML_V3_staging
       - data/reports/v3_model_verification.json
       - data/raw/BTCUSDT_15m_ohlcv.parquet
       - data/raw/BTCUSDT_1m_ohlcv.parquet
-      - src/engine/sweep_thresholds.py
+      - src/research/sweep_thresholds.py
     params:
       - configs/params.yaml:
           - ml_v3.sweep
@@ -190,14 +194,14 @@ stages:
   # Training hyperparameter sweep (Level 2/3) — frozen by default, run manually
   # Usage: dvc repro sweep_training_ml_v3
   sweep_training_ml_v3:
-    cmd: cmd /c "set PYTHONPATH=src && set PYTHONIOENCODING=utf-8 && python -m engine.sweep_training --model ml_v3 --level 2"
+    cmd: cmd /c "set PYTHONPATH=src && set PYTHONIOENCODING=utf-8 && python -m research.sweep_training --model ml_v3 --level 2"
     deps:
       - data/features/direction_prediction/feature_cache.parquet
       - data/features/direction_prediction/exit_aware_labels.parquet
       - data/raw/BTCUSDT_15m_ohlcv.parquet
       - data/raw/BTCUSDT_1m_ohlcv.parquet
-      - src/engine/sweep_training.py
-      - src/engine/train_v3.py
+      - src/research/sweep_training.py
+      - src/training/train_v3.py
     params:
       - configs/params.yaml:
           - ml_v3.sweep
@@ -208,17 +212,18 @@ stages:
     frozen: true
 
   backtest_ml_v3:
-    cmd: cmd /c "set PYTHONPATH=src && python -m engine.backtest --model ml_v3 --independent --exit-version v1 --start 2025-01-01 --end 2025-12-31"
+    cmd: cmd /c "set PYTHONPATH=src && python -m research.backtest --model ml_v3 --independent --exit-version v1 --start 2025-01-01 --end 2025-12-31"
     deps:
       - models/ML_V3_staging
       - data/reports/v3_model_verification.json
       - data/raw/BTCUSDT_15m_ohlcv.parquet
       - data/raw/BTCUSDT_1m_ohlcv.parquet
-      - src/engine/backtest.py
+      - src/research/backtest.py
       - src/engine/signals/ml_v3.py
     params:
       - configs/params.yaml:
           - ml_v3.inference
+          - ml_v3.features
     outs:
       - data/reports/ml_v3/backtest.json:
           cache: false
@@ -230,11 +235,11 @@ stages:
   # ================================================================
 
   backtest_v14_v2:
-    cmd: cmd /c "set PYTHONPATH=src && python -m engine.backtest --v14-only --exit-version v2 --start 2024-01-01 --end 2025-12-31 --output-dir data/reports/v14_v2"
+    cmd: cmd /c "set PYTHONPATH=src && python -m research.backtest --v14-only --exit-version v2 --start 2024-01-01 --end 2025-12-31 --output-dir data/reports/v14_v2"
     deps:
       - data/raw/BTCUSDT_15m_ohlcv.parquet
       - data/raw/BTCUSDT_1m_ohlcv.parquet
-      - src/engine/backtest.py
+      - src/research/backtest.py
       - src/engine/strategy.py
     outs:
       - data/reports/v14_v2/backtest.json:
@@ -243,17 +248,18 @@ stages:
           cache: false
 
   backtest_ml_v1_v2:
-    cmd: cmd /c "set PYTHONPATH=src && python -m engine.backtest --model ml_v1 --independent --exit-version v2 --start 2025-01-01 --end 2025-12-31 --output-dir data/reports/ml_v1_v2"
+    cmd: cmd /c "set PYTHONPATH=src && python -m research.backtest --model ml_v1 --independent --exit-version v2 --start 2025-01-01 --end 2025-12-31 --output-dir data/reports/ml_v1_v2"
     deps:
       - models/ML_V1_staging
       - data/reports/verification_ML_V1_staging.json
       - data/raw/BTCUSDT_15m_ohlcv.parquet
       - data/raw/BTCUSDT_1m_ohlcv.parquet
-      - src/engine/backtest.py
+      - src/research/backtest.py
       - src/engine/signals/ml_v1.py
     params:
       - configs/params.yaml:
           - ml_v1.inference
+          - ml_v1.features
     outs:
       - data/reports/ml_v1_v2/backtest.json:
           cache: false
@@ -261,16 +267,17 @@ stages:
           cache: false
 
   backtest_ml_v2_v2:
-    cmd: cmd /c "set PYTHONPATH=src && python -m engine.backtest --model ml_v2_attention --independent --exit-version v2 --start 2025-01-01 --end 2025-12-31 --output-dir data/reports/ml_v2_attention_v2"
+    cmd: cmd /c "set PYTHONPATH=src && python -m research.backtest --model ml_v2_attention --independent --exit-version v2 --start 2025-01-01 --end 2025-12-31 --output-dir data/reports/ml_v2_attention_v2"
     deps:
       - models/ML_V2_ATTENTION
       - data/raw/BTCUSDT_15m_ohlcv.parquet
       - data/raw/BTCUSDT_1m_ohlcv.parquet
-      - src/engine/backtest.py
+      - src/research/backtest.py
       - src/engine/signals/direction_attention.py
     params:
       - configs/params.yaml:
           - ml_v2_attention.inference
+          - ml_v2_attention.features
     outs:
       - data/reports/ml_v2_attention_v2/backtest.json:
           cache: false
@@ -278,17 +285,18 @@ stages:
           cache: false
 
   backtest_ml_v3_v2:
-    cmd: cmd /c "set PYTHONPATH=src && python -m engine.backtest --model ml_v3 --independent --exit-version v2 --start 2025-01-01 --end 2025-12-31 --output-dir data/reports/ml_v3_v2"
+    cmd: cmd /c "set PYTHONPATH=src && python -m research.backtest --model ml_v3 --independent --exit-version v2 --start 2025-01-01 --end 2025-12-31 --output-dir data/reports/ml_v3_v2"
     deps:
       - models/ML_V3_staging
       - data/reports/v3_model_verification.json
       - data/raw/BTCUSDT_15m_ohlcv.parquet
       - data/raw/BTCUSDT_1m_ohlcv.parquet
-      - src/engine/backtest.py
+      - src/research/backtest.py
       - src/engine/signals/ml_v3.py
     params:
       - configs/params.yaml:
           - ml_v3.inference
+          - ml_v3.features
     outs:
       - data/reports/ml_v3_v2/backtest.json:
           cache: false
@@ -300,7 +308,7 @@ stages:
   # ================================================================
 
   compare_all:
-    cmd: cmd /c "set PYTHONPATH=src && python -m engine.compare_models"
+    cmd: cmd /c "set PYTHONPATH=src && python -m research.compare_models"
     deps:
       - data/reports/ml_v1/backtest.json
       - data/reports/ml_v2_attention/backtest.json
@@ -310,7 +318,7 @@ stages:
       - data/reports/ml_v2_attention_v2/backtest.json
       - data/reports/ml_v3_v2/backtest.json
       - data/reports/v14_v2/backtest.json
-      - src/engine/compare_models.py
+      - src/research/compare_models.py
     outs:
       - data/reports/comparison.json:
           cache: false

@@ -3,7 +3,7 @@
 Samples 1000 random bars, runs REAL trade simulation for LONG and SHORT,
 compares P&L to stored labels. Pipeline FAILS if any mismatch.
 
-Run: PYTHONPATH=src python -m engine.verify_exit_labels
+Run: PYTHONPATH=src python -m training.verify_exit_labels
 """
 
 import json
@@ -15,9 +15,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .config.loader import load_config
-from .position_manager import V12PositionManager
-from .strategy import Direction, SignalType
+from engine.config.loader import load_config
+from engine.position_manager import V12PositionManager
+from engine.strategy import Direction, SignalType
 
 logger = logging.getLogger(__name__)
 

@@ -3,7 +3,7 @@
 Checks that the trained model is not degenerate before running backtest.
 Pipeline FAILS if any gate check fails.
 
-Run: PYTHONPATH=src python -m engine.verify_v3_model
+Run: PYTHONPATH=src python -m training.verify_v3_model
 """
 
 import json

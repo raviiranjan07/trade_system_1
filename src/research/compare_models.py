@@ -2,7 +2,7 @@
 
 Produces two comparison tables (V1 exits, V2 exits) + a delta table.
 
-Run: PYTHONPATH=src python -m engine.compare_models
+Run: PYTHONPATH=src python -m research.compare_models
 """
 
 import json

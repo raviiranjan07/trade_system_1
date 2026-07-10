@@ -3,7 +3,7 @@
 V1.4 signals: V12_LONG, V12_SHORT, BEAR_LONG, BULL_SHORT (rule-based)
 ML signals: ML_LONG (prob>0.60), ML_SHORT (prob<0.35) (model-based)
 
-Run: python -m engine.backtest
+Run: python -m research.backtest
 """
 
 import logging
@@ -13,15 +13,15 @@ from pathlib import Path
 
 import pandas as pd
 
-from .config.constants import SYMBOL, TIMEFRAME
-from .config.loader import load_config
-from .config.schema import AppConfig
-from .signals.ml_v1 import MLV1
-from .signals.direction_attention import DirectionAttention
-from .signals.ml_v3 import MLV3
-from .signals.base import BaseSignalGenerator
-from .position_manager import V12PositionManager, TradeRecord
-from .strategy import V12Strategy, Direction, SignalType
+from engine.config.constants import SYMBOL, TIMEFRAME
+from engine.config.loader import load_config
+from engine.config.schema import AppConfig
+from engine.signals.ml_v1 import MLV1
+from engine.signals.direction_attention import DirectionAttention
+from engine.signals.ml_v3 import MLV3
+from engine.signals.base import BaseSignalGenerator
+from engine.position_manager import V12PositionManager, TradeRecord
+from engine.strategy import V12Strategy, Direction, SignalType
 
 
 # Registry of available ML signal generators, indexed by model name.

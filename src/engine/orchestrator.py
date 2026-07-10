@@ -31,7 +31,7 @@ from .config.constants import SYMBOL, TIMEFRAME
 from .config.schema import AppConfig
 from .dashboard_bridge import DashboardBridge
 from .persistence import StateStore, TradeLog, paths_for
-from .risk.tests.decision_logger import DecisionLogger
+from .risk.decision_logger import DecisionLogger
 from .signals.direction_attention import DirectionAttention
 from .signals.ml_v1 import MLV1
 from .signals.ml_v3 import MLV3

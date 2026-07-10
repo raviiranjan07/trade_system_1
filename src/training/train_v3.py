@@ -4,7 +4,7 @@ Architecture: LSTM(4→hidden) + Attention + PnL heads + 3-class direction
 Labels: exit-aware (simulated trade P&L with V2 exit rules on 1m ticks)
 Loss: MSE(long_pnl) + MSE(short_pnl) + CrossEntropy(direction)
 
-Run: PYTHONPATH=src python -m engine.train_v3
+Run: PYTHONPATH=src python -m training.train_v3
 """
 
 import json
@@ -61,7 +61,9 @@ TRAIN_RANGE = (_s.get("train_start", "2020-01-01"), _s.get("train_end", "2023-12
 VAL_RANGE = (_s.get("val_start", "2024-01-01"), _s.get("val_end", "2024-12-31"))
 TEST_RANGE = (_s.get("test_start", "2025-01-01"), _s.get("test_end", "2025-12-31"))
 
-LOOKBACKS = [1, 2, 3, 4, 5, 6, 7, 8]
+# Input spec from params.yaml — must match signals/ml_v3.py
+# (same ml_v3.features block; changing it = new model, retrain required).
+LOOKBACKS = list(_cfg.get("features", {}).get("lookbacks", range(1, 9)))
 LONG, SHORT, SKIP = 0, 1, 2
 N_CLASSES = 3
 MODEL_NAME = "ML_V3"
@@ -540,7 +542,7 @@ def main():
         },
         "scaler": {"fit_on": "train_only"},
         "feature_recipe": {
-            "compute_fn": "engine.train_v3.compute_features",
+            "compute_fn": "training.train_v3.compute_features",
             "source_parquet": str(CACHE_PATH.relative_to(REPO_ROOT)),
         },
         "features": ["roc_d", "rsi_d", "rp_d", "sma_d"] * len(LOOKBACKS),
