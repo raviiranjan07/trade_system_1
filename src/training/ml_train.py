@@ -42,6 +42,7 @@ import mlflow
 from mlops import tracking
 from mlops.runner import run_experiment
 from mlops.evaluation import evaluate_direction_prediction
+from engine.signals import feature_lib
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CACHE_PATH = REPO_ROOT / "data/features/direction_prediction/feature_cache.parquet"
@@ -131,23 +132,12 @@ def compute_features(fc: pd.DataFrame) -> tuple[np.ndarray, list[str]]:
     low = fc["low"].values.astype(np.float64)
 
     for n in ROC_PERIODS:
-        roc = np.zeros(len(close), dtype=np.float32)
-        roc[n:] = ((close[n:] - close[:-n]) / close[:-n] * 10000).astype(np.float32)
-        fc[f"roc{n}"] = roc
+        fc[f"roc{n}"] = feature_lib.roc_bps(close, n)
 
-    delta = pd.Series(close).diff()
-    gain = delta.where(delta > 0, 0).rolling(RSI_PERIOD).mean()
-    loss_s = (-delta.where(delta < 0, 0)).rolling(RSI_PERIOD).mean()
-    rs = gain / loss_s
-    fc["rsi7_mlp"] = (100 - (100 / (1 + rs))).values
+    fc["rsi7_mlp"] = feature_lib.rsi_rolling(pd.Series(close), RSI_PERIOD).values
 
-    rp = np.zeros(len(close), dtype=np.float32)
-    for i in range(RANGE_WINDOW, len(close)):
-        hh = np.max(high[i - RANGE_WINDOW : i + 1])
-        ll = np.min(low[i - RANGE_WINDOW : i + 1])
-        rng = hh - ll
-        rp[i] = (close[i] - ll) / rng if rng > 0 else 0.5
-    fc["range_position_50_mlp"] = rp
+    fc["range_position_50_mlp"] = feature_lib.range_position_inclusive(
+        high, low, close, RANGE_WINDOW)
 
     feat_cols = [f"roc{n}" for n in ROC_PERIODS] + ["range_position_50_mlp", "rsi7_mlp"]
     return fc[feat_cols].values.astype(np.float32), feat_cols

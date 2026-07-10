@@ -15,6 +15,8 @@ import numpy as np
 import pandas as pd
 import onnxruntime as ort
 
+from engine.signals import feature_lib
+
 logger = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -60,27 +62,11 @@ def main():
     atr_pctl = fc["atr_percentile"].values.astype(np.float64) if "atr_percentile" in fc.columns else np.full(len(close), 50.0)
 
     lookbacks = [1, 2, 3, 4, 5, 6, 7, 8]
-    diff_list = []
-    for n in lookbacks:
-        roc_d = np.zeros(len(close), dtype=np.float32)
-        roc_d[n:] = ((close[n:] - close[:-n]) / close[:-n] * 10000).astype(np.float32)
-        rsi_d = np.zeros(len(close), dtype=np.float32)
-        rsi_d[n:] = (rsi7[n:] - rsi7[:-n]).astype(np.float32)
-        rp_d = np.zeros(len(close), dtype=np.float32)
-        rp_d[n:] = (rp[n:] - rp[:-n]).astype(np.float32)
-        sma_d = np.zeros(len(close), dtype=np.float32)
-        sma_d[n:] = (sma200[n:] - sma200[:-n]).astype(np.float32)
-        diff_list.extend([roc_d, rsi_d, rp_d, sma_d])
-    diff_raw = np.column_stack(diff_list).astype(np.float32)
+    diff_raw = feature_lib.diff_features(close, rsi7, rp, sma200, lookbacks)
     diff_raw = np.nan_to_num(diff_raw, nan=0.0, posinf=0.0, neginf=0.0)
 
     # Snapshot features (position)
-    snap_raw = np.column_stack([
-        rsi7.astype(np.float32),
-        rp.astype(np.float32),
-        sma200.astype(np.float32),
-        atr_pctl.astype(np.float32),
-    ])
+    snap_raw = feature_lib.snapshot_features(rsi7, rp, sma200, atr_pctl)
     snap_raw = np.nan_to_num(snap_raw, nan=0.0, posinf=0.0, neginf=0.0)
 
     # Scale diffs

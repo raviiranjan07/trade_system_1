@@ -14,10 +14,13 @@ import pandas as pd
 import yaml
 
 from ..strategy import SignalType
-from .base import BaseSignalGenerator
+from . import feature_lib
+from .base import BaseSignalGenerator, load_feature_spec
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+
+_feat = load_feature_spec("ml_v2_attention")
 
 
 def _load_inference_thresholds() -> tuple[float, float]:
@@ -36,7 +39,9 @@ def _load_inference_thresholds() -> tuple[float, float]:
 class DirectionAttention(BaseSignalGenerator):
     """LSTM+Attention — 32 diff features as [8,4] sequence, H8 label."""
 
-    LOOKBACKS = [1, 2, 3, 4, 5, 6, 7, 8]
+    LOOKBACKS = list(_feat.get("lookbacks", range(1, 9)))
+    RSI_PERIOD = int(_feat.get("rsi_period", 7))
+    RANGE_POSITION_WINDOW = int(_feat.get("range_position_window", 20))
 
     def __init__(
         self,
@@ -60,47 +65,24 @@ class DirectionAttention(BaseSignalGenerator):
         close = df["close"].values.astype(np.float64)
 
         # Need rsi7, range_position, sma200_dist_pct from the dataframe
-        # If not present, compute them
+        # If not present, compute them (canonical formulas: feature_lib)
         if "rsi7" not in df.columns:
-            delta = pd.Series(close).diff()
-            gain = delta.where(delta > 0, 0).rolling(7).mean()
-            loss_s = (-delta.where(delta < 0, 0)).rolling(7).mean()
-            rs = gain / loss_s
-            df["rsi7"] = (100 - (100 / (1 + rs))).values
+            df["rsi7"] = feature_lib.rsi_rolling(pd.Series(close), self.RSI_PERIOD).values
 
         if "range_position" not in df.columns:
             high = df["high"].values.astype(np.float64)
             low = df["low"].values.astype(np.float64)
-            rp = np.zeros(len(close), dtype=np.float32)
-            for i in range(20, len(close)):
-                hh = np.max(high[i - 20:i + 1])
-                ll = np.min(low[i - 20:i + 1])
-                rng = hh - ll
-                rp[i] = (close[i] - ll) / rng if rng > 0 else 0.5
-            df["range_position"] = rp
+            df["range_position"] = feature_lib.range_position_inclusive(
+                high, low, close, self.RANGE_POSITION_WINDOW)
 
         if "sma200_dist_pct" not in df.columns:
-            sma200 = pd.Series(close).rolling(200).mean()
-            df["sma200_dist_pct"] = ((close - sma200) / sma200 * 100).values
+            df["sma200_dist_pct"] = feature_lib.sma_dist_pct(close, 200)
 
         rsi7 = df["rsi7"].values.astype(np.float64)
         rp = df["range_position"].values.astype(np.float64)
         sma200 = df["sma200_dist_pct"].values.astype(np.float64)
 
-        # Compute 4 diff features × 8 lookbacks = 32
-        diff_list = []
-        for n in self.LOOKBACKS:
-            roc_d = np.zeros(len(close), dtype=np.float32)
-            roc_d[n:] = ((close[n:] - close[:-n]) / close[:-n] * 10000).astype(np.float32)
-            rsi_d = np.zeros(len(close), dtype=np.float32)
-            rsi_d[n:] = (rsi7[n:] - rsi7[:-n]).astype(np.float32)
-            rp_d = np.zeros(len(close), dtype=np.float32)
-            rp_d[n:] = (rp[n:] - rp[:-n]).astype(np.float32)
-            sma_d = np.zeros(len(close), dtype=np.float32)
-            sma_d[n:] = (sma200[n:] - sma200[:-n]).astype(np.float32)
-            diff_list.extend([roc_d, rsi_d, rp_d, sma_d])
-
-        diff_arr = np.column_stack(diff_list).astype(np.float32)
+        diff_arr = feature_lib.diff_features(close, rsi7, rp, sma200, self.LOOKBACKS)
         diff_arr = np.nan_to_num(diff_arr, nan=0.0, posinf=0.0, neginf=0.0)
 
         # Normalize

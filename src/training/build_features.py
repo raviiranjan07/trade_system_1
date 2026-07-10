@@ -21,25 +21,20 @@ if str(SRC_DIR) not in sys.path:
 import numpy as np
 import pandas as pd
 
+from engine.signals.feature_lib import (
+    range_position_rolling as range_position,
+    rsi_rolling as rsi,
+    sma_dist_pct,
+)
+
 RAW_PATH = Path("data/raw/BTCUSDT_15m_ohlcv.parquet")
 OUT_PATH = Path("data/features/direction_prediction/feature_cache.parquet")
 
 
-def rsi(close: pd.Series, period: int) -> pd.Series:
-    """Standard RSI. Matches the formula in engine.strategy + ml_train.py."""
-    delta = close.diff()
-    gain = delta.where(delta > 0, 0).rolling(period).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(period).mean()
-    rs = gain / loss
-    return 100 - (100 / (1 + rs))
-
-
-def range_position(high: pd.Series, low: pd.Series, close: pd.Series, window: int) -> pd.Series:
-    """Where close sits in the [rolling_low, rolling_high] band. Matches ml_train.py."""
-    rh = high.rolling(window).max()
-    rl = low.rolling(window).min()
-    rng = rh - rl
-    return ((close - rl) / rng.where(rng > 0, np.nan)).fillna(0.5)
+# rsi / range_position now come from engine.signals.feature_lib (imported
+# above with local aliases) — the single source of truth for formulas.
+# NOTE: range_position here is the ROLLING (training-cache) variant; live
+# inference uses the INCLUSIVE variant. See feature_lib docstring.
 
 
 def true_range(high: pd.Series, low: pd.Series, close: pd.Series) -> pd.Series:
@@ -77,7 +72,7 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     out["rsi"] = rsi(close, 14)
     out["range_position"] = range_position(high, low, close, 20)
     sma200 = close.rolling(200).mean()
-    out["sma200_dist_pct"] = (close - sma200) / sma200 * 100
+    out["sma200_dist_pct"] = sma_dist_pct(close.to_numpy(), 200)
     out["roc5"] = (close - close.shift(5)) / close.shift(5) * 10000
     out["momentum10"] = close - close.shift(10)
 

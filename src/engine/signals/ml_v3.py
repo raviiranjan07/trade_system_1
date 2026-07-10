@@ -14,11 +14,14 @@ import pandas as pd
 import yaml
 
 from ..strategy import Direction, Signal, SignalType
-from .base import BaseSignalGenerator
+from . import feature_lib
+from .base import BaseSignalGenerator, load_feature_spec
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 LONG, SHORT, SKIP = 0, 1, 2
+
+_feat = load_feature_spec("ml_v3")
 
 
 def _load_inference_thresholds() -> tuple[float, float]:
@@ -31,7 +34,9 @@ def _load_inference_thresholds() -> tuple[float, float]:
 class MLV3(BaseSignalGenerator):
     """V3 — 3-class direction with PnL heads. Same features as V2 Attention."""
 
-    LOOKBACKS = [1, 2, 3, 4, 5, 6, 7, 8]
+    LOOKBACKS = list(_feat.get("lookbacks", range(1, 9)))
+    RSI_PERIOD = int(_feat.get("rsi_period", 7))
+    RANGE_POSITION_WINDOW = int(_feat.get("range_position_window", 20))
 
     def __init__(
         self,
@@ -65,44 +70,22 @@ class MLV3(BaseSignalGenerator):
         close = df["close"].values.astype(np.float64)
 
         if "rsi7" not in df.columns:
-            delta = pd.Series(close).diff()
-            gain = delta.where(delta > 0, 0).rolling(7).mean()
-            loss_s = (-delta.where(delta < 0, 0)).rolling(7).mean()
-            rs = gain / loss_s
-            df["rsi7"] = (100 - (100 / (1 + rs))).values
+            df["rsi7"] = feature_lib.rsi_rolling(pd.Series(close), self.RSI_PERIOD).values
 
         if "range_position" not in df.columns:
             high = df["high"].values.astype(np.float64)
             low = df["low"].values.astype(np.float64)
-            rp = np.zeros(len(close), dtype=np.float32)
-            for i in range(20, len(close)):
-                hh = np.max(high[i - 20:i + 1])
-                ll = np.min(low[i - 20:i + 1])
-                rng = hh - ll
-                rp[i] = (close[i] - ll) / rng if rng > 0 else 0.5
-            df["range_position"] = rp
+            df["range_position"] = feature_lib.range_position_inclusive(
+                high, low, close, self.RANGE_POSITION_WINDOW)
 
         if "sma200_dist_pct" not in df.columns:
-            sma200 = pd.Series(close).rolling(200).mean()
-            df["sma200_dist_pct"] = ((close - sma200) / sma200 * 100).values
+            df["sma200_dist_pct"] = feature_lib.sma_dist_pct(close, 200)
 
         rsi7 = df["rsi7"].values.astype(np.float64)
         rp = df["range_position"].values.astype(np.float64)
         sma200 = df["sma200_dist_pct"].values.astype(np.float64)
 
-        diff_list = []
-        for n in self.LOOKBACKS:
-            roc_d = np.zeros(len(close), dtype=np.float32)
-            roc_d[n:] = ((close[n:] - close[:-n]) / close[:-n] * 10000).astype(np.float32)
-            rsi_d = np.zeros(len(close), dtype=np.float32)
-            rsi_d[n:] = (rsi7[n:] - rsi7[:-n]).astype(np.float32)
-            rp_d = np.zeros(len(close), dtype=np.float32)
-            rp_d[n:] = (rp[n:] - rp[:-n]).astype(np.float32)
-            sma_d = np.zeros(len(close), dtype=np.float32)
-            sma_d[n:] = (sma200[n:] - sma200[:-n]).astype(np.float32)
-            diff_list.extend([roc_d, rsi_d, rp_d, sma_d])
-
-        diff_arr = np.column_stack(diff_list).astype(np.float32)
+        diff_arr = feature_lib.diff_features(close, rsi7, rp, sma200, self.LOOKBACKS)
         diff_arr = np.nan_to_num(diff_arr, nan=0.0, posinf=0.0, neginf=0.0)
 
         if self.scaler_mean is not None:
@@ -113,12 +96,7 @@ class MLV3(BaseSignalGenerator):
 
         # Snapshot features (position)
         atr_pctl = df["atr_percentile"].values.astype(np.float32) if "atr_percentile" in df.columns else np.full(len(close), 50.0, dtype=np.float32)
-        snap_arr = np.column_stack([
-            rsi7.astype(np.float32),
-            rp.astype(np.float32),
-            sma200.astype(np.float32),
-            atr_pctl,
-        ])
+        snap_arr = feature_lib.snapshot_features(rsi7, rp, sma200, atr_pctl)
         snap_arr = np.nan_to_num(snap_arr, nan=0.0, posinf=0.0, neginf=0.0)
         if self._snap_mean is not None:
             snap_arr = (snap_arr - self._snap_mean) / self._snap_std

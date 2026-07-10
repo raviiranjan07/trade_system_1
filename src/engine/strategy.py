@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 
 from .config.schema import AppConfig
+from .signals.feature_lib import rsi_rolling
 
 
 class Direction(Enum):
@@ -73,12 +74,8 @@ class V12Strategy:
         out = df.copy()
         c = self.cfg
 
-        # RSI
-        delta = out["close"].diff()
-        gain = delta.where(delta > 0, 0).rolling(window=c.strategy.rsi_period).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=c.strategy.rsi_period).mean()
-        rs = gain / loss
-        out["rsi"] = 100 - (100 / (1 + rs))
+        # RSI (canonical formula: signals/feature_lib.py)
+        out["rsi"] = rsi_rolling(out["close"], c.strategy.rsi_period)
 
         # SMA for regime
         out["sma"] = out["close"].rolling(c.strategy.sma_period).mean()

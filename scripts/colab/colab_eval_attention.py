@@ -1,3 +1,6 @@
+# NOTE: the feature formulas / model architecture below are a NECESSARY COPY
+# (Colab cannot import this repo). Source of truth: src/engine/signals/feature_lib.py
+# and src/training/train_attention.py — keep in sync MANUALLY when either changes.
 """
 COLAB NOTEBOOK: LSTM+Attention evaluation with correct 0.40 SHORT threshold.
 Paste this entire script into one Colab cell. Set runtime to T4 GPU.

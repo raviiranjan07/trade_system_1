@@ -29,6 +29,7 @@ if str(SRC_DIR) not in sys.path:
 import mlflow
 from mlops import tracking
 from mlops.runner import run_experiment
+from engine.signals import feature_lib
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CACHE_PATH = REPO_ROOT / "data/features/direction_prediction/feature_cache.parquet"
@@ -163,27 +164,9 @@ def compute_features(fc):
     sma200 = fc["sma200_dist_pct"].values.astype(np.float64)
     atr_pctl = fc["atr_percentile"].values.astype(np.float64) if "atr_percentile" in fc.columns else np.full(len(close), 50.0)
 
-    # Diff features (velocity) — 32 values per bar
-    diff_list = []
-    for n in LOOKBACKS:
-        roc_d = np.zeros(len(close), dtype=np.float32)
-        roc_d[n:] = ((close[n:] - close[:-n]) / close[:-n] * 10000).astype(np.float32)
-        rsi_d = np.zeros(len(close), dtype=np.float32)
-        rsi_d[n:] = (rsi7[n:] - rsi7[:-n]).astype(np.float32)
-        rp_d = np.zeros(len(close), dtype=np.float32)
-        rp_d[n:] = (rp[n:] - rp[:-n]).astype(np.float32)
-        sma_d = np.zeros(len(close), dtype=np.float32)
-        sma_d[n:] = (sma200[n:] - sma200[:-n]).astype(np.float32)
-        diff_list.extend([roc_d, rsi_d, rp_d, sma_d])
-    diffs = np.column_stack(diff_list).astype(np.float32)
-
-    # Snapshot features (position) — 4 values per bar
-    snapshot = np.column_stack([
-        rsi7.astype(np.float32),       # where is RSI? (0-100)
-        rp.astype(np.float32),         # where in range? (0-1)
-        sma200.astype(np.float32),     # distance from SMA200 (%)
-        atr_pctl.astype(np.float32),   # volatility percentile (0-100)
-    ])
+    # Diff (velocity) + snapshot (position) — canonical: feature_lib
+    diffs = feature_lib.diff_features(close, rsi7, rp, sma200, LOOKBACKS)
+    snapshot = feature_lib.snapshot_features(rsi7, rp, sma200, atr_pctl)
 
     return diffs, snapshot
 

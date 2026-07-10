@@ -14,7 +14,8 @@ import pandas as pd
 import yaml
 
 from ..strategy import SignalType
-from .base import BaseSignalGenerator
+from . import feature_lib
+from .base import BaseSignalGenerator, load_feature_spec
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -33,12 +34,15 @@ def _load_inference_thresholds() -> tuple[float, float]:
     return float(infer["conf_long"]), float(infer["conf_short"])
 
 
+_feat = load_feature_spec("ml_v1")
+
+
 class MLV1(BaseSignalGenerator):
     """V1.5 production MLP — 10 flat features, H96 label."""
 
-    RSI_PERIOD = 7
-    RANGE_POSITION_PERIOD = 50
-    ROC_PERIODS = list(range(1, 9))
+    RSI_PERIOD = int(_feat.get("rsi_period", 7))
+    RANGE_POSITION_PERIOD = int(_feat.get("range_position_window", 50))
+    ROC_PERIODS = list(_feat.get("roc_periods", range(1, 9)))
 
     def __init__(
         self,
@@ -61,23 +65,12 @@ class MLV1(BaseSignalGenerator):
         low = df["low"].values.astype(np.float64)
 
         for n in self.ROC_PERIODS:
-            roc = np.zeros(len(close), dtype=np.float32)
-            roc[n:] = ((close[n:] - close[:-n]) / close[:-n] * 10000).astype(np.float32)
-            df[f"roc{n}"] = roc
+            df[f"roc{n}"] = feature_lib.roc_bps(close, n)
 
-        delta = pd.Series(close).diff()
-        gain = delta.where(delta > 0, 0).rolling(self.RSI_PERIOD).mean()
-        loss_s = (-delta.where(delta < 0, 0)).rolling(self.RSI_PERIOD).mean()
-        rs = gain / loss_s
-        df["rsi7"] = (100 - (100 / (1 + rs))).values
+        df["rsi7"] = feature_lib.rsi_rolling(pd.Series(close), self.RSI_PERIOD).values
 
-        rp = np.zeros(len(close), dtype=np.float32)
-        for i in range(self.RANGE_POSITION_PERIOD, len(close)):
-            hh = np.max(high[i - self.RANGE_POSITION_PERIOD:i + 1])
-            ll = np.min(low[i - self.RANGE_POSITION_PERIOD:i + 1])
-            rng = hh - ll
-            rp[i] = (close[i] - ll) / rng if rng > 0 else 0.5
-        df["range_position_50"] = rp
+        df["range_position_50"] = feature_lib.range_position_inclusive(
+            high, low, close, self.RANGE_POSITION_PERIOD)
 
         return df
 
