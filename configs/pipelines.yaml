@@ -2,14 +2,28 @@
 # Used by scripts/mlops/run_pipeline.py so humans can say "run ml_v1"
 # instead of typing every stage name.
 #
-# When adding a new model, append a block with its stage list. No code changes.
+# STAGE NAMES MUST MATCH dvc.yaml EXACTLY — dvc repro fails on unknown
+# stages. When adding a new model, append a block with its stage list.
 
 ml_v1:
   description: MLP direction predictor (honest retrain, date-based split)
   stages:
     - build_features
     - build_labels
-    - train_mlp_v15
+    - train_ml_v1
     - verify_ml_v1
-    - backtest_staging
-    - verify_backtest
+    - backtest_ml_v1
+
+ml_v2_attention:
+  description: LSTM + Attention direction predictor (trained externally on Colab)
+  stages:
+    - backtest_ml_v2
+
+ml_v3:
+  description: Exit-aware 3-class model (LONG/SHORT/SKIP) + snapshot features
+  stages:
+    - build_exit_labels
+    - verify_exit_labels
+    - train_v3
+    - verify_v3_model
+    - backtest_ml_v3

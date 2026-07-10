@@ -22,13 +22,14 @@ function buildWalletHistory(tradesArr, startCapital) {
   return points
 }
 
-function WalletChart({ trades, mlTrades, mlAttnTrades }) {
+function WalletChart({ trades, mlTrades, mlAttnTrades, mlV3Trades }) {
   const containerRef = useRef(null)
   const chartRef = useRef(null)
 
   const v14Points = buildWalletHistory(trades, DEFAULT_CAPITAL)
   const mlPoints = buildWalletHistory(mlTrades, DEFAULT_CAPITAL)
   const mlAttnPoints = buildWalletHistory(mlAttnTrades, DEFAULT_CAPITAL)
+  const mlV3Points = buildWalletHistory(mlV3Trades, DEFAULT_CAPITAL)
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -83,6 +84,26 @@ function WalletChart({ trades, mlTrades, mlAttnTrades }) {
       title: 'ML',
     })
 
+    // ML V2 line (amber)
+    const mlAttnSeries = chart.addSeries(LineSeries, {
+      color: '#f59e0b',
+      lineWidth: 2,
+      lastValueVisible: true,
+      priceLineVisible: false,
+      crosshairMarkerVisible: true,
+      title: 'ML V2',
+    })
+
+    // ML V3 line (green)
+    const mlV3Series = chart.addSeries(LineSeries, {
+      color: '#10b981',
+      lineWidth: 2,
+      lastValueVisible: true,
+      priceLineVisible: false,
+      crosshairMarkerVisible: true,
+      title: 'ML V3',
+    })
+
     // $5 reference line
     const refLine = chart.addSeries(LineSeries, {
       color: 'rgba(136, 146, 160, 0.3)',
@@ -113,11 +134,15 @@ function WalletChart({ trades, mlTrades, mlAttnTrades }) {
 
     const v14Data = toChartData(v14Points)
     const mlData = toChartData(mlPoints)
+    const mlAttnData = toChartData(mlAttnPoints)
+    const mlV3Data = toChartData(mlV3Points)
 
     if (v14Data.length > 0) v14Series.setData(v14Data)
     if (mlData.length > 0) mlSeries.setData(mlData)
+    if (mlAttnData.length > 0) mlAttnSeries.setData(mlAttnData)
+    if (mlV3Data.length > 0) mlV3Series.setData(mlV3Data)
 
-    const allData = [...v14Data, ...mlData]
+    const allData = [...v14Data, ...mlData, ...mlAttnData, ...mlV3Data]
     if (allData.length >= 2) {
       const minTime = Math.min(...allData.map(d => d.time))
       const maxTime = Math.max(...allData.map(d => d.time))
@@ -141,7 +166,7 @@ function WalletChart({ trades, mlTrades, mlAttnTrades }) {
       window.removeEventListener('resize', handleResize)
       chart.remove()
     }
-  }, [v14Points.length, mlPoints.length])
+  }, [v14Points.length, mlPoints.length, mlAttnPoints.length, mlV3Points.length])
 
   return (
     <div className="rp-wallet-chart">
@@ -255,7 +280,7 @@ function DrawdownBar({ pct }) {
   )
 }
 
-function RiskPage({ risk, ml, mlAttn, decisions, trades, mlTrades, mlAttnTrades }) {
+function RiskPage({ risk, ml, mlAttn, decisions, trades, mlTrades, mlAttnTrades, mlV3Trades }) {
   const v14Wallet = risk?.wallet_usd ?? 0
   const mlWallet = ml?.wallet_usd ?? 0
   const mlAttnWallet = mlAttn?.wallet_usd ?? 0
@@ -303,7 +328,7 @@ function RiskPage({ risk, ml, mlAttn, decisions, trades, mlTrades, mlAttnTrades 
       </div>
 
       {/* Wallet Growth Chart */}
-      <WalletChart trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} />
+      <WalletChart trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} />
 
       {/* Two columns */}
       <div className="rp-cards">

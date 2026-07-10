@@ -56,5 +56,5 @@ reentry:
 # --- Execution ---
 execution:
   mode: paper          # paper | live
-  leverage: 20
+  leverage: 125        # must match risk/exchange_constants.LEVERAGE (margin/liq math)
   position_size_usd: 10

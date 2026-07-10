@@ -600,7 +600,7 @@ function App() {
         <div className="page-content page-trades">
           <StatsSection stats={stats} risk={risk} ml={models.ML_V1} trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} activeFilter={tradesFilter} onFilterChange={setTradesFilter} />
 
-          <BpsDistribution trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} />
+          <BpsDistribution trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} />
 
           <TradesList trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} filter={tradesFilter} onFilterChange={setTradesFilter} />
 
@@ -615,22 +615,22 @@ function App() {
       {/* ========== RISK PAGE (full-width) ========== */}
       {activePage === 'risk' && (
         <div className="page-content page-risk">
-          <RiskPage risk={risk} ml={models.ML_V1} mlAttn={models.ML_ATTN} decisions={decisions} trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} />
+          <RiskPage risk={risk} ml={models.ML_V1} mlAttn={models.ML_ATTN} decisions={decisions} trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} />
         </div>
       )}
 
       {/* ========== ANALYTICS PAGE (full-width) ========== */}
       {activePage === 'analytics' && (
         <div className="page-content page-analytics">
-          <StatsSection stats={stats} risk={risk} ml={models.ML_V1} trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} />
+          <StatsSection stats={stats} risk={risk} ml={models.ML_V1} trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} />
 
           <div className="analytics-equity">
-            <EquityCurve trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} />
+            <EquityCurve trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} />
           </div>
 
-          <PnLCalendar trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} />
+          <PnLCalendar trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} />
 
-          <PerformancePanel trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} />
+          <PerformancePanel trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} />
         </div>
       )}
 

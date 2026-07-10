@@ -14,20 +14,39 @@ Key questions:
      (Check: how many current winners had MAE in [-10, -20] range?)
 
 Usage:
-    python scripts/analysis/diagnose_exits.py
+    python scripts/analysis/diagnose_exits.py [path/to/trades.parquet]
+
+Without an argument, uses the newest backtest_staging_trades_*.parquet
+(backtest_staging.py writes per-model/exit suffixed files).
 """
 
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-TRADES_PATH = REPO_ROOT / "data/reports/backtest_staging_trades.parquet"
 REPORT_PATH = REPO_ROOT / "data/reports/diagnose_exits.json"
+
+
+def _default_trades_path() -> Path:
+    candidates = sorted(
+        (REPO_ROOT / "data/reports").glob("backtest_staging_trades_*.parquet"),
+        key=lambda p: p.stat().st_mtime,
+    )
+    if not candidates:
+        raise FileNotFoundError(
+            "No data/reports/backtest_staging_trades_*.parquet found — "
+            "run scripts/mlops/backtest_staging.py first, or pass a path."
+        )
+    return candidates[-1]
+
+
+TRADES_PATH = Path(sys.argv[1]) if len(sys.argv) > 1 else _default_trades_path()
 
 
 def bucket(series: pd.Series, bins: list[float], labels: list[str]) -> pd.Series:
