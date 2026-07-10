@@ -257,34 +257,34 @@ function DrawdownBar({ pct }) {
 
 function RiskPage({ risk, ml, mlAttn, decisions, trades, mlTrades, mlAttnTrades }) {
   const v14Wallet = risk?.wallet_usd ?? 0
-  const mlWallet = ml?.ml_wallet_usd ?? 0
-  const mlAttnWallet = mlAttn?.ml_attn_wallet_usd ?? 0
+  const mlWallet = ml?.wallet_usd ?? 0
+  const mlAttnWallet = mlAttn?.wallet_usd ?? 0
   const totalCapital = v14Wallet + mlWallet + mlAttnWallet
 
   const v14Peak = risk?.peak_usd ?? v14Wallet
-  const mlPeak = ml?.ml_peak_usd ?? mlWallet
+  const mlPeak = ml?.peak_usd ?? mlWallet
 
   const v14Growth = ((v14Wallet - DEFAULT_CAPITAL) / DEFAULT_CAPITAL * 100).toFixed(1)
   const mlGrowth = ((mlWallet - DEFAULT_CAPITAL) / DEFAULT_CAPITAL * 100).toFixed(1)
 
   const v14DD = risk?.drawdown_pct ?? 0
-  const mlDD = ml?.ml_drawdown_pct ?? 0
+  const mlDD = ml?.drawdown_pct ?? 0
   const combinedDD = totalCapital > 0
     ? ((1 - totalCapital / (v14Peak + mlPeak)) * 100)
     : 0
   const combinedDDClamped = Math.max(0, combinedDD)
 
   const v14Health = risk?.health_multiplier ?? 1
-  const mlHealth = ml?.ml_health_multiplier ?? 1
+  const mlHealth = ml?.health_multiplier ?? 1
 
   const v14Streak = risk?.consecutive_losses ?? 0
-  const mlStreak = ml?.ml_consecutive_losses ?? 0
+  const mlStreak = ml?.consecutive_losses ?? 0
 
   const v14WR = risk?.recent_winrate != null ? Number((risk.recent_winrate * 100).toFixed(0)) : null
-  const mlWR = ml?.ml_recent_winrate != null ? Number((ml.ml_recent_winrate * 100).toFixed(0)) : null
+  const mlWR = ml?.recent_winrate != null ? Number((ml.recent_winrate * 100).toFixed(0)) : null
 
   const v14Skips = risk?.total_skips ?? 0
-  const mlSkips = ml?.ml_total_skips ?? 0
+  const mlSkips = ml?.total_skips ?? 0
 
   const recentDecisions = (decisions || []).slice(0, 20)
 
@@ -405,20 +405,20 @@ function RiskPage({ risk, ml, mlAttn, decisions, trades, mlTrades, mlAttnTrades 
             </div>
             <div className="rp-row">
               <span className="rp-label">Drawdown</span>
-              <DrawdownBar pct={(mlAttn?.ml_attn_drawdown_pct ?? 0) * 100} />
+              <DrawdownBar pct={(mlAttn?.drawdown_pct ?? 0) * 100} />
             </div>
             <div className="rp-row">
               <span className="rp-label">Trades</span>
-              <span className="rp-value">{mlAttn?.ml_attn_total_trades ?? 0}</span>
+              <span className="rp-value">{mlAttn?.total_trades ?? 0}</span>
             </div>
             <div className="rp-row">
               <span className="rp-label">Win Rate</span>
-              <span className="rp-value">{((mlAttn?.ml_attn_win_rate ?? 0) * 100).toFixed(0)}%</span>
+              <span className="rp-value">{((mlAttn?.win_rate ?? 0) * 100).toFixed(0)}%</span>
             </div>
             <div className="rp-row">
               <span className="rp-label">Total bps</span>
-              <span className={`rp-value ${(mlAttn?.ml_attn_total_bps ?? 0) >= 0 ? 'positive' : 'negative'}`}>
-                {(mlAttn?.ml_attn_total_bps ?? 0) >= 0 ? '+' : ''}{(mlAttn?.ml_attn_total_bps ?? 0).toFixed(1)}
+              <span className={`rp-value ${(mlAttn?.total_bps ?? 0) >= 0 ? 'positive' : 'negative'}`}>
+                {(mlAttn?.total_bps ?? 0) >= 0 ? '+' : ''}{(mlAttn?.total_bps ?? 0).toFixed(1)}
               </span>
             </div>
           </div>

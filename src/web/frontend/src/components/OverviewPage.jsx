@@ -375,76 +375,29 @@ function PositionBlock({ label, accentColor, side, entryPrice, currentPrice, pnl
   )
 }
 
-function OverviewPage({ stats, risk, ml, mlAttn, mlV3, trades, mlTrades, mlAttnTrades, mlV3Trades, status, position, onTradesNavigate }) {
-  const v14Wallet = risk?.wallet_usd ?? 0
-  const mlWallet = ml?.ml_wallet_usd ?? 0
-  const mlAttnWallet = mlAttn?.ml_attn_wallet_usd ?? 0
-  const mlV3Wallet = mlV3?.ml_v3_wallet_usd ?? 0
-  const totalBalance = v14Wallet + mlWallet + mlAttnWallet + mlV3Wallet
+// Legacy filter labels for the Trades page (TradesList still uses these)
+const TRADES_FILTER_LABEL = {
+  V_RULE_BASED: 'V1.4',
+  ML_V1: 'ML',
+  ML_ATTN: 'ML V2',
+  ML_V3: 'ML V3',
+}
 
-  const todayV14Bps = (trades || []).filter(t => isToday(t.exit_time)).reduce((s, t) => s + (t.net_profit_bps || 0), 0)
-  const todayMlBps = (mlTrades || []).filter(t => isToday(t.exit_time)).reduce((s, t) => s + (t.net_profit_bps || 0), 0)
-  const todayMlAttnBps = (mlAttnTrades || []).filter(t => isToday(t.exit_time)).reduce((s, t) => s + (t.net_profit_bps || 0), 0)
-  const todayMlV3Bps = (mlV3Trades || []).filter(t => isToday(t.exit_time)).reduce((s, t) => s + (t.net_profit_bps || 0), 0)
-  const todayTotalBps = todayV14Bps + todayMlBps + todayMlAttnBps + todayMlV3Bps
-  const todayTrades = (trades || []).filter(t => isToday(t.exit_time)).length + (mlTrades || []).filter(t => isToday(t.exit_time)).length + (mlAttnTrades || []).filter(t => isToday(t.exit_time)).length + (mlV3Trades || []).filter(t => isToday(t.exit_time)).length
+function OverviewPage({ models, modelTrades, status, onTradesNavigate }) {
+  // One list drives everything: [name, panel, trades] per registered model.
+  const entries = Object.entries(models || {}).map(([name, panel]) => ({
+    name,
+    panel: panel || {},
+    trades: (modelTrades || {})[name] || [],
+  }))
 
-  const v14HasPos = position?.has_position ?? false
-  const mlHasPos = ml?.ml_has_position ?? false
-  const mlAttnHasPos_ = mlAttn?.ml_attn_has_position ?? false
-  const mlV3HasPos_ = mlV3?.ml_v3_has_position ?? false
-  const activePositions = (v14HasPos ? 1 : 0) + (mlHasPos ? 1 : 0) + (mlAttnHasPos_ ? 1 : 0) + (mlV3HasPos_ ? 1 : 0)
-
-  const v14TotalBps = stats?.total_bps ?? 0
-  const v14Trades = stats?.total_trades ?? 0
-  const v14WinRate = stats?.win_rate ? (stats.win_rate * 100).toFixed(0) : '0'
-  const v14Drawdown = risk?.drawdown_pct ?? 0
-  const v14Growth = v14Wallet > 0 ? ((v14Wallet - DEFAULT_CAPITAL) / DEFAULT_CAPITAL * 100).toFixed(0) : '0'
-  const v14LastTrade = trades && trades.length > 0 ? trades[0] : null
-
-  const mlTotalBps = ml?.ml_total_bps ?? 0
-  const mlTotalTrades = ml?.ml_total_trades ?? 0
-  const mlWinRate = ml?.ml_win_rate ? (ml.ml_win_rate * 100).toFixed(0) : '0'
-  const mlDrawdown = ml?.ml_drawdown_pct ?? 0
-  const mlGrowth = mlWallet > 0 ? ((mlWallet - DEFAULT_CAPITAL) / DEFAULT_CAPITAL * 100).toFixed(0) : '0'
-  const mlLastTrade = mlTrades && mlTrades.length > 0 ? mlTrades[0] : null
-  const mlActive = ml?.ml_model_loaded ?? false
-
-  const mlAttnTotalBps = mlAttn?.ml_attn_total_bps ?? 0
-  const mlAttnTotalTrades = mlAttn?.ml_attn_total_trades ?? 0
-  const mlAttnWinRate = mlAttn?.ml_attn_win_rate ? (mlAttn.ml_attn_win_rate * 100).toFixed(0) : '0'
-  const mlAttnGrowth = mlAttnWallet > 0 ? ((mlAttnWallet - DEFAULT_CAPITAL) / DEFAULT_CAPITAL * 100).toFixed(0) : '0'
-  const mlAttnActive = mlAttn?.ml_attn_model_loaded ?? false
-  const mlAttnHasPos = mlAttn?.ml_attn_has_position ?? false
-
-  const mlV3TotalBps = mlV3?.ml_v3_total_bps ?? 0
-  const mlV3TotalTrades = mlV3?.ml_v3_total_trades ?? 0
-  const mlV3WinRate = mlV3?.ml_v3_win_rate ? (mlV3.ml_v3_win_rate * 100).toFixed(0) : '0'
-  const mlV3Growth = mlV3Wallet > 0 ? ((mlV3Wallet - DEFAULT_CAPITAL) / DEFAULT_CAPITAL * 100).toFixed(0) : '0'
-  const mlV3Active = mlV3?.ml_v3_model_loaded ?? false
-  const mlV3HasPos = mlV3?.ml_v3_has_position ?? false
-
-  // V1.4 position
-  const pos = position || {}
-  const pnlBps = pos.current_pnl_bps || 0
-  const pnlClass = pnlBps >= 0 ? 'positive' : 'negative'
-  const barsHeld = pos.bars_held || 0
-  const maxBars = pos.max_bars || 10
-
-  // ML position
-  const mlPos = {
-    has_position: ml?.ml_has_position ?? false,
-    side: ml?.ml_position_side,
-    entry_price: ml?.ml_position_entry_price ?? 0,
-    current_pnl_bps: ml?.ml_position_pnl_bps ?? 0,
-    trailing_stop_bps: ml?.ml_position_trailing_stop_bps ?? 0,
-    highest_profit_bps: ml?.ml_position_highest_profit_bps ?? 0,
-    bars_held: ml?.ml_position_bars_held ?? 0,
-    max_bars: ml?.ml_position_max_bars ?? 10,
-    mfe_bps: ml?.ml_position_mfe_bps ?? 0,
-    mae_bps: ml?.ml_position_mae_bps ?? 0,
-    liq_price: ml?.ml_position_liq_price ?? 0,
-  }
+  const totalBalance = entries.reduce((s, e) => s + (e.panel.wallet_usd || 0), 0)
+  const todayTotalBps = entries.reduce((s, e) =>
+    s + e.trades.filter(t => isToday(t.exit_time)).reduce((a, t) => a + (t.net_profit_bps || 0), 0), 0)
+  const todayTrades = entries.reduce((s, e) =>
+    s + e.trades.filter(t => isToday(t.exit_time)).length, 0)
+  const activePositions = entries.filter(e => e.panel.has_position).length
+  const inPosition = entries.filter(e => e.panel.has_position)
 
   return (
     <div className="db-page">
@@ -482,206 +435,80 @@ function OverviewPage({ stats, risk, ml, mlAttn, mlV3, trades, mlTrades, mlAttnT
         </div>
       </div>
 
-      {/* Bot Cards */}
+      {/* Bot Cards — one per registered model, in sort order */}
       <div className="db-bots">
-        <BotCard
-          title="V1.4 Strategy"
-          active={true}
-          wallet={v14Wallet}
-          growth={v14Growth}
-          totalBps={v14TotalBps}
-          trades={v14Trades}
-          winRate={v14WinRate}
-          drawdown={v14Drawdown}
-          lastTrade={v14LastTrade}
-          accentColor="#3b82f6"
-          tradeHistory={trades}
-          exitVersion="V2"
-          onTradesClick={() => onTradesNavigate?.('V1.4')}
-        />
-        <BotCard
-          title="ML Strategy"
-          active={mlActive}
-          wallet={mlWallet}
-          growth={mlGrowth}
-          totalBps={mlTotalBps}
-          trades={mlTotalTrades}
-          winRate={mlWinRate}
-          drawdown={mlDrawdown}
-          lastTrade={mlLastTrade}
-          accentColor="#8b5cf6"
-          tradeHistory={mlTrades}
-          exitVersion="V2"
-          prediction={{
-            longPct: ml?.ml_long_pct ?? 50,
-            shortPct: ml?.ml_short_pct ?? 50,
-            status: ml?.ml_signal_status ?? '',
-          }}
-          monitoring={{
-            dailyExpected: ml?.ml_daily_expected_bps ?? 0,
-            daysElapsed: ml?.ml_days_elapsed ?? 0,
-            window7d: {
-              actual: ml?.ml_7d_actual_bps ?? 0,
-              expected: ml?.ml_7d_expected_bps ?? 0,
-              delta: ml?.ml_7d_delta_pct ?? 0,
-              status: ml?.ml_7d_status ?? 'pending',
-            },
-            cum: {
-              actual: ml?.ml_cum_actual_bps ?? 0,
-              expected: ml?.ml_cum_expected_bps ?? 0,
-              delta: ml?.ml_cum_delta_pct ?? 0,
-              status: ml?.ml_cum_status ?? 'pending',
-            },
-          }}
-          onTradesClick={() => onTradesNavigate?.('ML')}
-        />
-        <BotCard
-          title="ML V2"
-          active={mlAttnActive}
-          wallet={mlAttnWallet}
-          growth={mlAttnGrowth}
-          totalBps={mlAttnTotalBps}
-          trades={mlAttnTotalTrades}
-          winRate={mlAttnWinRate}
-          drawdown={mlAttn?.ml_attn_drawdown_pct ?? 0}
-          lastTrade={mlAttnTrades && mlAttnTrades.length > 0 ? mlAttnTrades[0] : null}
-          accentColor="#f59e0b"
-          tradeHistory={mlAttnTrades}
-          exitVersion="V2"
-          prediction={{
-            longPct: mlAttn?.ml_attn_long_pct ?? 50,
-            shortPct: mlAttn?.ml_attn_short_pct ?? 50,
-            status: mlAttn?.ml_attn_signal_status ?? '',
-          }}
-          monitoring={{
-            dailyExpected: mlAttn?.ml_attn_daily_expected_bps ?? 0,
-            daysElapsed: mlAttn?.ml_attn_days_elapsed ?? 0,
-            window7d: {
-              actual: mlAttn?.ml_attn_7d_actual_bps ?? 0,
-              expected: mlAttn?.ml_attn_7d_expected_bps ?? 0,
-              delta: mlAttn?.ml_attn_7d_delta_pct ?? 0,
-              status: mlAttn?.ml_attn_7d_status ?? 'pending',
-            },
-            cum: {
-              actual: mlAttn?.ml_attn_cum_actual_bps ?? 0,
-              expected: mlAttn?.ml_attn_cum_expected_bps ?? 0,
-              delta: mlAttn?.ml_attn_cum_delta_pct ?? 0,
-              status: mlAttn?.ml_attn_cum_status ?? 'pending',
-            },
-          }}
-          onTradesClick={() => onTradesNavigate?.('ML V2')}
-        />
-        <BotCard
-          title="ML V3"
-          active={mlV3Active}
-          wallet={mlV3Wallet}
-          growth={mlV3Growth}
-          totalBps={mlV3TotalBps}
-          trades={mlV3TotalTrades}
-          winRate={mlV3WinRate}
-          drawdown={mlV3?.ml_v3_drawdown_pct ?? 0}
-          lastTrade={mlV3Trades && mlV3Trades.length > 0 ? mlV3Trades[0] : null}
-          accentColor="#10b981"
-          tradeHistory={mlV3Trades}
-          exitVersion="V2"
-          prediction={{
-            longPct: mlV3?.ml_v3_long_pct ?? 33,
-            shortPct: mlV3?.ml_v3_short_pct ?? 33,
-            status: mlV3?.ml_v3_signal_status ?? '',
-          }}
-          monitoring={{
-            dailyExpected: mlV3?.ml_v3_daily_expected_bps ?? 0,
-            daysElapsed: mlV3?.ml_v3_days_elapsed ?? 0,
-            window7d: {
-              actual: mlV3?.ml_v3_7d_actual_bps ?? 0,
-              expected: mlV3?.ml_v3_7d_expected_bps ?? 0,
-              delta: mlV3?.ml_v3_7d_delta_pct ?? 0,
-              status: mlV3?.ml_v3_7d_status ?? 'pending',
-            },
-            cum: {
-              actual: mlV3?.ml_v3_cum_actual_bps ?? 0,
-              expected: mlV3?.ml_v3_cum_expected_bps ?? 0,
-              delta: mlV3?.ml_v3_cum_delta_pct ?? 0,
-              status: mlV3?.ml_v3_cum_status ?? 'pending',
-            },
-          }}
-          onTradesClick={() => onTradesNavigate?.('ML V3')}
-        />
+        {entries.map(({ name, panel, trades }) => {
+          const wallet = panel.wallet_usd || 0
+          const growth = wallet > 0 ? ((wallet - DEFAULT_CAPITAL) / DEFAULT_CAPITAL * 100).toFixed(0) : '0'
+          const hasBaseline = (panel.daily_expected_bps || 0) > 0
+          return (
+            <BotCard
+              key={name}
+              title={panel.title || name}
+              active={panel.model_loaded || false}
+              wallet={wallet}
+              growth={growth}
+              totalBps={panel.total_bps || 0}
+              trades={panel.total_trades || 0}
+              winRate={panel.win_rate ? (panel.win_rate * 100).toFixed(0) : '0'}
+              drawdown={panel.drawdown_pct || 0}
+              lastTrade={trades.length > 0 ? trades[0] : null}
+              accentColor={panel.accent_color}
+              tradeHistory={trades}
+              exitVersion={panel.exit_version}
+              prediction={hasBaseline ? {
+                longPct: panel.long_pct ?? 50,
+                shortPct: panel.short_pct ?? 50,
+                status: panel.signal_status ?? '',
+              } : undefined}
+              monitoring={hasBaseline ? {
+                dailyExpected: panel.daily_expected_bps ?? 0,
+                daysElapsed: panel.days_elapsed ?? 0,
+                window7d: {
+                  actual: panel.d7_actual_bps ?? 0,
+                  expected: panel.d7_expected_bps ?? 0,
+                  delta: panel.d7_delta_pct ?? 0,
+                  status: panel.d7_status ?? 'pending',
+                },
+                cum: {
+                  actual: panel.cum_actual_bps ?? 0,
+                  expected: panel.cum_expected_bps ?? 0,
+                  delta: panel.cum_delta_pct ?? 0,
+                  status: panel.cum_status ?? 'pending',
+                },
+              } : undefined}
+              onTradesClick={() => onTradesNavigate?.(TRADES_FILTER_LABEL[name] || name)}
+            />
+          )
+        })}
       </div>
 
-      {/* Active Positions */}
+      {/* Active Positions — one block per model in a position */}
       <div className="db-trades-card">
         <div className="db-trades-header">Active Positions</div>
-        {!v14HasPos && !mlHasPos && !mlAttnHasPos && !mlV3HasPos ? (
+        {inPosition.length === 0 ? (
           <div className="db-trades-empty">No open positions</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {v14HasPos && (
+            {inPosition.map(({ name, panel }) => (
               <PositionBlock
-                label="V1.4"
-                accentColor="#3b82f6"
-                side={pos.side}
-                entryPrice={pos.entry_price}
-                currentPrice={pos.current_price}
-                pnlBps={pnlBps}
-                mfeBps={pos.mfe_bps}
-                maeBps={pos.mae_bps}
-                trailingStopBps={pos.trailing_stop_bps}
-                highestProfitBps={pos.highest_profit_bps}
-                barsHeld={barsHeld}
-                maxBars={maxBars}
-                isReentry={pos.is_reentry}
-                liqPrice={pos.liq_price}
+                key={name}
+                label={panel.title || name}
+                accentColor={panel.accent_color}
+                side={panel.position_side}
+                entryPrice={panel.position_entry_price}
+                currentPrice={status?.price}
+                pnlBps={panel.position_pnl_bps || 0}
+                mfeBps={panel.position_mfe_bps || 0}
+                maeBps={panel.position_mae_bps || 0}
+                trailingStopBps={panel.position_trailing_stop_bps || 0}
+                highestProfitBps={panel.position_highest_profit_bps || 0}
+                barsHeld={panel.position_bars_held || 0}
+                maxBars={panel.position_max_bars || 10}
+                isReentry={panel.is_reentry || false}
+                liqPrice={panel.position_liq_price || 0}
               />
-            )}
-            {mlHasPos && (
-              <PositionBlock
-                label="ML"
-                accentColor="#8b5cf6"
-                side={mlPos.side}
-                entryPrice={mlPos.entry_price}
-                pnlBps={mlPos.current_pnl_bps}
-                mfeBps={mlPos.mfe_bps}
-                maeBps={mlPos.mae_bps}
-                trailingStopBps={mlPos.trailing_stop_bps}
-                highestProfitBps={mlPos.highest_profit_bps}
-                barsHeld={mlPos.bars_held}
-                maxBars={mlPos.max_bars}
-                liqPrice={mlPos.liq_price}
-              />
-            )}
-            {mlAttnHasPos && (
-              <PositionBlock
-                label="ML V2"
-                accentColor="#f59e0b"
-                side={mlAttn?.ml_attn_position_side}
-                entryPrice={mlAttn?.ml_attn_position_entry_price ?? 0}
-                pnlBps={mlAttn?.ml_attn_position_pnl_bps ?? 0}
-                mfeBps={mlAttn?.ml_attn_position_mfe_bps ?? 0}
-                maeBps={mlAttn?.ml_attn_position_mae_bps ?? 0}
-                trailingStopBps={mlAttn?.ml_attn_position_trailing_stop_bps ?? 0}
-                highestProfitBps={mlAttn?.ml_attn_position_highest_profit_bps ?? 0}
-                barsHeld={mlAttn?.ml_attn_position_bars_held ?? 0}
-                maxBars={mlAttn?.ml_attn_position_max_bars ?? 10}
-                liqPrice={mlAttn?.ml_attn_position_liq_price ?? 0}
-              />
-            )}
-            {mlV3HasPos && (
-              <PositionBlock
-                label="ML V3"
-                accentColor="#10b981"
-                side={mlV3?.ml_v3_position_side}
-                entryPrice={mlV3?.ml_v3_position_entry_price ?? 0}
-                pnlBps={mlV3?.ml_v3_position_pnl_bps ?? 0}
-                mfeBps={mlV3?.ml_v3_position_mfe_bps ?? 0}
-                maeBps={mlV3?.ml_v3_position_mae_bps ?? 0}
-                trailingStopBps={mlV3?.ml_v3_position_trailing_stop_bps ?? 0}
-                highestProfitBps={mlV3?.ml_v3_position_highest_profit_bps ?? 0}
-                barsHeld={mlV3?.ml_v3_position_bars_held ?? 0}
-                maxBars={mlV3?.ml_v3_position_max_bars ?? 6}
-                liqPrice={mlV3?.ml_v3_position_liq_price ?? 0}
-              />
-            )}
+            ))}
           </div>
         )}
       </div>

@@ -380,7 +380,35 @@ function App() {
     )
   }
 
-  const { status, position, stats, trades, signals, config } = data || {}
+  const { status, signals, config } = data || {}
+
+  // Unified keyed payload: models + model_trades (one entry per registered model)
+  const models = data?.models || {}
+  const modelTrades = data?.model_trades || {}
+  const v14 = models.V_RULE_BASED || {}
+  const trades = modelTrades.V_RULE_BASED || []
+  const mlTrades = modelTrades.ML_V1 || []
+  const mlAttnTrades = modelTrades.ML_ATTN || []
+  const mlV3Trades = modelTrades.ML_V3 || []
+
+  // Old-shape views for components that predate the unified payload
+  const stats = v14
+  const risk = v14
+  const position = {
+    has_position: v14.has_position || false,
+    side: v14.position_side,
+    entry_price: v14.position_entry_price,
+    current_price: status?.price,
+    trailing_stop_bps: v14.position_trailing_stop_bps || 0,
+    highest_profit_bps: v14.position_highest_profit_bps || 0,
+    current_pnl_bps: v14.position_pnl_bps || 0,
+    bars_held: v14.position_bars_held || 0,
+    max_bars: v14.position_max_bars || 10,
+    mfe_bps: v14.position_mfe_bps || 0,
+    mae_bps: v14.position_mae_bps || 0,
+    is_reentry: v14.is_reentry || false,
+    liq_price: v14.position_liq_price || 0,
+  }
 
   if ((status?.status === 'STARTING' || !status?.price) && activePage !== 'portfolio') {
     return (
@@ -453,17 +481,9 @@ function App() {
       {activePage === 'dashboard' && (
         <div className="page-content page-dashboard">
           <OverviewPage
-            stats={stats}
-            risk={data?.risk}
-            ml={data?.ml}
-            mlAttn={data?.ml_attn}
-            mlV3={data?.ml_v3}
-            trades={trades}
-            mlTrades={data?.ml_trades}
-            mlAttnTrades={data?.ml_attn_trades}
-            mlV3Trades={data?.ml_v3_trades}
+            models={models}
+            modelTrades={modelTrades}
             status={status}
-            position={position}
             onTradesNavigate={(model) => { setTradesFilter(model); setActivePage('trades') }}
           />
         </div>
@@ -578,11 +598,11 @@ function App() {
       {/* ========== TRADES PAGE (full-width) ========== */}
       {activePage === 'trades' && (
         <div className="page-content page-trades">
-          <StatsSection stats={stats} risk={data?.risk} ml={data?.ml} trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} mlV3Trades={data?.ml_v3_trades} activeFilter={tradesFilter} onFilterChange={setTradesFilter} />
+          <StatsSection stats={stats} risk={risk} ml={models.ML_V1} trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} activeFilter={tradesFilter} onFilterChange={setTradesFilter} />
 
-          <BpsDistribution trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} />
+          <BpsDistribution trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} />
 
-          <TradesList trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} mlV3Trades={data?.ml_v3_trades} filter={tradesFilter} onFilterChange={setTradesFilter} />
+          <TradesList trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} filter={tradesFilter} onFilterChange={setTradesFilter} />
 
           <div className="card signals-full-container">
             <div className="card-header">Signal Log</div>
@@ -595,22 +615,22 @@ function App() {
       {/* ========== RISK PAGE (full-width) ========== */}
       {activePage === 'risk' && (
         <div className="page-content page-risk">
-          <RiskPage risk={data?.risk} ml={data?.ml} mlAttn={data?.ml_attn} decisions={decisions} trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} />
+          <RiskPage risk={risk} ml={models.ML_V1} mlAttn={models.ML_ATTN} decisions={decisions} trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} />
         </div>
       )}
 
       {/* ========== ANALYTICS PAGE (full-width) ========== */}
       {activePage === 'analytics' && (
         <div className="page-content page-analytics">
-          <StatsSection stats={stats} risk={data?.risk} ml={data?.ml} trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} />
+          <StatsSection stats={stats} risk={risk} ml={models.ML_V1} trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} />
 
           <div className="analytics-equity">
-            <EquityCurve trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} />
+            <EquityCurve trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} />
           </div>
 
-          <PnLCalendar trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} />
+          <PnLCalendar trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} />
 
-          <PerformancePanel trades={trades} mlTrades={data?.ml_trades} mlAttnTrades={data?.ml_attn_trades} />
+          <PerformancePanel trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} />
         </div>
       )}
 

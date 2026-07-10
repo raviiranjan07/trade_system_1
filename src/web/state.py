@@ -1,8 +1,16 @@
-"""
-Shared State Manager for V1.3 Dashboard.
+"""Shared State Manager for the trading dashboard.
 
-Thread-safe state container that bridges the V1.3 trading bot
-with the web API endpoints. Updated by bot, read by API.
+Thread-safe state container bridging the trading bot with the web API.
+Updated by the bot, read by FastAPI endpoints + WebSocket clients.
+
+Model panels are UNIFIED: one ModelPanelData dataclass, one dict keyed by
+track name (V_RULE_BASED, ML_V1, ML_ATTN, ML_V3). Adding model #5 to the
+dashboard is a single register_model() call — no new dataclass, no new
+update methods, no frontend change.
+
+Write path: register_model() / update_model() / add_model_trade()
+(driven by engine.dashboard_bridge). Legacy read views (get_position,
+get_stats, ...) remain for the old REST endpoints.
 """
 
 import asyncio
@@ -13,15 +21,18 @@ from dataclasses import dataclass, field, asdict
 import threading
 
 
+# =====================================================================
+# Data models
+# =====================================================================
+
 @dataclass
 class StatusData:
-    """Current trading status + indicators."""
+    """Current trading status + shared market indicators."""
     status: str = "STARTING"
     uptime_seconds: float = 0
     price: Optional[float] = None
     regime: Optional[str] = None
     bar_count: int = 0
-    # V1.2 indicators
     rsi: Optional[float] = None
     atr_percentile: Optional[float] = None
     ema_separation: Optional[float] = None
@@ -29,41 +40,8 @@ class StatusData:
 
 
 @dataclass
-class PositionData:
-    """Current position information (V1.2 trailing stop model)."""
-    has_position: bool = False
-    side: Optional[str] = None
-    entry_price: Optional[float] = None
-    current_price: Optional[float] = None
-    # V1.2 specific
-    trailing_stop_bps: float = 0
-    highest_profit_bps: float = 0
-    current_pnl_bps: float = 0
-    bars_held: int = 0
-    max_bars: int = 10
-    mfe_bps: float = 0
-    mae_bps: float = 0
-    is_reentry: bool = False
-    liq_price: float = 0
-    liq_price: float = 0.0
-
-
-@dataclass
-class StatsData:
-    """Session statistics (bps-based for V1.2)."""
-    total_trades: int = 0
-    wins: int = 0
-    losses: int = 0
-    win_rate: float = 0
-    total_bps: float = 0
-    avg_bps: float = 0
-    profit_factor: float = 0
-    config_hash: str = ""
-
-
-@dataclass
 class TradeData:
-    """Single trade record (V1.2 format)."""
+    """Single trade record."""
     trade_id: str = ""
     direction: str = ""
     signal_type: str = ""
@@ -84,7 +62,7 @@ class TradeData:
 
 @dataclass
 class SignalData:
-    """Single signal record (V1.2 format)."""
+    """Single signal record."""
     id: str = ""
     action: str = "SKIP"  # ENTRY, REENTRY, or SKIP
     direction: Optional[str] = None
@@ -96,158 +74,8 @@ class SignalData:
 
 
 @dataclass
-class RiskData:
-    """Risk management state for dashboard display."""
-    wallet_usd: float = 0.0
-    drawdown_pct: float = 0.0
-    health_multiplier: float = 1.0
-    consecutive_losses: int = 0
-    recent_winrate: float = 1.0
-    peak_usd: float = 0.0
-    last_qty: float = 0.0
-    last_pnl_usd: float = 0.0
-    total_skips: int = 0
-
-
-@dataclass
-class MLData:
-    """ML model state for dashboard display."""
-    ml_wallet_usd: float = 0.0
-    ml_total_trades: int = 0
-    ml_wins: int = 0
-    ml_losses: int = 0
-    ml_win_rate: float = 0.0
-    ml_total_bps: float = 0.0
-    ml_avg_bps: float = 0.0
-    ml_has_position: bool = False
-    ml_position_side: Optional[str] = None
-    ml_position_pnl_bps: float = 0.0
-    ml_position_entry_price: float = 0.0
-    ml_position_trailing_stop_bps: float = 0.0
-    ml_position_highest_profit_bps: float = 0.0
-    ml_position_bars_held: int = 0
-    ml_position_max_bars: int = 10
-    ml_position_mfe_bps: float = 0.0
-    ml_position_mae_bps: float = 0.0
-    ml_position_liq_price: float = 0.0
-    ml_last_prob: float = 0.5
-    ml_long_pct: float = 50.0
-    ml_short_pct: float = 50.0
-    ml_signal_status: str = ""
-    ml_model_loaded: bool = False
-    ml_drawdown_pct: float = 0.0
-    ml_health_multiplier: float = 1.0
-    ml_consecutive_losses: int = 0
-    ml_recent_winrate: float = 1.0
-    ml_peak_usd: float = 0.0
-    ml_last_pnl_usd: float = 0.0
-    ml_last_qty: float = 0.0
-    ml_total_skips: int = 0
-    # Expected vs Actual monitoring (backtest baseline: daily avg bps)
-    # ML V1 staging 2025: 571t, +2693 bps over 365 days = 7.38 bps/day
-    ml_daily_expected_bps: float = 7.38
-    # 7-day rolling window
-    ml_7d_actual_bps: float = 0.0
-    ml_7d_expected_bps: float = 0.0
-    ml_7d_delta_pct: float = 0.0
-    ml_7d_status: str = "pending"
-    # Cumulative since bot start
-    ml_cum_actual_bps: float = 0.0
-    ml_cum_expected_bps: float = 0.0
-    ml_cum_delta_pct: float = 0.0
-    ml_cum_status: str = "pending"
-    ml_days_elapsed: float = 0.0
-
-
-@dataclass
-class MLAttnData:
-    """ML Attention model state for dashboard display (A/B test)."""
-    ml_attn_wallet_usd: float = 0.0
-    ml_attn_total_trades: int = 0
-    ml_attn_wins: int = 0
-    ml_attn_losses: int = 0
-    ml_attn_win_rate: float = 0.0
-    ml_attn_total_bps: float = 0.0
-    ml_attn_avg_bps: float = 0.0
-    ml_attn_has_position: bool = False
-    ml_attn_position_side: Optional[str] = None
-    ml_attn_position_pnl_bps: float = 0.0
-    ml_attn_position_entry_price: float = 0.0
-    ml_attn_position_trailing_stop_bps: float = 0.0
-    ml_attn_position_highest_profit_bps: float = 0.0
-    ml_attn_position_bars_held: int = 0
-    ml_attn_position_max_bars: int = 10
-    ml_attn_position_mfe_bps: float = 0.0
-    ml_attn_position_mae_bps: float = 0.0
-    ml_attn_position_liq_price: float = 0.0
-    ml_attn_model_loaded: bool = False
-    ml_attn_drawdown_pct: float = 0.0
-    ml_attn_last_pnl_usd: float = 0.0
-    ml_attn_last_qty: float = 0.0
-    ml_attn_last_prob: float = 0.5
-    ml_attn_long_pct: float = 50.0
-    ml_attn_short_pct: float = 50.0
-    ml_attn_signal_status: str = ""
-    # Expected vs Actual monitoring (backtest baseline: daily avg bps)
-    # ML V2 Attention staging 2025: 450t, +3657.6 bps over 365 days = 10.02 bps/day
-    ml_attn_daily_expected_bps: float = 10.02
-    ml_attn_7d_actual_bps: float = 0.0
-    ml_attn_7d_expected_bps: float = 0.0
-    ml_attn_7d_delta_pct: float = 0.0
-    ml_attn_7d_status: str = "pending"
-    ml_attn_cum_actual_bps: float = 0.0
-    ml_attn_cum_expected_bps: float = 0.0
-    ml_attn_cum_delta_pct: float = 0.0
-    ml_attn_cum_status: str = "pending"
-    ml_attn_days_elapsed: float = 0.0
-
-
-@dataclass
-class MLV3Data:
-    """ML V3 model state for dashboard display (exit-aware labels + snapshot features)."""
-    ml_v3_wallet_usd: float = 0.0
-    ml_v3_total_trades: int = 0
-    ml_v3_wins: int = 0
-    ml_v3_losses: int = 0
-    ml_v3_win_rate: float = 0.0
-    ml_v3_total_bps: float = 0.0
-    ml_v3_avg_bps: float = 0.0
-    ml_v3_has_position: bool = False
-    ml_v3_position_side: Optional[str] = None
-    ml_v3_position_pnl_bps: float = 0.0
-    ml_v3_position_entry_price: float = 0.0
-    ml_v3_position_trailing_stop_bps: float = 0.0
-    ml_v3_position_highest_profit_bps: float = 0.0
-    ml_v3_position_bars_held: int = 0
-    ml_v3_position_max_bars: int = 6
-    ml_v3_position_mfe_bps: float = 0.0
-    ml_v3_position_mae_bps: float = 0.0
-    ml_v3_position_liq_price: float = 0.0
-    ml_v3_model_loaded: bool = False
-    ml_v3_drawdown_pct: float = 0.0
-    ml_v3_last_pnl_usd: float = 0.0
-    ml_v3_last_qty: float = 0.0
-    ml_v3_last_prob: float = 0.5
-    ml_v3_long_pct: float = 33.0
-    ml_v3_short_pct: float = 33.0
-    ml_v3_signal_status: str = ""
-    # Expected vs Actual monitoring
-    # ML V3 backtest 2024-2025: 1546 ML_V3 trades, +20091 bps over 730 days = 27.5 bps/day
-    ml_v3_daily_expected_bps: float = 27.5
-    ml_v3_7d_actual_bps: float = 0.0
-    ml_v3_7d_expected_bps: float = 0.0
-    ml_v3_7d_delta_pct: float = 0.0
-    ml_v3_7d_status: str = "pending"
-    ml_v3_cum_actual_bps: float = 0.0
-    ml_v3_cum_expected_bps: float = 0.0
-    ml_v3_cum_delta_pct: float = 0.0
-    ml_v3_cum_status: str = "pending"
-    ml_v3_days_elapsed: float = 0.0
-
-
-@dataclass
 class ConfigData:
-    """V1.2 trading configuration."""
+    """Trading configuration."""
     pair: str = "BTCUSDT"
     timeframe: str = "15m"
     mode: str = "paper"
@@ -271,32 +99,111 @@ class CandleData:
     rsi: Optional[float] = None
 
 
-class DashboardState:
-    """
-    Thread-safe shared state for V1.2 dashboard data.
+@dataclass
+class ModelPanelData:
+    """ONE model's dashboard card — same shape for every model.
 
-    Updated by the V1.2 bot, read by FastAPI endpoints.
+    Replaces the old MLData/MLAttnData/MLV3Data/RiskData/StatsData zoo.
+    Field names carry no model prefix; the panel's identity is the dict
+    key it is registered under.
+    """
+    # Identity / display (set once at register_model)
+    name: str = ""
+    title: str = ""
+    accent_color: str = "#8892a0"
+    exit_version: str = ""
+    sort_order: int = 0
+    model_loaded: bool = False
+
+    # Money / risk
+    wallet_usd: float = 0.0
+    drawdown_pct: float = 0.0
+    health_multiplier: float = 1.0
+    consecutive_losses: int = 0
+    recent_winrate: float = 1.0
+    peak_usd: float = 0.0
+    last_qty: float = 0.0
+    last_pnl_usd: float = 0.0
+    total_skips: int = 0
+
+    # Performance stats
+    total_trades: int = 0
+    wins: int = 0
+    losses: int = 0
+    win_rate: float = 0.0
+    total_bps: float = 0.0
+    avg_bps: float = 0.0
+    profit_factor: float = 0.0
+
+    # Open position
+    has_position: bool = False
+    position_side: Optional[str] = None
+    position_pnl_bps: float = 0.0
+    position_entry_price: float = 0.0
+    position_trailing_stop_bps: float = 0.0
+    position_highest_profit_bps: float = 0.0
+    position_bars_held: int = 0
+    position_max_bars: int = 10
+    position_mfe_bps: float = 0.0
+    position_mae_bps: float = 0.0
+    position_liq_price: float = 0.0
+    is_reentry: bool = False
+
+    # Prediction display
+    last_prob: float = 0.5
+    long_pct: float = 50.0
+    short_pct: float = 50.0
+    signal_status: str = ""
+
+    # Expected-vs-actual monitoring (baseline set at register_model)
+    daily_expected_bps: float = 0.0
+    days_elapsed: float = 0.0
+    d7_actual_bps: float = 0.0
+    d7_expected_bps: float = 0.0
+    d7_delta_pct: float = 0.0
+    d7_status: str = "pending"
+    cum_actual_bps: float = 0.0
+    cum_expected_bps: float = 0.0
+    cum_delta_pct: float = 0.0
+    cum_status: str = "pending"
+
+
+# The four known models, pre-registered so the legacy shims work before
+# the orchestrator exists. Baselines: backtest daily-average bps.
+DEFAULT_MODELS = [
+    # (name, title, accent, exit_version, daily_expected_bps)
+    ("V_RULE_BASED", "Rule Based (V1.4)", "#3b82f6", "V1", 0.0),
+    ("ML_V1", "ML V1", "#8b5cf6", "V2", 7.38),
+    ("ML_ATTN", "ML V2 Attention", "#f59e0b", "V2", 10.02),
+    ("ML_V3", "ML V3", "#10b981", "V2", 27.5),
+]
+
+
+class DashboardState:
+    """Thread-safe shared state for the dashboard.
+
+    Updated by the bot, read by FastAPI endpoints.
     Supports WebSocket broadcast to connected clients.
     """
 
     def __init__(self, price_throttle_ms: int = 500):
         self._lock = threading.Lock()
         self._status = StatusData()
-        self._position = PositionData()
-        self._stats = StatsData()
         self._config = ConfigData()
-        self._risk = RiskData()
-        self._ml = MLData()
-        self._ml_attn = MLAttnData()
-        self._ml_v3 = MLV3Data()
-        self._ml_trades: List[TradeData] = []
-        self._ml_attn_trades: List[TradeData] = []
-        self._ml_v3_trades: List[TradeData] = []
-        self._trades: List[TradeData] = []
         self._signals: List[SignalData] = []
         self._start_time: Optional[datetime] = None
 
-        # Signal proximity data (V1.3)
+        # Unified model panels + their trade lists, keyed by track name.
+        self._models: Dict[str, ModelPanelData] = {}
+        self._model_trades: Dict[str, List[TradeData]] = {}
+        for i, (name, title, accent, exit_v, daily_exp) in enumerate(DEFAULT_MODELS):
+            self.register_model(name, title=title, accent_color=accent,
+                                exit_version=exit_v, daily_expected_bps=daily_exp,
+                                sort_order=i, _broadcast=False)
+        # Rule-based signals need no model file — the card is always "active"
+        self._models["V_RULE_BASED"].model_loaded = True
+
+        # Signal proximity data (rule-based tracker)
         self._proximity: Dict[str, Any] = {}
 
         # Chart candle data
@@ -312,162 +219,70 @@ class DashboardState:
         self._last_price_broadcast: float = 0
         self._last_candle_broadcast: float = 0
 
+    # ------------------------------------------------------------ session
+
     def start(self) -> None:
-        """Mark trading session as started."""
         with self._lock:
             self._start_time = datetime.now(timezone.utc)
             self._status.status = "RUNNING"
 
     def stop(self) -> None:
-        """Mark trading session as stopped."""
         with self._lock:
             self._status.status = "STOPPED"
 
-    def set_config(
-        self,
-        pair: str = "BTCUSDT",
-        timeframe: str = "15m",
-        mode: str = "paper",
-        trailing_stop_long: int = 20,
-        trailing_stop_short: int = 30,
-        max_bars: int = 10,
-        reentry_enabled: bool = True,
-        config_hash: str = "",
-    ) -> None:
-        """Set V1.2 trading configuration."""
+    def get_session_start(self) -> Optional[datetime]:
+        return self._start_time
+
+    def set_config(self, **kwargs) -> None:
         with self._lock:
-            self._config = ConfigData(
-                pair=pair,
-                timeframe=timeframe,
-                mode=mode,
-                trailing_stop_long=trailing_stop_long,
-                trailing_stop_short=trailing_stop_short,
-                max_bars=max_bars,
-                reentry_enabled=reentry_enabled,
-                config_hash=config_hash,
-            )
+            for k, v in kwargs.items():
+                if hasattr(self._config, k):
+                    setattr(self._config, k, v)
 
-    def update_status(
+    # ------------------------------------------------------------ models
+
+    def register_model(
         self,
-        price: Optional[float] = None,
-        regime: Optional[str] = None,
-        bar_count: Optional[int] = None,
-        rsi: Optional[float] = None,
-        atr_percentile: Optional[float] = None,
-        ema_separation: Optional[float] = None,
+        name: str,
+        title: str = "",
+        accent_color: str = "#8892a0",
+        exit_version: str = "",
+        daily_expected_bps: float = 0.0,
+        sort_order: int = 99,
+        _broadcast: bool = True,
     ) -> None:
-        """Update current status and indicators."""
-        is_price_only = (
-            price is not None and
-            regime is None and
-            bar_count is None and
-            rsi is None
-        )
+        """Create (or re-brand) a model panel. One call per track."""
+        with self._lock:
+            panel = self._models.get(name) or ModelPanelData(name=name)
+            panel.title = title or name
+            panel.accent_color = accent_color
+            panel.exit_version = exit_version
+            panel.daily_expected_bps = daily_expected_bps
+            panel.sort_order = sort_order
+            self._models[name] = panel
+            self._model_trades.setdefault(name, [])
+        if _broadcast:
+            self._broadcast_update()
 
-        if is_price_only:
-            now_ms = time.time() * 1000
-            if now_ms - self._last_price_broadcast < self._price_throttle_ms:
-                with self._lock:
-                    self._status.price = price
-                    self._position.current_price = price
+    def update_model(self, name: str, **kwargs) -> None:
+        """Update any fields of one model's panel (unknown fields ignored)."""
+        with self._lock:
+            panel = self._models.get(name)
+            if panel is None:
                 return
-            self._last_price_broadcast = now_ms
-
-        with self._lock:
-            if price is not None:
-                self._status.price = price
-                self._position.current_price = price
-            if regime is not None:
-                self._status.regime = regime
-            if bar_count is not None:
-                self._status.bar_count = bar_count
-            if rsi is not None:
-                self._status.rsi = round(rsi, 1)
-            if atr_percentile is not None:
-                self._status.atr_percentile = round(atr_percentile, 1)
-            if ema_separation is not None:
-                self._status.ema_separation = round(ema_separation, 4)
-
-            if self._start_time:
-                delta = datetime.now(timezone.utc) - self._start_time
-                self._status.uptime_seconds = delta.total_seconds()
-
-            self._status.last_update = datetime.now(timezone.utc).isoformat()
-
+            for k, v in kwargs.items():
+                if hasattr(panel, k):
+                    setattr(panel, k, v)
+            self._refresh_monitoring(name)
         self._broadcast_update()
 
-    def update_position(
-        self,
-        has_position: bool = False,
-        side: Optional[str] = None,
-        entry_price: Optional[float] = None,
-        trailing_stop_bps: float = 0,
-        highest_profit_bps: float = 0,
-        current_pnl_bps: float = 0,
-        bars_held: int = 0,
-        max_bars: int = 10,
-        mfe_bps: float = 0,
-        mae_bps: float = 0,
-        is_reentry: bool = False,
-        liq_price: float = 0,
-    ) -> None:
-        """Update position information."""
+    def add_model_trade(self, name: str, trade: Dict[str, Any]) -> None:
+        """Add a completed trade to one model's history (newest first)."""
         with self._lock:
-            self._position.has_position = has_position
-            self._position.side = side
-            self._position.entry_price = entry_price
-            self._position.trailing_stop_bps = trailing_stop_bps
-            self._position.highest_profit_bps = highest_profit_bps
-            self._position.current_pnl_bps = current_pnl_bps
-            self._position.bars_held = bars_held
-            self._position.max_bars = max_bars
-            self._position.mfe_bps = mfe_bps
-            self._position.mae_bps = mae_bps
-            self._position.is_reentry = is_reentry
-            self._position.liq_price = liq_price
-
-        self._broadcast_update()
-
-    def clear_position(self) -> None:
-        """Clear position (after exit)."""
-        with self._lock:
-            self._position = PositionData()
-        self._broadcast_update()
-
-    def update_stats(
-        self,
-        total_trades: Optional[int] = None,
-        wins: Optional[int] = None,
-        losses: Optional[int] = None,
-        win_rate: Optional[float] = None,
-        total_bps: Optional[float] = None,
-        avg_bps: Optional[float] = None,
-        profit_factor: Optional[float] = None,
-    ) -> None:
-        """Update session statistics."""
-        with self._lock:
-            if total_trades is not None:
-                self._stats.total_trades = total_trades
-            if wins is not None:
-                self._stats.wins = wins
-            if losses is not None:
-                self._stats.losses = losses
-            if win_rate is not None:
-                self._stats.win_rate = win_rate
-            if total_bps is not None:
-                self._stats.total_bps = total_bps
-            if avg_bps is not None:
-                self._stats.avg_bps = avg_bps
-            if profit_factor is not None:
-                self._stats.profit_factor = profit_factor
-
-        self._broadcast_update()
-
-    def add_trade(self, trade: Dict[str, Any]) -> None:
-        """Add a completed trade to history."""
-        with self._lock:
-            trade_data = TradeData(
-                trade_id=trade.get("trade_id", ""),
+            if name not in self._model_trades:
+                return
+            td = TradeData(
+                trade_id=trade.get("trade_id", str(len(self._model_trades[name]) + 1)),
                 direction=trade.get("direction", ""),
                 signal_type=trade.get("signal_type", ""),
                 entry_price=trade.get("entry_price", 0),
@@ -484,147 +299,28 @@ class DashboardState:
                 pnl_usd=trade.get("pnl_usd", 0.0),
                 liq_price=trade.get("liq_price", 0.0),
             )
-            self._trades.insert(0, trade_data)
-
+            self._model_trades[name].insert(0, td)
+            self._refresh_monitoring(name)
         self._broadcast_update()
 
-    def add_signal(self, signal: Dict[str, Any]) -> None:
-        """Add a signal to the log."""
-        import uuid
+    def get_model(self, name: str) -> Dict[str, Any]:
         with self._lock:
-            signal_data = SignalData(
-                id=signal.get("id", str(uuid.uuid4())[:8]),
-                action=signal.get("action", "SKIP"),
-                direction=signal.get("direction"),
-                rsi=signal.get("rsi", 0),
-                atr_ok=signal.get("atr_ok"),
-                ema_ok=signal.get("ema_ok"),
-                reason=signal.get("reason"),
-                time=signal.get("time", datetime.now(timezone.utc).isoformat()),
-            )
-            self._signals.insert(0, signal_data)
-            self._signals = self._signals[:50]
+            panel = self._models.get(name)
+            return asdict(panel) if panel else {}
 
-        self._broadcast_update()
-
-    def set_candle_history(self, candles: List[Dict[str, Any]]) -> None:
-        """Set initial candle history for chart (called once on startup)."""
+    def get_models(self) -> Dict[str, Dict[str, Any]]:
         with self._lock:
-            self._candles = [
-                CandleData(
-                    time=c["time"], open=c["open"], high=c["high"],
-                    low=c["low"], close=c["close"], volume=c["volume"],
-                    sma=c.get("sma"), rsi=c.get("rsi"),
-                )
-                for c in candles
-            ]
+            ordered = sorted(self._models.values(), key=lambda p: p.sort_order)
+            return {p.name: asdict(p) for p in ordered}
 
-    def update_current_candle(self, candle: Dict[str, Any]) -> None:
-        """Update the live (incomplete) candle on each tick."""
-        now_ms = time.time() * 1000
-        if now_ms - self._last_candle_broadcast < self._price_throttle_ms:
-            with self._lock:
-                self._current_candle = CandleData(
-                    time=candle["time"], open=candle["open"], high=candle["high"],
-                    low=candle["low"], close=candle["close"], volume=candle["volume"],
-                )
-            return
-        self._last_candle_broadcast = now_ms
-
+    def get_model_trades(self, name: str, limit: int = 0) -> List[Dict[str, Any]]:
         with self._lock:
-            self._current_candle = CandleData(
-                time=candle["time"], open=candle["open"], high=candle["high"],
-                low=candle["low"], close=candle["close"], volume=candle["volume"],
-            )
-        self._broadcast_update(msg_type="candle_update")
-
-    def close_candle(self, candle: Dict[str, Any]) -> None:
-        """Append a closed candle with indicators to history."""
-        with self._lock:
-            cd = CandleData(
-                time=candle["time"], open=candle["open"], high=candle["high"],
-                low=candle["low"], close=candle["close"], volume=candle["volume"],
-                sma=candle.get("sma"), rsi=candle.get("rsi"),
-            )
-            self._candles.append(cd)
-            self._current_candle = None
-        self._broadcast_update(msg_type="candle_close")
-
-    def get_candles(self) -> Dict[str, Any]:
-        with self._lock:
-            return {
-                "candles": [asdict(c) for c in self._candles],
-                "current_candle": asdict(self._current_candle) if self._current_candle else None,
-            }
-
-    def get_status(self) -> Dict[str, Any]:
-        with self._lock:
-            return asdict(self._status)
-
-    def get_position(self) -> Dict[str, Any]:
-        with self._lock:
-            return asdict(self._position)
-
-    def get_stats(self) -> Dict[str, Any]:
-        with self._lock:
-            return asdict(self._stats)
-
-    def get_trades(self, limit: int = 0) -> List[Dict[str, Any]]:
-        with self._lock:
-            trades = self._trades if limit <= 0 else self._trades[:limit]
+            trades = self._model_trades.get(name, [])
+            if limit > 0:
+                trades = trades[:limit]
             return [asdict(t) for t in trades]
 
-    def get_signals(self, limit: int = 20) -> List[Dict[str, Any]]:
-        with self._lock:
-            return [asdict(s) for s in self._signals[:limit]]
-
-    def get_config(self) -> Dict[str, Any]:
-        with self._lock:
-            return asdict(self._config)
-
-    def update_proximity(self, proximity: Dict[str, Any]) -> None:
-        """Update signal proximity data (V1.3)."""
-        with self._lock:
-            self._proximity = proximity
-
-    def get_proximity(self) -> Dict[str, Any]:
-        with self._lock:
-            return dict(self._proximity)
-
-    def update_risk(
-        self,
-        wallet_usd: float = 0.0,
-        drawdown_pct: float = 0.0,
-        health_multiplier: float = 1.0,
-        consecutive_losses: int = 0,
-        recent_winrate: float = 1.0,
-        peak_usd: float = 0.0,
-        last_qty: float = 0.0,
-        last_pnl_usd: float = 0.0,
-        total_skips: int = 0,
-    ) -> None:
-        """Update risk management state."""
-        with self._lock:
-            self._risk = RiskData(
-                wallet_usd=round(wallet_usd, 2),
-                drawdown_pct=round(drawdown_pct, 4),
-                health_multiplier=round(health_multiplier, 2),
-                consecutive_losses=consecutive_losses,
-                recent_winrate=round(recent_winrate, 2),
-                peak_usd=round(peak_usd, 2),
-                last_qty=last_qty,
-                last_pnl_usd=round(last_pnl_usd, 4),
-                total_skips=total_skips,
-            )
-        self._broadcast_update()
-
-    def get_session_start(self) -> Optional[datetime]:
-        """UTC datetime when the dashboard session started (or None)."""
-        return self._start_time
-
-    def get_risk(self) -> Dict[str, Any]:
-        with self._lock:
-            return asdict(self._risk)
+    # ---------------------------------------------------- monitoring math
 
     def _status_from_delta(self, delta_pct: float, pending: bool) -> str:
         if pending:
@@ -652,7 +348,6 @@ class DashboardState:
         return total
 
     def _earliest_trade_time(self, trades: List[TradeData]) -> Optional[datetime]:
-        """Earliest exit_time across trades (anchor for cumulative elapsed days)."""
         earliest: Optional[datetime] = None
         for t in trades:
             if not t.exit_time:
@@ -667,262 +362,197 @@ class DashboardState:
                 earliest = ts
         return earliest
 
-    def _refresh_ml_monitoring(self) -> None:
-        """Recompute 7-day window and cumulative drift vs backtest baseline.
+    def _refresh_monitoring(self, name: str) -> None:
+        """Recompute 7-day + cumulative drift vs backtest baseline.
 
-        Days elapsed is anchored to the earliest trade timestamp (survives bot
-        restarts), falling back to session start if no trades exist yet.
+        The ONE copy of what used to be three identical _refresh_*_monitoring
+        methods. Caller must hold self._lock. No-op when the model has no
+        baseline (daily_expected_bps == 0, e.g. the rule-based track).
         """
+        panel = self._models.get(name)
+        if panel is None or panel.daily_expected_bps <= 0:
+            return
+        trades = self._model_trades.get(name, [])
+
         now = datetime.now(timezone.utc)
-        anchor = self._earliest_trade_time(self._ml_trades) or self._start_time
+        anchor = self._earliest_trade_time(trades) or self._start_time
         days_elapsed = ((now - anchor).total_seconds() / 86400.0) if anchor else 0.0
         days_elapsed = max(days_elapsed, 0.0)
-        self._ml.ml_days_elapsed = round(days_elapsed, 2)
-        daily_exp = self._ml.ml_daily_expected_bps
+        panel.days_elapsed = round(days_elapsed, 2)
+        daily_exp = panel.daily_expected_bps
 
         # 7-day window
         cutoff_7d = now - timedelta(days=7)
-        actual_7d = self._sum_bps_since(self._ml_trades, cutoff_7d)
+        actual_7d = self._sum_bps_since(trades, cutoff_7d)
         window_days = min(days_elapsed, 7.0)
         expected_7d = window_days * daily_exp
-        self._ml.ml_7d_actual_bps = round(actual_7d, 1)
-        self._ml.ml_7d_expected_bps = round(expected_7d, 1)
+        panel.d7_actual_bps = round(actual_7d, 1)
+        panel.d7_expected_bps = round(expected_7d, 1)
         if expected_7d <= 0 or days_elapsed < 1.0:
-            self._ml.ml_7d_delta_pct = 0.0
-            self._ml.ml_7d_status = "pending"
+            panel.d7_delta_pct = 0.0
+            panel.d7_status = "pending"
         else:
             delta_7d = (actual_7d - expected_7d) / abs(expected_7d) * 100.0
-            self._ml.ml_7d_delta_pct = round(delta_7d, 1)
-            self._ml.ml_7d_status = self._status_from_delta(delta_7d, pending=False)
+            panel.d7_delta_pct = round(delta_7d, 1)
+            panel.d7_status = self._status_from_delta(delta_7d, pending=False)
 
-        # Cumulative since bot start
-        actual_cum = self._ml.ml_total_bps
+        # Cumulative since first trade
+        actual_cum = panel.total_bps
         expected_cum = days_elapsed * daily_exp
-        self._ml.ml_cum_actual_bps = round(actual_cum, 1)
-        self._ml.ml_cum_expected_bps = round(expected_cum, 1)
+        panel.cum_actual_bps = round(actual_cum, 1)
+        panel.cum_expected_bps = round(expected_cum, 1)
         if expected_cum <= 0 or days_elapsed < 1.0:
-            self._ml.ml_cum_delta_pct = 0.0
-            self._ml.ml_cum_status = "pending"
+            panel.cum_delta_pct = 0.0
+            panel.cum_status = "pending"
         else:
             delta_cum = (actual_cum - expected_cum) / abs(expected_cum) * 100.0
-            self._ml.ml_cum_delta_pct = round(delta_cum, 1)
-            self._ml.ml_cum_status = self._status_from_delta(delta_cum, pending=False)
+            panel.cum_delta_pct = round(delta_cum, 1)
+            panel.cum_status = self._status_from_delta(delta_cum, pending=False)
 
-    def _refresh_ml_attn_monitoring(self) -> None:
-        now = datetime.now(timezone.utc)
-        anchor = self._earliest_trade_time(self._ml_attn_trades) or self._start_time
-        days_elapsed = ((now - anchor).total_seconds() / 86400.0) if anchor else 0.0
-        days_elapsed = max(days_elapsed, 0.0)
-        self._ml_attn.ml_attn_days_elapsed = round(days_elapsed, 2)
-        daily_exp = self._ml_attn.ml_attn_daily_expected_bps
+    # ------------------------------------------------------------ status
 
-        cutoff_7d = now - timedelta(days=7)
-        actual_7d = self._sum_bps_since(self._ml_attn_trades, cutoff_7d)
-        window_days = min(days_elapsed, 7.0)
-        expected_7d = window_days * daily_exp
-        self._ml_attn.ml_attn_7d_actual_bps = round(actual_7d, 1)
-        self._ml_attn.ml_attn_7d_expected_bps = round(expected_7d, 1)
-        if expected_7d <= 0 or days_elapsed < 1.0:
-            self._ml_attn.ml_attn_7d_delta_pct = 0.0
-            self._ml_attn.ml_attn_7d_status = "pending"
-        else:
-            delta_7d = (actual_7d - expected_7d) / abs(expected_7d) * 100.0
-            self._ml_attn.ml_attn_7d_delta_pct = round(delta_7d, 1)
-            self._ml_attn.ml_attn_7d_status = self._status_from_delta(delta_7d, pending=False)
+    def update_status(
+        self,
+        price: Optional[float] = None,
+        regime: Optional[str] = None,
+        bar_count: Optional[int] = None,
+        rsi: Optional[float] = None,
+        atr_percentile: Optional[float] = None,
+        ema_separation: Optional[float] = None,
+    ) -> None:
+        """Update current status and shared indicators."""
+        is_price_only = (
+            price is not None and regime is None and
+            bar_count is None and rsi is None
+        )
+        if is_price_only:
+            now_ms = time.time() * 1000
+            if now_ms - self._last_price_broadcast < self._price_throttle_ms:
+                with self._lock:
+                    self._status.price = price
+                return
+            self._last_price_broadcast = now_ms
 
-        actual_cum = self._ml_attn.ml_attn_total_bps
-        expected_cum = days_elapsed * daily_exp
-        self._ml_attn.ml_attn_cum_actual_bps = round(actual_cum, 1)
-        self._ml_attn.ml_attn_cum_expected_bps = round(expected_cum, 1)
-        if expected_cum <= 0 or days_elapsed < 1.0:
-            self._ml_attn.ml_attn_cum_delta_pct = 0.0
-            self._ml_attn.ml_attn_cum_status = "pending"
-        else:
-            delta_cum = (actual_cum - expected_cum) / abs(expected_cum) * 100.0
-            self._ml_attn.ml_attn_cum_delta_pct = round(delta_cum, 1)
-            self._ml_attn.ml_attn_cum_status = self._status_from_delta(delta_cum, pending=False)
-
-    def update_ml(self, **kwargs) -> None:
-        """Update ML model state."""
         with self._lock:
-            for k, v in kwargs.items():
-                if hasattr(self._ml, k):
-                    setattr(self._ml, k, v)
-            self._refresh_ml_monitoring()
+            if price is not None:
+                self._status.price = price
+            if regime is not None:
+                self._status.regime = regime
+            if bar_count is not None:
+                self._status.bar_count = bar_count
+            if rsi is not None:
+                self._status.rsi = round(rsi, 1)
+            if atr_percentile is not None:
+                self._status.atr_percentile = round(atr_percentile, 1)
+            if ema_separation is not None:
+                self._status.ema_separation = round(ema_separation, 4)
+            if self._start_time:
+                delta = datetime.now(timezone.utc) - self._start_time
+                self._status.uptime_seconds = delta.total_seconds()
+            self._status.last_update = datetime.now(timezone.utc).isoformat()
+
         self._broadcast_update()
 
-    def get_ml(self) -> Dict[str, Any]:
-        with self._lock:
-            return asdict(self._ml)
+    # ------------------------------------------------------------ signals
 
-    def add_ml_trade(self, trade_dict: Dict[str, Any]) -> None:
-        """Add a completed ML trade."""
+    def add_signal(self, signal: Dict[str, Any]) -> None:
+        import uuid
         with self._lock:
-            td = TradeData(
-                trade_id=str(len(self._ml_trades) + 1),
-                direction=trade_dict.get("direction", ""),
-                signal_type=trade_dict.get("signal_type", ""),
-                entry_price=trade_dict.get("entry_price", 0),
-                exit_price=trade_dict.get("exit_price", 0),
-                net_profit_bps=trade_dict.get("net_profit_bps", 0),
-                mfe_bps=trade_dict.get("mfe_bps", 0),
-                mae_bps=trade_dict.get("mae_bps", 0),
-                exit_bar=trade_dict.get("exit_bar", 0),
-                exit_reason=trade_dict.get("exit_reason", ""),
-                is_reentry=trade_dict.get("is_reentry", False),
-                exit_time=trade_dict.get("exit_time", ""),
-                entry_time=trade_dict.get("entry_time", ""),
-                qty=trade_dict.get("qty", 0.0),
-                liq_price=trade_dict.get("liq_price", 0.0),
+            signal_data = SignalData(
+                id=signal.get("id", str(uuid.uuid4())[:8]),
+                action=signal.get("action", "SKIP"),
+                direction=signal.get("direction"),
+                rsi=signal.get("rsi", 0),
+                atr_ok=signal.get("atr_ok"),
+                ema_ok=signal.get("ema_ok"),
+                reason=signal.get("reason"),
+                time=signal.get("time", datetime.now(timezone.utc).isoformat()),
             )
-            self._ml_trades.insert(0, td)
-            self._refresh_ml_monitoring()
+            self._signals.insert(0, signal_data)
+            self._signals = self._signals[:50]
         self._broadcast_update()
 
-    # ML Attention state (A/B test)
-    def update_ml_attn(self, **kwargs) -> None:
-        """Update ML Attention model state."""
+    def update_proximity(self, proximity: Dict[str, Any]) -> None:
         with self._lock:
-            for k, v in kwargs.items():
-                if hasattr(self._ml_attn, k):
-                    setattr(self._ml_attn, k, v)
-            self._refresh_ml_attn_monitoring()
-        self._broadcast_update()
+            self._proximity = proximity
 
-    def get_ml_attn(self) -> Dict[str, Any]:
-        with self._lock:
-            return asdict(self._ml_attn)
+    # ------------------------------------------------------------ candles
 
-    def add_ml_attn_trade(self, trade_dict: Dict[str, Any]) -> None:
-        """Add a completed ML Attention trade."""
+    def set_candle_history(self, candles: List[Dict[str, Any]]) -> None:
         with self._lock:
-            td = TradeData(
-                trade_id=str(len(self._ml_attn_trades) + 1),
-                direction=trade_dict.get("direction", ""),
-                signal_type=trade_dict.get("signal_type", ""),
-                entry_price=trade_dict.get("entry_price", 0),
-                exit_price=trade_dict.get("exit_price", 0),
-                net_profit_bps=trade_dict.get("net_profit_bps", 0),
-                mfe_bps=trade_dict.get("mfe_bps", 0),
-                mae_bps=trade_dict.get("mae_bps", 0),
-                exit_bar=trade_dict.get("exit_bar", 0),
-                exit_reason=trade_dict.get("exit_reason", ""),
-                is_reentry=trade_dict.get("is_reentry", False),
-                exit_time=trade_dict.get("exit_time", ""),
-                entry_time=trade_dict.get("entry_time", ""),
-                qty=trade_dict.get("qty", 0.0),
-                liq_price=trade_dict.get("liq_price", 0.0),
+            self._candles = [
+                CandleData(
+                    time=c["time"], open=c["open"], high=c["high"],
+                    low=c["low"], close=c["close"], volume=c["volume"],
+                    sma=c.get("sma"), rsi=c.get("rsi"),
+                )
+                for c in candles
+            ]
+
+    def update_current_candle(self, candle: Dict[str, Any]) -> None:
+        now_ms = time.time() * 1000
+        throttled = now_ms - self._last_candle_broadcast < self._price_throttle_ms
+        with self._lock:
+            self._current_candle = CandleData(
+                time=candle["time"], open=candle["open"], high=candle["high"],
+                low=candle["low"], close=candle["close"], volume=candle["volume"],
             )
-            self._ml_attn_trades.insert(0, td)
-            self._refresh_ml_attn_monitoring()
-        self._broadcast_update()
+        if throttled:
+            return
+        self._last_candle_broadcast = now_ms
+        self._broadcast_update(msg_type="candle_update")
 
-    def get_ml_attn_trades(self, limit: int = 10) -> List[Dict[str, Any]]:
+    def close_candle(self, candle: Dict[str, Any]) -> None:
         with self._lock:
-            trades = self._ml_attn_trades[:limit] if limit > 0 else self._ml_attn_trades
-            return [asdict(t) for t in trades]
-
-    def get_ml_trades(self, limit: int = 0) -> List[Dict[str, Any]]:
-        with self._lock:
-            trades = self._ml_trades if limit <= 0 else self._ml_trades[:limit]
-            return [asdict(t) for t in trades]
-
-    # ML V3 state
-    def _refresh_ml_v3_monitoring(self) -> None:
-        now = datetime.now(timezone.utc)
-        anchor = self._earliest_trade_time(self._ml_v3_trades) or self._start_time
-        days_elapsed = ((now - anchor).total_seconds() / 86400.0) if anchor else 0.0
-        days_elapsed = max(days_elapsed, 0.0)
-        self._ml_v3.ml_v3_days_elapsed = round(days_elapsed, 2)
-        daily_exp = self._ml_v3.ml_v3_daily_expected_bps
-
-        cutoff_7d = now - timedelta(days=7)
-        actual_7d = self._sum_bps_since(self._ml_v3_trades, cutoff_7d)
-        window_days = min(days_elapsed, 7.0)
-        expected_7d = window_days * daily_exp
-        self._ml_v3.ml_v3_7d_actual_bps = round(actual_7d, 1)
-        self._ml_v3.ml_v3_7d_expected_bps = round(expected_7d, 1)
-        if expected_7d <= 0 or days_elapsed < 1.0:
-            self._ml_v3.ml_v3_7d_delta_pct = 0.0
-            self._ml_v3.ml_v3_7d_status = "pending"
-        else:
-            delta_7d = (actual_7d - expected_7d) / abs(expected_7d) * 100.0
-            self._ml_v3.ml_v3_7d_delta_pct = round(delta_7d, 1)
-            self._ml_v3.ml_v3_7d_status = self._status_from_delta(delta_7d, pending=False)
-
-        actual_cum = self._ml_v3.ml_v3_total_bps
-        expected_cum = days_elapsed * daily_exp
-        self._ml_v3.ml_v3_cum_actual_bps = round(actual_cum, 1)
-        self._ml_v3.ml_v3_cum_expected_bps = round(expected_cum, 1)
-        if expected_cum <= 0 or days_elapsed < 1.0:
-            self._ml_v3.ml_v3_cum_delta_pct = 0.0
-            self._ml_v3.ml_v3_cum_status = "pending"
-        else:
-            delta_cum = (actual_cum - expected_cum) / abs(expected_cum) * 100.0
-            self._ml_v3.ml_v3_cum_delta_pct = round(delta_cum, 1)
-            self._ml_v3.ml_v3_cum_status = self._status_from_delta(delta_cum, pending=False)
-
-    def update_ml_v3(self, **kwargs) -> None:
-        """Update ML V3 model state."""
-        with self._lock:
-            for k, v in kwargs.items():
-                if hasattr(self._ml_v3, k):
-                    setattr(self._ml_v3, k, v)
-            self._refresh_ml_v3_monitoring()
-        self._broadcast_update()
-
-    def get_ml_v3(self) -> Dict[str, Any]:
-        with self._lock:
-            return asdict(self._ml_v3)
-
-    def add_ml_v3_trade(self, trade_dict: Dict[str, Any]) -> None:
-        """Add a completed ML V3 trade."""
-        with self._lock:
-            td = TradeData(
-                trade_id=str(len(self._ml_v3_trades) + 1),
-                direction=trade_dict.get("direction", ""),
-                signal_type=trade_dict.get("signal_type", ""),
-                entry_price=trade_dict.get("entry_price", 0),
-                exit_price=trade_dict.get("exit_price", 0),
-                net_profit_bps=trade_dict.get("net_profit_bps", 0),
-                mfe_bps=trade_dict.get("mfe_bps", 0),
-                mae_bps=trade_dict.get("mae_bps", 0),
-                exit_bar=trade_dict.get("exit_bar", 0),
-                exit_reason=trade_dict.get("exit_reason", ""),
-                is_reentry=trade_dict.get("is_reentry", False),
-                exit_time=trade_dict.get("exit_time", ""),
-                entry_time=trade_dict.get("entry_time", ""),
-                qty=trade_dict.get("qty", 0.0),
-                liq_price=trade_dict.get("liq_price", 0.0),
+            cd = CandleData(
+                time=candle["time"], open=candle["open"], high=candle["high"],
+                low=candle["low"], close=candle["close"], volume=candle["volume"],
+                sma=candle.get("sma"), rsi=candle.get("rsi"),
             )
-            self._ml_v3_trades.insert(0, td)
-            self._refresh_ml_v3_monitoring()
-        self._broadcast_update()
+            self._candles.append(cd)
+            self._current_candle = None
+        self._broadcast_update(msg_type="candle_close")
 
-    def get_ml_v3_trades(self, limit: int = 10) -> List[Dict[str, Any]]:
+    # ------------------------------------------------------------ getters
+
+    def get_candles(self) -> Dict[str, Any]:
         with self._lock:
-            trades = self._ml_v3_trades[:limit] if limit > 0 else self._ml_v3_trades
-            return [asdict(t) for t in trades]
+            return {
+                "candles": [asdict(c) for c in self._candles],
+                "current_candle": asdict(self._current_candle) if self._current_candle else None,
+            }
+
+    def get_status(self) -> Dict[str, Any]:
+        with self._lock:
+            return asdict(self._status)
+
+    def get_signals(self, limit: int = 20) -> List[Dict[str, Any]]:
+        with self._lock:
+            return [asdict(s) for s in self._signals[:limit]]
+
+    def get_config(self) -> Dict[str, Any]:
+        with self._lock:
+            return asdict(self._config)
+
+    def get_proximity(self) -> Dict[str, Any]:
+        with self._lock:
+            return dict(self._proximity)
 
     def get_all(self) -> Dict[str, Any]:
-        """Get all dashboard data. Excludes candles (too large for WS broadcast)."""
+        """All dashboard data. Excludes candles (too large for WS broadcast)."""
         return {
             "type": "full",
             "status": self.get_status(),
-            "position": self.get_position(),
-            "stats": self.get_stats(),
-            "trades": self.get_trades(limit=0),
-            "signals": self.get_signals(),
             "config": self.get_config(),
+            "signals": self.get_signals(),
             "proximity": self.get_proximity(),
-            "risk": self.get_risk(),
-            "ml": self.get_ml(),
-            "ml_trades": self.get_ml_trades(limit=0),
-            "ml_attn": self.get_ml_attn(),
-            "ml_attn_trades": self.get_ml_attn_trades(limit=0),
-            "ml_v3": self.get_ml_v3(),
-            "ml_v3_trades": self.get_ml_v3_trades(limit=0),
+            "models": self.get_models(),
+            "model_trades": {
+                name: self.get_model_trades(name, limit=0) for name in self.get_models()
+            },
         }
+
+    # ------------------------------------------------------------ websocket
 
     def register_ws_client(self, queue: asyncio.Queue) -> None:
         with self._ws_lock:
@@ -955,6 +585,64 @@ class DashboardState:
                     queue.put_nowait(data)
                 except asyncio.QueueFull:
                     pass
+
+    # =================================================================
+    # LEGACY READ VIEWS — old-shape projections of the keyed panels,
+    # kept for the REST endpoints (/api/position, /api/stats, ...).
+    # Read-only; the write path is update_model()/add_model_trade().
+    # =================================================================
+
+    def get_position(self) -> Dict[str, Any]:
+        p = self.get_model("V_RULE_BASED")
+        return {
+            "has_position": p.get("has_position", False),
+            "side": p.get("position_side"),
+            "entry_price": p.get("position_entry_price", 0),
+            "current_price": self.get_status().get("price"),
+            "trailing_stop_bps": p.get("position_trailing_stop_bps", 0),
+            "highest_profit_bps": p.get("position_highest_profit_bps", 0),
+            "current_pnl_bps": p.get("position_pnl_bps", 0),
+            "bars_held": p.get("position_bars_held", 0),
+            "max_bars": p.get("position_max_bars", 10),
+            "mfe_bps": p.get("position_mfe_bps", 0),
+            "mae_bps": p.get("position_mae_bps", 0),
+            "is_reentry": p.get("is_reentry", False),
+            "liq_price": p.get("position_liq_price", 0),
+        }
+
+    def get_stats(self) -> Dict[str, Any]:
+        p = self.get_model("V_RULE_BASED")
+        keys = ("total_trades", "wins", "losses", "win_rate",
+                "total_bps", "avg_bps", "profit_factor")
+        return {k: p.get(k, 0) for k in keys}
+
+    def get_risk(self) -> Dict[str, Any]:
+        p = self.get_model("V_RULE_BASED")
+        keys = ("wallet_usd", "drawdown_pct", "health_multiplier",
+                "consecutive_losses", "recent_winrate", "peak_usd",
+                "last_qty", "last_pnl_usd", "total_skips")
+        return {k: p.get(k, 0) for k in keys}
+
+    def get_trades(self, limit: int = 0) -> List[Dict[str, Any]]:
+        return self.get_model_trades("V_RULE_BASED", limit=limit)
+
+    def get_ml(self) -> Dict[str, Any]:
+        return self.get_model("ML_V1")
+
+    def get_ml_attn(self) -> Dict[str, Any]:
+        return self.get_model("ML_ATTN")
+
+    def get_ml_v3(self) -> Dict[str, Any]:
+        return self.get_model("ML_V3")
+
+    def get_ml_trades(self, limit: int = 0) -> List[Dict[str, Any]]:
+        return self.get_model_trades("ML_V1", limit=limit)
+
+    def get_ml_attn_trades(self, limit: int = 10) -> List[Dict[str, Any]]:
+        return self.get_model_trades("ML_ATTN", limit=limit)
+
+    def get_ml_v3_trades(self, limit: int = 10) -> List[Dict[str, Any]]:
+        return self.get_model_trades("ML_V3", limit=limit)
 
 
 # Global state instance

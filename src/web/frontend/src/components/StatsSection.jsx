@@ -24,7 +24,7 @@ function StatsSection({ stats, risk, ml, trades, mlTrades, mlAttnTrades, mlV3Tra
       avg_bps: mlTrades.length > 0 ? totalBps / mlTrades.length : 0,
       profit_factor: grossLoss > 0 ? grossWin / grossLoss : 0,
     }
-    walletUsd = ml?.ml_wallet_usd ?? 0
+    walletUsd = ml?.wallet_usd ?? 0
   } else if (view === 'mlv2' && mlAttnTrades && mlAttnTrades.length > 0) {
     const wins = mlAttnTrades.filter(t => (t.net_profit_bps || 0) > 0).length
     const losses = mlAttnTrades.length - wins
@@ -76,7 +76,7 @@ function StatsSection({ stats, risk, ml, trades, mlTrades, mlAttnTrades, mlV3Tra
         avg_bps: allTrades.length > 0 ? totalBps / allTrades.length : 0,
         profit_factor: grossLoss > 0 ? Math.round((grossWin / grossLoss) * 100) / 100 : 0,
       }
-      walletUsd = (risk?.wallet_usd ?? 0) + (ml?.ml_wallet_usd ?? 0)
+      walletUsd = (risk?.wallet_usd ?? 0) + (ml?.wallet_usd ?? 0)
     }
   }
 
