@@ -1,5 +1,5 @@
 """
-FastAPI Web Server for Paper Trading Dashboard.
+FastAPI Web Server for the ALPHA trading dashboard.
 
 Provides REST API endpoints and WebSocket for real-time updates.
 Serves static React frontend files.
@@ -44,7 +44,7 @@ def create_app(state: Optional[DashboardState] = None) -> FastAPI:
         state = dashboard_state
 
     app = FastAPI(
-        title="Paper Trading Dashboard",
+        title="ALPHA Dashboard",
         description="Real-time monitoring for paper trading system",
         version="1.0.0",
     )
@@ -370,7 +370,7 @@ def create_app(state: Optional[DashboardState] = None) -> FastAPI:
             <!DOCTYPE html>
             <html>
             <head>
-                <title>Paper Trading Dashboard</title>
+                <title>ALPHA Dashboard</title>
                 <style>
                     body {
                         font-family: monospace;
@@ -392,7 +392,7 @@ def create_app(state: Optional[DashboardState] = None) -> FastAPI:
                 </style>
             </head>
             <body>
-                <h1>Paper Trading Dashboard</h1>
+                <h1>ALPHA Dashboard</h1>
                 <p class="label">API Endpoints:</p>
                 <ul>
                     <li><a href="/api/status">/api/status</a> - Current status</li>

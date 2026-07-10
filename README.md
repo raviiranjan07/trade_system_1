@@ -1,4 +1,4 @@
-# System 1 — Trading Stack
+# ALPHA — Trading Stack
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](#license)
@@ -153,11 +153,11 @@ dvc pull
 $env:PYTHONPATH="src"; python -m engine.bot
 
 # Backtest a single model independently
-$env:PYTHONPATH="src"; python -m engine.backtest --model ml_v3 --independent `
+$env:PYTHONPATH="src"; python -m research.backtest --model ml_v3 --independent `
     --exit-version v2 --start 2025-01-01 --end 2025-12-31
 
 # V1.4 only (rule-based, no ML)
-$env:PYTHONPATH="src"; python -m engine.backtest --v14-only --exit-version v2 `
+$env:PYTHONPATH="src"; python -m research.backtest --v14-only --exit-version v2 `
     --start 2024-01-01 --end 2025-12-31
 
 # Full pipeline: features → train → verify → backtest all → compare
@@ -167,7 +167,7 @@ dvc repro
 dvc repro compare_all
 
 # Threshold sweep on a single model
-$env:PYTHONPATH="src"; python -m engine.sweep_thresholds --model ml_v3
+$env:PYTHONPATH="src"; python -m research.sweep_thresholds --model ml_v3
 
 # Hyperparameter training sweep (frozen — manual trigger)
 dvc repro sweep_training_ml_v3
