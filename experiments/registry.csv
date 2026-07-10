@@ -1,3 +1,4 @@
+# FROZEN (2026-06-11): historical log only. Canonical registry = experiments/mlops_registry.csv. EXP numbering differs from REGISTRY.md.
 exp_id,date,category,strategy_name,status,timeframe,symbol,total_trades,win_rate_pct,total_return_pct,avg_winner_bps,avg_loser_bps,profit_factor,notes
 EXP-001,2026-02-04,rsi,RSI Behavior Analysis,COMPLETE,15m,BTCUSDT,596,99.7,N/A,72.8,N/A,N/A,RSI oversold/overbought bounce/drop rates ~99%. Failures are NOT trend-related. Tight stops kill 70-86% of winners.
 EXP-001,2026-02-04,ma,MA Behavior Analysis,COMPLETE,15m,BTCUSDT,N/A,98-99,N/A,N/A,N/A,N/A,All MA types (SMA/EMA/WMA) and periods show ~98-99% continuation. No differentiation between types.

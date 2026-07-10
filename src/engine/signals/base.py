@@ -15,10 +15,29 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 import onnxruntime as ort
+import yaml
 
 from ..strategy import Signal, Direction, SignalType
 
 logger = logging.getLogger(__name__)
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+def load_feature_spec(model_key: str) -> dict:
+    """Read a model's `features:` block from configs/params.yaml.
+
+    Single source of truth for input specs — train scripts and signal
+    adapters must both read from here so the spec cannot drift between
+    training and live inference. Returns {} if the block is absent
+    (callers fall back to their historical defaults).
+    """
+    try:
+        with open(REPO_ROOT / "configs/params.yaml") as f:
+            params = yaml.safe_load(f)
+        return params.get(model_key, {}).get("features", {}) or {}
+    except FileNotFoundError:
+        return {}
 
 
 class BaseSignalGenerator(ABC):

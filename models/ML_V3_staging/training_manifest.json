@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "model_name": "ML_V3",
-  "trained_at": "2026-04-18T17:58:12",
-  "git_commit": "207d8e12fbac8cccb4e3ccdf7a5935c5a6d62e8e",
+  "trained_at": "2026-06-11T10:45:19",
+  "git_commit": "c8847f2f96fdd51a7e5ad77e2ad9122ca294ac39",
   "data": {
     "feature_cache_path": "data\\features\\direction_prediction\\feature_cache.parquet",
     "feature_cache_md5": "e78134d5a94a39dfc609b9f18b03cc4d",
@@ -95,6 +95,6 @@
     "test_confident_accuracy": 0.3888
   },
   "mlflow": {
-    "run_id": "a99a493d915046af97e1d34363a45add"
+    "run_id": "bc840553f8be44bbb94b29c8cf475885"
   }
 }

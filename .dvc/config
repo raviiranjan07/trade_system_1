@@ -1,0 +1,4 @@
+[core]
+    remote = alpha_gdrive
+['remote "alpha_gdrive"']
+    url = gdrive://1rdr_25SctQyJcVZ-q4W0TRH8zr3CuNPn

@@ -42,9 +42,9 @@
       "detail": ""
     },
     {
-      "name": "ML_V1@staging points to v3",
+      "name": "ML_V1@staging points to v4",
       "passed": true,
-      "detail": "actual @staging -> v3"
+      "detail": "actual @staging -> v4"
     },
     {
       "name": "scaler is not full-data scaler (train_only declared)",

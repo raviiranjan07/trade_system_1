@@ -7,6 +7,23 @@ ml_v2_attention:
     conf_long: 0.6
     conf_short: 0.58
     exit_version: v2
+  features:
+    lookbacks:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    diff_sources:
+    - close
+    - rsi7
+    - range_position
+    - sma200_dist_pct
+    rsi_period: 7
+    range_position_window: 20
   training:
     lr: 0.001
     batch_size: 2048
@@ -30,6 +47,28 @@ ml_v3:
     conf_long: 0.4
     conf_short: 0.4
     exit_version: v2
+  features:
+    lookbacks:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    diff_sources:
+    - close
+    - rsi7
+    - range_position
+    - sma200_dist_pct
+    snap_features:
+    - rsi7
+    - range_position
+    - sma200_dist_pct
+    - atr_percentile
+    rsi_period: 7
+    range_position_window: 20
   training:
     hidden: 128
     dropout: 0.5
@@ -101,6 +140,18 @@ ml_v1:
     conf_long: 0.6
     conf_short: 0.58
     exit_version: v2
+  features:
+    roc_periods:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    rsi_period: 7
+    range_position_window: 50
   training:
     lr: 0.001
     weight_decay: 0.0001

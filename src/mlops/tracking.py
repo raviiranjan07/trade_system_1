@@ -14,8 +14,9 @@ import mlflow
 
 # Default backend: SQLite — uses absolute path so it works regardless of wdir.
 _REPO_ROOT = Path(__file__).resolve().parents[2]
+# print(_REPO_ROOT)
 DEFAULT_TRACKING_URI = f"sqlite:///{_REPO_ROOT / 'mlflow.db'}"
-
+print(f"MLflow tracking URI: {DEFAULT_TRACKING_URI}")
 
 def init(tracking_uri: str = DEFAULT_TRACKING_URI) -> None:
     """Point MLflow at a tracking store. Idempotent.
@@ -31,8 +32,8 @@ def start_run(experiment_name: str, run_name: str | None = None) -> str:
 
     Returns the MLflow run_id (32-char hex).
     """
-    mlflow.set_experiment(experiment_name)
-    run = mlflow.start_run(run_name=run_name)
+    mlflow.set_experiment(experiment_name) #READ first, then start run to avoid "Experiment with name 'X' already exists" error.
+    run = mlflow.start_run(run_name=run_name) #READ: if experiment doesn't exist, it will be created automatically when starting the run.
     return run.info.run_id
 
 

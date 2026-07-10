@@ -1,5 +1,10 @@
 # Experiment Registry
 
+> **FROZEN (2026-06-11):** Historical log only — no longer updated. The canonical experiment
+> registry is `experiments/mlops_registry.csv` (auto-written by `src/mlops/registry.py`).
+> NOTE: EXP numbering here does NOT match `registry.csv` (e.g. EXP-001 is EMA7 Breakout here,
+> RSI Behavior Analysis there).
+
 Master log of all trading strategy experiments. Each experiment tests one specific idea to find what works.
 
 ---

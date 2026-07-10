@@ -1,0 +1,5453 @@
+{
+  "model": "ml_v3",
+  "levels": [
+    2
+  ],
+  "exit_version": "v2",
+  "val_period": "2024-01-01 to 2024-12-31",
+  "test_period": "2025-01-01 to 2025-12-31",
+  "param_names": [
+    "learning_rate",
+    "batch_size",
+    "loss_weight_pnl",
+    "loss_weight_dir"
+  ],
+  "n_combos": 81,
+  "winner": {
+    "params": {
+      "learning_rate": 0.001,
+      "batch_size": 2048,
+      "loss_weight_pnl": 1.0,
+      "loss_weight_dir": 1.0
+    },
+    "test_all": {
+      "n": 623,
+      "bps": 8709.8,
+      "pf": 2.522,
+      "win_pct": 49.0,
+      "stop_pct": 51.0,
+      "dd": -200.9,
+      "avg": 14.0
+    },
+    "test_long": {
+      "n": 405,
+      "bps": 6344.8,
+      "pf": 2.711,
+      "win_pct": 49.1,
+      "stop_pct": 50.9,
+      "dd": -183.7,
+      "avg": 15.7
+    },
+    "test_short": {
+      "n": 218,
+      "bps": 2365.0,
+      "pf": 2.173,
+      "win_pct": 48.6,
+      "stop_pct": 51.4,
+      "dd": -192.1,
+      "avg": 10.8
+    },
+    "val_pf": 2.555
+  },
+  "all_val_results": [
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 512,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 0.5
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 293.6,
+      "all": {
+        "n": 1315,
+        "bps": 16277.6,
+        "pf": 2.372,
+        "win_pct": 49.9,
+        "stop_pct": 50.1,
+        "dd": -195.1,
+        "avg": 12.4
+      },
+      "long": {
+        "n": 891,
+        "bps": 11950.5,
+        "pf": 2.544,
+        "win_pct": 51.7,
+        "stop_pct": 48.3,
+        "dd": -171.3,
+        "avg": 13.4
+      },
+      "short": {
+        "n": 424,
+        "bps": 4327.1,
+        "pf": 2.05,
+        "win_pct": 46.0,
+        "stop_pct": 54.0,
+        "dd": -164.1,
+        "avg": 10.2
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 512,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 249.8,
+      "all": {
+        "n": 956,
+        "bps": 11618.9,
+        "pf": 2.283,
+        "win_pct": 47.4,
+        "stop_pct": 52.6,
+        "dd": -207.6,
+        "avg": 12.2
+      },
+      "long": {
+        "n": 672,
+        "bps": 8553.3,
+        "pf": 2.418,
+        "win_pct": 50.1,
+        "stop_pct": 49.9,
+        "dd": -181.1,
+        "avg": 12.7
+      },
+      "short": {
+        "n": 284,
+        "bps": 3065.6,
+        "pf": 2.014,
+        "win_pct": 40.8,
+        "stop_pct": 59.2,
+        "dd": -339.8,
+        "avg": 10.8
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 512,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 250.3,
+      "all": {
+        "n": 976,
+        "bps": 11825.7,
+        "pf": 2.298,
+        "win_pct": 48.2,
+        "stop_pct": 51.8,
+        "dd": -207.6,
+        "avg": 12.1
+      },
+      "long": {
+        "n": 664,
+        "bps": 8014.0,
+        "pf": 2.349,
+        "win_pct": 50.3,
+        "stop_pct": 49.7,
+        "dd": -162.6,
+        "avg": 12.1
+      },
+      "short": {
+        "n": 312,
+        "bps": 3811.7,
+        "pf": 2.203,
+        "win_pct": 43.6,
+        "stop_pct": 56.4,
+        "dd": -198.0,
+        "avg": 12.2
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 512,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 0.5
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 284.3,
+      "all": {
+        "n": 1256,
+        "bps": 15027.9,
+        "pf": 2.298,
+        "win_pct": 48.8,
+        "stop_pct": 51.2,
+        "dd": -189.2,
+        "avg": 12.0
+      },
+      "long": {
+        "n": 823,
+        "bps": 11018.5,
+        "pf": 2.542,
+        "win_pct": 51.8,
+        "stop_pct": 48.2,
+        "dd": -215.4,
+        "avg": 13.4
+      },
+      "short": {
+        "n": 433,
+        "bps": 4009.4,
+        "pf": 1.905,
+        "win_pct": 43.2,
+        "stop_pct": 56.8,
+        "dd": -325.6,
+        "avg": 9.3
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 512,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 287.7,
+      "all": {
+        "n": 1315,
+        "bps": 16277.6,
+        "pf": 2.372,
+        "win_pct": 49.9,
+        "stop_pct": 50.1,
+        "dd": -195.1,
+        "avg": 12.4
+      },
+      "long": {
+        "n": 891,
+        "bps": 11950.5,
+        "pf": 2.544,
+        "win_pct": 51.7,
+        "stop_pct": 48.3,
+        "dd": -171.3,
+        "avg": 13.4
+      },
+      "short": {
+        "n": 424,
+        "bps": 4327.1,
+        "pf": 2.05,
+        "win_pct": 46.0,
+        "stop_pct": 54.0,
+        "dd": -164.1,
+        "avg": 10.2
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 512,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 241.7,
+      "all": {
+        "n": 956,
+        "bps": 11618.9,
+        "pf": 2.283,
+        "win_pct": 47.4,
+        "stop_pct": 52.6,
+        "dd": -207.6,
+        "avg": 12.2
+      },
+      "long": {
+        "n": 672,
+        "bps": 8553.3,
+        "pf": 2.418,
+        "win_pct": 50.1,
+        "stop_pct": 49.9,
+        "dd": -181.1,
+        "avg": 12.7
+      },
+      "short": {
+        "n": 284,
+        "bps": 3065.6,
+        "pf": 2.014,
+        "win_pct": 40.8,
+        "stop_pct": 59.2,
+        "dd": -339.8,
+        "avg": 10.8
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 512,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 0.5
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 349.9,
+      "all": {
+        "n": 1309,
+        "bps": 15468.3,
+        "pf": 2.286,
+        "win_pct": 49.0,
+        "stop_pct": 51.0,
+        "dd": -164.0,
+        "avg": 11.8
+      },
+      "long": {
+        "n": 831,
+        "bps": 11408.5,
+        "pf": 2.592,
+        "win_pct": 52.1,
+        "stop_pct": 47.9,
+        "dd": -185.6,
+        "avg": 13.7
+      },
+      "short": {
+        "n": 478,
+        "bps": 4059.8,
+        "pf": 1.835,
+        "win_pct": 43.5,
+        "stop_pct": 56.5,
+        "dd": -243.6,
+        "avg": 8.5
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 512,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 278.1,
+      "all": {
+        "n": 1257,
+        "bps": 14998.9,
+        "pf": 2.296,
+        "win_pct": 48.8,
+        "stop_pct": 51.2,
+        "dd": -189.2,
+        "avg": 11.9
+      },
+      "long": {
+        "n": 824,
+        "bps": 11056.8,
+        "pf": 2.547,
+        "win_pct": 51.8,
+        "stop_pct": 48.2,
+        "dd": -215.4,
+        "avg": 13.4
+      },
+      "short": {
+        "n": 433,
+        "bps": 3942.1,
+        "pf": 1.89,
+        "win_pct": 43.2,
+        "stop_pct": 56.8,
+        "dd": -325.6,
+        "avg": 9.1
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 512,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 278.1,
+      "all": {
+        "n": 1315,
+        "bps": 16277.6,
+        "pf": 2.372,
+        "win_pct": 49.9,
+        "stop_pct": 50.1,
+        "dd": -195.1,
+        "avg": 12.4
+      },
+      "long": {
+        "n": 891,
+        "bps": 11950.5,
+        "pf": 2.544,
+        "win_pct": 51.7,
+        "stop_pct": 48.3,
+        "dd": -171.3,
+        "avg": 13.4
+      },
+      "short": {
+        "n": 424,
+        "bps": 4327.1,
+        "pf": 2.05,
+        "win_pct": 46.0,
+        "stop_pct": 54.0,
+        "dd": -164.1,
+        "avg": 10.2
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 1024,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 0.5
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 271.0,
+      "all": {
+        "n": 1287,
+        "bps": 15667.7,
+        "pf": 2.331,
+        "win_pct": 49.2,
+        "stop_pct": 50.8,
+        "dd": -246.1,
+        "avg": 12.2
+      },
+      "long": {
+        "n": 892,
+        "bps": 11937.8,
+        "pf": 2.542,
+        "win_pct": 51.8,
+        "stop_pct": 48.2,
+        "dd": -185.6,
+        "avg": 13.4
+      },
+      "short": {
+        "n": 395,
+        "bps": 3729.9,
+        "pf": 1.925,
+        "win_pct": 43.3,
+        "stop_pct": 56.7,
+        "dd": -240.5,
+        "avg": 9.4
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 1024,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 236.7,
+      "all": {
+        "n": 967,
+        "bps": 12672.6,
+        "pf": 2.411,
+        "win_pct": 48.4,
+        "stop_pct": 51.6,
+        "dd": -203.0,
+        "avg": 13.1
+      },
+      "long": {
+        "n": 639,
+        "bps": 9210.0,
+        "pf": 2.678,
+        "win_pct": 52.3,
+        "stop_pct": 47.7,
+        "dd": -163.1,
+        "avg": 14.4
+      },
+      "short": {
+        "n": 328,
+        "bps": 3462.6,
+        "pf": 1.992,
+        "win_pct": 40.9,
+        "stop_pct": 59.1,
+        "dd": -299.0,
+        "avg": 10.6
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 1024,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 231.3,
+      "all": {
+        "n": 989,
+        "bps": 12442.7,
+        "pf": 2.345,
+        "win_pct": 48.0,
+        "stop_pct": 52.0,
+        "dd": -239.0,
+        "avg": 12.6
+      },
+      "long": {
+        "n": 642,
+        "bps": 8887.9,
+        "pf": 2.593,
+        "win_pct": 51.7,
+        "stop_pct": 48.3,
+        "dd": -163.1,
+        "avg": 13.8
+      },
+      "short": {
+        "n": 347,
+        "bps": 3554.7,
+        "pf": 1.968,
+        "win_pct": 41.2,
+        "stop_pct": 58.8,
+        "dd": -322.6,
+        "avg": 10.2
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 1024,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 0.5
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 266.4,
+      "all": {
+        "n": 1220,
+        "bps": 15761.2,
+        "pf": 2.421,
+        "win_pct": 49.5,
+        "stop_pct": 50.5,
+        "dd": -228.1,
+        "avg": 12.9
+      },
+      "long": {
+        "n": 839,
+        "bps": 12014.5,
+        "pf": 2.681,
+        "win_pct": 52.7,
+        "stop_pct": 47.3,
+        "dd": -215.4,
+        "avg": 14.3
+      },
+      "short": {
+        "n": 381,
+        "bps": 3746.7,
+        "pf": 1.95,
+        "win_pct": 42.5,
+        "stop_pct": 57.5,
+        "dd": -240.5,
+        "avg": 9.8
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 1024,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 266.1,
+      "all": {
+        "n": 1287,
+        "bps": 15667.7,
+        "pf": 2.331,
+        "win_pct": 49.2,
+        "stop_pct": 50.8,
+        "dd": -246.1,
+        "avg": 12.2
+      },
+      "long": {
+        "n": 892,
+        "bps": 11937.8,
+        "pf": 2.542,
+        "win_pct": 51.8,
+        "stop_pct": 48.2,
+        "dd": -185.6,
+        "avg": 13.4
+      },
+      "short": {
+        "n": 395,
+        "bps": 3729.9,
+        "pf": 1.925,
+        "win_pct": 43.3,
+        "stop_pct": 56.7,
+        "dd": -240.5,
+        "avg": 9.4
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 1024,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 229.1,
+      "all": {
+        "n": 967,
+        "bps": 12672.6,
+        "pf": 2.411,
+        "win_pct": 48.4,
+        "stop_pct": 51.6,
+        "dd": -203.0,
+        "avg": 13.1
+      },
+      "long": {
+        "n": 639,
+        "bps": 9210.0,
+        "pf": 2.678,
+        "win_pct": 52.3,
+        "stop_pct": 47.7,
+        "dd": -163.1,
+        "avg": 14.4
+      },
+      "short": {
+        "n": 328,
+        "bps": 3462.6,
+        "pf": 1.992,
+        "win_pct": 40.9,
+        "stop_pct": 59.1,
+        "dd": -299.0,
+        "avg": 10.6
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 1024,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 0.5
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 330.5,
+      "all": {
+        "n": 1235,
+        "bps": 15233.3,
+        "pf": 2.341,
+        "win_pct": 48.9,
+        "stop_pct": 51.1,
+        "dd": -189.2,
+        "avg": 12.3
+      },
+      "long": {
+        "n": 778,
+        "bps": 11560.7,
+        "pf": 2.741,
+        "win_pct": 52.6,
+        "stop_pct": 47.4,
+        "dd": -217.1,
+        "avg": 14.9
+      },
+      "short": {
+        "n": 457,
+        "bps": 3672.6,
+        "pf": 1.779,
+        "win_pct": 42.7,
+        "stop_pct": 57.3,
+        "dd": -348.7,
+        "avg": 8.0
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 1024,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 263.5,
+      "all": {
+        "n": 1220,
+        "bps": 15761.2,
+        "pf": 2.421,
+        "win_pct": 49.5,
+        "stop_pct": 50.5,
+        "dd": -228.1,
+        "avg": 12.9
+      },
+      "long": {
+        "n": 839,
+        "bps": 12014.5,
+        "pf": 2.681,
+        "win_pct": 52.7,
+        "stop_pct": 47.3,
+        "dd": -215.4,
+        "avg": 14.3
+      },
+      "short": {
+        "n": 381,
+        "bps": 3746.7,
+        "pf": 1.95,
+        "win_pct": 42.5,
+        "stop_pct": 57.5,
+        "dd": -240.5,
+        "avg": 9.8
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 1024,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 263.7,
+      "all": {
+        "n": 1288,
+        "bps": 15693.8,
+        "pf": 2.333,
+        "win_pct": 49.2,
+        "stop_pct": 50.8,
+        "dd": -246.1,
+        "avg": 12.2
+      },
+      "long": {
+        "n": 892,
+        "bps": 11937.8,
+        "pf": 2.542,
+        "win_pct": 51.8,
+        "stop_pct": 48.2,
+        "dd": -185.6,
+        "avg": 13.4
+      },
+      "short": {
+        "n": 396,
+        "bps": 3755.9,
+        "pf": 1.932,
+        "win_pct": 43.4,
+        "stop_pct": 56.6,
+        "dd": -240.5,
+        "avg": 9.5
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 2048,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 0.5
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 270.8,
+      "all": {
+        "n": 1173,
+        "bps": 16195.6,
+        "pf": 2.554,
+        "win_pct": 50.6,
+        "stop_pct": 49.4,
+        "dd": -164.0,
+        "avg": 13.8
+      },
+      "long": {
+        "n": 739,
+        "bps": 12023.2,
+        "pf": 2.988,
+        "win_pct": 54.5,
+        "stop_pct": 45.5,
+        "dd": -199.1,
+        "avg": 16.3
+      },
+      "short": {
+        "n": 434,
+        "bps": 4172.4,
+        "pf": 1.954,
+        "win_pct": 44.0,
+        "stop_pct": 56.0,
+        "dd": -226.5,
+        "avg": 9.6
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 2048,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 270.3,
+      "all": {
+        "n": 1220,
+        "bps": 15617.4,
+        "pf": 2.411,
+        "win_pct": 49.6,
+        "stop_pct": 50.4,
+        "dd": -164.0,
+        "avg": 12.8
+      },
+      "long": {
+        "n": 761,
+        "bps": 11450.4,
+        "pf": 2.782,
+        "win_pct": 53.1,
+        "stop_pct": 46.9,
+        "dd": -199.1,
+        "avg": 15.0
+      },
+      "short": {
+        "n": 459,
+        "bps": 4167.1,
+        "pf": 1.897,
+        "win_pct": 43.8,
+        "stop_pct": 56.2,
+        "dd": -275.6,
+        "avg": 9.1
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 2048,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 271.5,
+      "all": {
+        "n": 1245,
+        "bps": 14948.4,
+        "pf": 2.31,
+        "win_pct": 49.1,
+        "stop_pct": 50.9,
+        "dd": -180.4,
+        "avg": 12.0
+      },
+      "long": {
+        "n": 771,
+        "bps": 10842.2,
+        "pf": 2.641,
+        "win_pct": 52.4,
+        "stop_pct": 47.6,
+        "dd": -199.1,
+        "avg": 14.1
+      },
+      "short": {
+        "n": 474,
+        "bps": 4106.2,
+        "pf": 1.854,
+        "win_pct": 43.7,
+        "stop_pct": 56.3,
+        "dd": -235.2,
+        "avg": 8.7
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 2048,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 0.5
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 270.2,
+      "all": {
+        "n": 1109,
+        "bps": 15203.1,
+        "pf": 2.519,
+        "win_pct": 49.9,
+        "stop_pct": 50.1,
+        "dd": -167.1,
+        "avg": 13.7
+      },
+      "long": {
+        "n": 700,
+        "bps": 11248.4,
+        "pf": 2.923,
+        "win_pct": 53.6,
+        "stop_pct": 46.4,
+        "dd": -199.1,
+        "avg": 16.1
+      },
+      "short": {
+        "n": 409,
+        "bps": 3954.7,
+        "pf": 1.951,
+        "win_pct": 43.5,
+        "stop_pct": 56.5,
+        "dd": -306.7,
+        "avg": 9.7
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 2048,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 267.6,
+      "all": {
+        "n": 1173,
+        "bps": 16195.6,
+        "pf": 2.554,
+        "win_pct": 50.6,
+        "stop_pct": 49.4,
+        "dd": -164.0,
+        "avg": 13.8
+      },
+      "long": {
+        "n": 739,
+        "bps": 12023.2,
+        "pf": 2.988,
+        "win_pct": 54.5,
+        "stop_pct": 45.5,
+        "dd": -199.1,
+        "avg": 16.3
+      },
+      "short": {
+        "n": 434,
+        "bps": 4172.4,
+        "pf": 1.954,
+        "win_pct": 44.0,
+        "stop_pct": 56.0,
+        "dd": -226.5,
+        "avg": 9.6
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 2048,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 265.8,
+      "all": {
+        "n": 1109,
+        "bps": 15203.1,
+        "pf": 2.519,
+        "win_pct": 49.9,
+        "stop_pct": 50.1,
+        "dd": -167.1,
+        "avg": 13.7
+      },
+      "long": {
+        "n": 700,
+        "bps": 11248.4,
+        "pf": 2.923,
+        "win_pct": 53.6,
+        "stop_pct": 46.4,
+        "dd": -199.1,
+        "avg": 16.1
+      },
+      "short": {
+        "n": 409,
+        "bps": 3954.7,
+        "pf": 1.951,
+        "win_pct": 43.5,
+        "stop_pct": 56.5,
+        "dd": -306.7,
+        "avg": 9.7
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 2048,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 269.9,
+      "all": {
+        "n": 1173,
+        "bps": 16195.6,
+        "pf": 2.554,
+        "win_pct": 50.6,
+        "stop_pct": 49.4,
+        "dd": -164.0,
+        "avg": 13.8
+      },
+      "long": {
+        "n": 739,
+        "bps": 12023.2,
+        "pf": 2.988,
+        "win_pct": 54.5,
+        "stop_pct": 45.5,
+        "dd": -199.1,
+        "avg": 16.3
+      },
+      "short": {
+        "n": 434,
+        "bps": 4172.4,
+        "pf": 1.954,
+        "win_pct": 44.0,
+        "stop_pct": 56.0,
+        "dd": -226.5,
+        "avg": 9.6
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 512,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 0.5
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 187.9,
+      "all": {
+        "n": 1206,
+        "bps": 16286.4,
+        "pf": 2.498,
+        "win_pct": 49.9,
+        "stop_pct": 50.1,
+        "dd": -145.9,
+        "avg": 13.5
+      },
+      "long": {
+        "n": 724,
+        "bps": 11701.8,
+        "pf": 2.929,
+        "win_pct": 53.5,
+        "stop_pct": 46.5,
+        "dd": -154.1,
+        "avg": 16.2
+      },
+      "short": {
+        "n": 482,
+        "bps": 4584.7,
+        "pf": 1.954,
+        "win_pct": 44.6,
+        "stop_pct": 55.4,
+        "dd": -231.6,
+        "avg": 9.5
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 512,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 188.6,
+      "all": {
+        "n": 1194,
+        "bps": 15336.7,
+        "pf": 2.399,
+        "win_pct": 49.0,
+        "stop_pct": 51.0,
+        "dd": -170.2,
+        "avg": 12.8
+      },
+      "long": {
+        "n": 746,
+        "bps": 11378.2,
+        "pf": 2.786,
+        "win_pct": 52.5,
+        "stop_pct": 47.5,
+        "dd": -181.1,
+        "avg": 15.3
+      },
+      "short": {
+        "n": 448,
+        "bps": 3958.5,
+        "pf": 1.862,
+        "win_pct": 43.1,
+        "stop_pct": 56.9,
+        "dd": -175.0,
+        "avg": 8.8
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 512,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 191.1,
+      "all": {
+        "n": 1199,
+        "bps": 15302.6,
+        "pf": 2.415,
+        "win_pct": 49.9,
+        "stop_pct": 50.1,
+        "dd": -198.0,
+        "avg": 12.8
+      },
+      "long": {
+        "n": 818,
+        "bps": 11905.9,
+        "pf": 2.727,
+        "win_pct": 53.2,
+        "stop_pct": 46.8,
+        "dd": -171.1,
+        "avg": 14.6
+      },
+      "short": {
+        "n": 381,
+        "bps": 3396.8,
+        "pf": 1.866,
+        "win_pct": 42.8,
+        "stop_pct": 57.2,
+        "dd": -218.0,
+        "avg": 8.9
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 512,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 0.5
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 373.3,
+      "all": {
+        "n": 1347,
+        "bps": 16405.3,
+        "pf": 2.379,
+        "win_pct": 50.9,
+        "stop_pct": 49.1,
+        "dd": -222.9,
+        "avg": 12.2
+      },
+      "long": {
+        "n": 993,
+        "bps": 13402.3,
+        "pf": 2.605,
+        "win_pct": 53.3,
+        "stop_pct": 46.7,
+        "dd": -150.7,
+        "avg": 13.5
+      },
+      "short": {
+        "n": 354,
+        "bps": 3003.0,
+        "pf": 1.847,
+        "win_pct": 44.4,
+        "stop_pct": 55.6,
+        "dd": -293.8,
+        "avg": 8.5
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 512,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 189.7,
+      "all": {
+        "n": 1206,
+        "bps": 16286.4,
+        "pf": 2.498,
+        "win_pct": 49.9,
+        "stop_pct": 50.1,
+        "dd": -145.9,
+        "avg": 13.5
+      },
+      "long": {
+        "n": 724,
+        "bps": 11701.8,
+        "pf": 2.929,
+        "win_pct": 53.5,
+        "stop_pct": 46.5,
+        "dd": -154.1,
+        "avg": 16.2
+      },
+      "short": {
+        "n": 482,
+        "bps": 4584.7,
+        "pf": 1.954,
+        "win_pct": 44.6,
+        "stop_pct": 55.4,
+        "dd": -231.6,
+        "avg": 9.5
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 512,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 187.9,
+      "all": {
+        "n": 1194,
+        "bps": 15336.7,
+        "pf": 2.399,
+        "win_pct": 49.0,
+        "stop_pct": 51.0,
+        "dd": -170.2,
+        "avg": 12.8
+      },
+      "long": {
+        "n": 746,
+        "bps": 11378.2,
+        "pf": 2.786,
+        "win_pct": 52.5,
+        "stop_pct": 47.5,
+        "dd": -181.1,
+        "avg": 15.3
+      },
+      "short": {
+        "n": 448,
+        "bps": 3958.5,
+        "pf": 1.862,
+        "win_pct": 43.1,
+        "stop_pct": 56.9,
+        "dd": -175.0,
+        "avg": 8.8
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 512,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 0.5
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 372.8,
+      "all": {
+        "n": 1147,
+        "bps": 15155.8,
+        "pf": 2.485,
+        "win_pct": 50.6,
+        "stop_pct": 49.4,
+        "dd": -200.8,
+        "avg": 13.2
+      },
+      "long": {
+        "n": 921,
+        "bps": 13200.9,
+        "pf": 2.69,
+        "win_pct": 52.9,
+        "stop_pct": 47.1,
+        "dd": -166.9,
+        "avg": 14.3
+      },
+      "short": {
+        "n": 226,
+        "bps": 1954.9,
+        "pf": 1.817,
+        "win_pct": 41.2,
+        "stop_pct": 58.8,
+        "dd": -185.6,
+        "avg": 8.6
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 1024,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 235.3,
+      "all": {
+        "n": 923,
+        "bps": 11920.2,
+        "pf": 2.412,
+        "win_pct": 49.2,
+        "stop_pct": 50.8,
+        "dd": -181.6,
+        "avg": 12.9
+      },
+      "long": {
+        "n": 682,
+        "bps": 9517.1,
+        "pf": 2.657,
+        "win_pct": 53.2,
+        "stop_pct": 46.8,
+        "dd": -165.5,
+        "avg": 14.0
+      },
+      "short": {
+        "n": 241,
+        "bps": 2403.1,
+        "pf": 1.89,
+        "win_pct": 37.8,
+        "stop_pct": 62.2,
+        "dd": -287.2,
+        "avg": 10.0
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 1024,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 0.5
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 263.3,
+      "all": {
+        "n": 1285,
+        "bps": 15511.2,
+        "pf": 2.326,
+        "win_pct": 49.4,
+        "stop_pct": 50.6,
+        "dd": -225.2,
+        "avg": 12.1
+      },
+      "long": {
+        "n": 897,
+        "bps": 11540.4,
+        "pf": 2.474,
+        "win_pct": 51.5,
+        "stop_pct": 48.5,
+        "dd": -185.6,
+        "avg": 12.9
+      },
+      "short": {
+        "n": 388,
+        "bps": 3970.8,
+        "pf": 2.026,
+        "win_pct": 44.6,
+        "stop_pct": 55.4,
+        "dd": -271.6,
+        "avg": 10.2
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 1024,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 221.5,
+      "all": {
+        "n": 875,
+        "bps": 12043.5,
+        "pf": 2.524,
+        "win_pct": 49.8,
+        "stop_pct": 50.2,
+        "dd": -243.6,
+        "avg": 13.8
+      },
+      "long": {
+        "n": 664,
+        "bps": 9703.3,
+        "pf": 2.745,
+        "win_pct": 53.5,
+        "stop_pct": 46.5,
+        "dd": -183.5,
+        "avg": 14.6
+      },
+      "short": {
+        "n": 211,
+        "bps": 2340.2,
+        "pf": 2.0,
+        "win_pct": 38.4,
+        "stop_pct": 61.6,
+        "dd": -278.4,
+        "avg": 11.1
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 1024,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 0.5
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 250.4,
+      "all": {
+        "n": 1299,
+        "bps": 16411.0,
+        "pf": 2.394,
+        "win_pct": 49.7,
+        "stop_pct": 50.3,
+        "dd": -172.3,
+        "avg": 12.6
+      },
+      "long": {
+        "n": 850,
+        "bps": 12176.7,
+        "pf": 2.683,
+        "win_pct": 52.7,
+        "stop_pct": 47.3,
+        "dd": -185.4,
+        "avg": 14.3
+      },
+      "short": {
+        "n": 449,
+        "bps": 4234.3,
+        "pf": 1.933,
+        "win_pct": 43.9,
+        "stop_pct": 56.1,
+        "dd": -182.1,
+        "avg": 9.4
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 1024,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 268.3,
+      "all": {
+        "n": 1285,
+        "bps": 15511.2,
+        "pf": 2.326,
+        "win_pct": 49.4,
+        "stop_pct": 50.6,
+        "dd": -225.2,
+        "avg": 12.1
+      },
+      "long": {
+        "n": 897,
+        "bps": 11540.4,
+        "pf": 2.474,
+        "win_pct": 51.5,
+        "stop_pct": 48.5,
+        "dd": -185.6,
+        "avg": 12.9
+      },
+      "short": {
+        "n": 388,
+        "bps": 3970.8,
+        "pf": 2.026,
+        "win_pct": 44.6,
+        "stop_pct": 55.4,
+        "dd": -271.6,
+        "avg": 10.2
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 1024,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 251.5,
+      "all": {
+        "n": 1286,
+        "bps": 16157.2,
+        "pf": 2.396,
+        "win_pct": 50.0,
+        "stop_pct": 50.0,
+        "dd": -182.0,
+        "avg": 12.6
+      },
+      "long": {
+        "n": 869,
+        "bps": 12599.2,
+        "pf": 2.716,
+        "win_pct": 53.0,
+        "stop_pct": 47.0,
+        "dd": -144.0,
+        "avg": 14.5
+      },
+      "short": {
+        "n": 417,
+        "bps": 3558.0,
+        "pf": 1.841,
+        "win_pct": 43.6,
+        "stop_pct": 56.4,
+        "dd": -217.9,
+        "avg": 8.5
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 2048,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 237.5,
+      "all": {
+        "n": 942,
+        "bps": 12488.6,
+        "pf": 2.439,
+        "win_pct": 48.8,
+        "stop_pct": 51.2,
+        "dd": -203.0,
+        "avg": 13.3
+      },
+      "long": {
+        "n": 611,
+        "bps": 9044.9,
+        "pf": 2.739,
+        "win_pct": 52.7,
+        "stop_pct": 47.3,
+        "dd": -145.1,
+        "avg": 14.8
+      },
+      "short": {
+        "n": 331,
+        "bps": 3443.7,
+        "pf": 1.991,
+        "win_pct": 41.7,
+        "stop_pct": 58.3,
+        "dd": -281.5,
+        "avg": 10.4
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 2048,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 242.3,
+      "all": {
+        "n": 952,
+        "bps": 13438.7,
+        "pf": 2.555,
+        "win_pct": 49.6,
+        "stop_pct": 50.4,
+        "dd": -180.0,
+        "avg": 14.1
+      },
+      "long": {
+        "n": 615,
+        "bps": 9729.6,
+        "pf": 2.89,
+        "win_pct": 53.5,
+        "stop_pct": 46.5,
+        "dd": -145.1,
+        "avg": 15.8
+      },
+      "short": {
+        "n": 337,
+        "bps": 3709.0,
+        "pf": 2.062,
+        "win_pct": 42.4,
+        "stop_pct": 57.6,
+        "dd": -304.6,
+        "avg": 11.0
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 2048,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 244.7,
+      "all": {
+        "n": 943,
+        "bps": 12540.6,
+        "pf": 2.445,
+        "win_pct": 48.9,
+        "stop_pct": 51.1,
+        "dd": -180.0,
+        "avg": 13.3
+      },
+      "long": {
+        "n": 611,
+        "bps": 9044.9,
+        "pf": 2.739,
+        "win_pct": 52.7,
+        "stop_pct": 47.3,
+        "dd": -145.1,
+        "avg": 14.8
+      },
+      "short": {
+        "n": 332,
+        "bps": 3495.7,
+        "pf": 2.006,
+        "win_pct": 41.9,
+        "stop_pct": 58.1,
+        "dd": -229.5,
+        "avg": 10.5
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 2048,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 0.5
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 281.9,
+      "all": {
+        "n": 1151,
+        "bps": 15622.1,
+        "pf": 2.502,
+        "win_pct": 49.8,
+        "stop_pct": 50.2,
+        "dd": -216.0,
+        "avg": 13.6
+      },
+      "long": {
+        "n": 784,
+        "bps": 11945.0,
+        "pf": 2.803,
+        "win_pct": 53.1,
+        "stop_pct": 46.9,
+        "dd": -235.1,
+        "avg": 15.2
+      },
+      "short": {
+        "n": 367,
+        "bps": 3677.1,
+        "pf": 1.973,
+        "win_pct": 42.8,
+        "stop_pct": 57.2,
+        "dd": -297.1,
+        "avg": 10.0
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 2048,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 282.3,
+      "all": {
+        "n": 1227,
+        "bps": 15111.2,
+        "pf": 2.341,
+        "win_pct": 49.0,
+        "stop_pct": 51.0,
+        "dd": -259.2,
+        "avg": 12.3
+      },
+      "long": {
+        "n": 850,
+        "bps": 11304.9,
+        "pf": 2.528,
+        "win_pct": 51.6,
+        "stop_pct": 48.4,
+        "dd": -175.6,
+        "avg": 13.3
+      },
+      "short": {
+        "n": 377,
+        "bps": 3806.3,
+        "pf": 1.984,
+        "win_pct": 43.0,
+        "stop_pct": 57.0,
+        "dd": -271.6,
+        "avg": 10.1
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 2048,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 244.0,
+      "all": {
+        "n": 951,
+        "bps": 13386.7,
+        "pf": 2.549,
+        "win_pct": 49.5,
+        "stop_pct": 50.5,
+        "dd": -180.0,
+        "avg": 14.1
+      },
+      "long": {
+        "n": 614,
+        "bps": 9677.6,
+        "pf": 2.88,
+        "win_pct": 53.4,
+        "stop_pct": 46.6,
+        "dd": -145.1,
+        "avg": 15.8
+      },
+      "short": {
+        "n": 337,
+        "bps": 3709.0,
+        "pf": 2.062,
+        "win_pct": 42.4,
+        "stop_pct": 57.6,
+        "dd": -304.6,
+        "avg": 11.0
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 512,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 0.5
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 187.7,
+      "all": {
+        "n": 1057,
+        "bps": 14772.0,
+        "pf": 2.563,
+        "win_pct": 50.3,
+        "stop_pct": 49.7,
+        "dd": -174.4,
+        "avg": 14.0
+      },
+      "long": {
+        "n": 743,
+        "bps": 11867.1,
+        "pf": 2.889,
+        "win_pct": 53.0,
+        "stop_pct": 47.0,
+        "dd": -143.3,
+        "avg": 16.0
+      },
+      "short": {
+        "n": 314,
+        "bps": 2904.9,
+        "pf": 1.917,
+        "win_pct": 43.9,
+        "stop_pct": 56.1,
+        "dd": -203.2,
+        "avg": 9.3
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 512,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 187.1,
+      "all": {
+        "n": 1137,
+        "bps": 15242.0,
+        "pf": 2.515,
+        "win_pct": 50.8,
+        "stop_pct": 49.2,
+        "dd": -210.4,
+        "avg": 13.4
+      },
+      "long": {
+        "n": 734,
+        "bps": 11865.7,
+        "pf": 2.968,
+        "win_pct": 54.4,
+        "stop_pct": 45.6,
+        "dd": -147.2,
+        "avg": 16.2
+      },
+      "short": {
+        "n": 403,
+        "bps": 3376.3,
+        "pf": 1.837,
+        "win_pct": 44.4,
+        "stop_pct": 55.6,
+        "dd": -206.9,
+        "avg": 8.4
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 512,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 189.9,
+      "all": {
+        "n": 1140,
+        "bps": 14985.0,
+        "pf": 2.489,
+        "win_pct": 51.0,
+        "stop_pct": 49.0,
+        "dd": -180.6,
+        "avg": 13.1
+      },
+      "long": {
+        "n": 762,
+        "bps": 11768.8,
+        "pf": 2.868,
+        "win_pct": 54.1,
+        "stop_pct": 45.9,
+        "dd": -144.0,
+        "avg": 15.4
+      },
+      "short": {
+        "n": 378,
+        "bps": 3216.2,
+        "pf": 1.855,
+        "win_pct": 44.7,
+        "stop_pct": 55.3,
+        "dd": -214.2,
+        "avg": 8.5
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 512,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 0.5
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 188.1,
+      "all": {
+        "n": 1057,
+        "bps": 15633.8,
+        "pf": 2.67,
+        "win_pct": 50.8,
+        "stop_pct": 49.2,
+        "dd": -167.8,
+        "avg": 14.8
+      },
+      "long": {
+        "n": 716,
+        "bps": 12785.5,
+        "pf": 3.213,
+        "win_pct": 55.2,
+        "stop_pct": 44.8,
+        "dd": -111.5,
+        "avg": 17.9
+      },
+      "short": {
+        "n": 341,
+        "bps": 2848.3,
+        "pf": 1.795,
+        "win_pct": 41.6,
+        "stop_pct": 58.4,
+        "dd": -162.8,
+        "avg": 8.4
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 512,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 188.1,
+      "all": {
+        "n": 1057,
+        "bps": 14772.0,
+        "pf": 2.563,
+        "win_pct": 50.3,
+        "stop_pct": 49.7,
+        "dd": -174.4,
+        "avg": 14.0
+      },
+      "long": {
+        "n": 743,
+        "bps": 11867.1,
+        "pf": 2.889,
+        "win_pct": 53.0,
+        "stop_pct": 47.0,
+        "dd": -143.3,
+        "avg": 16.0
+      },
+      "short": {
+        "n": 314,
+        "bps": 2904.9,
+        "pf": 1.917,
+        "win_pct": 43.9,
+        "stop_pct": 56.1,
+        "dd": -203.2,
+        "avg": 9.3
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 512,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 188.5,
+      "all": {
+        "n": 1137,
+        "bps": 15242.0,
+        "pf": 2.515,
+        "win_pct": 50.8,
+        "stop_pct": 49.2,
+        "dd": -210.4,
+        "avg": 13.4
+      },
+      "long": {
+        "n": 734,
+        "bps": 11865.7,
+        "pf": 2.968,
+        "win_pct": 54.4,
+        "stop_pct": 45.6,
+        "dd": -147.2,
+        "avg": 16.2
+      },
+      "short": {
+        "n": 403,
+        "bps": 3376.3,
+        "pf": 1.837,
+        "win_pct": 44.4,
+        "stop_pct": 55.6,
+        "dd": -206.9,
+        "avg": 8.4
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 512,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 0.5
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 188.5,
+      "all": {
+        "n": 1126,
+        "bps": 15480.5,
+        "pf": 2.533,
+        "win_pct": 50.2,
+        "stop_pct": 49.8,
+        "dd": -149.1,
+        "avg": 13.7
+      },
+      "long": {
+        "n": 696,
+        "bps": 11306.6,
+        "pf": 2.969,
+        "win_pct": 54.2,
+        "stop_pct": 45.8,
+        "dd": -129.5,
+        "avg": 16.2
+      },
+      "short": {
+        "n": 430,
+        "bps": 4173.9,
+        "pf": 1.958,
+        "win_pct": 43.7,
+        "stop_pct": 56.3,
+        "dd": -315.4,
+        "avg": 9.7
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 512,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 187.8,
+      "all": {
+        "n": 1057,
+        "bps": 15633.8,
+        "pf": 2.67,
+        "win_pct": 50.8,
+        "stop_pct": 49.2,
+        "dd": -167.8,
+        "avg": 14.8
+      },
+      "long": {
+        "n": 716,
+        "bps": 12785.5,
+        "pf": 3.213,
+        "win_pct": 55.2,
+        "stop_pct": 44.8,
+        "dd": -111.5,
+        "avg": 17.9
+      },
+      "short": {
+        "n": 341,
+        "bps": 2848.3,
+        "pf": 1.795,
+        "win_pct": 41.6,
+        "stop_pct": 58.4,
+        "dd": -162.8,
+        "avg": 8.4
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 512,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 187.6,
+      "all": {
+        "n": 1057,
+        "bps": 14772.0,
+        "pf": 2.563,
+        "win_pct": 50.3,
+        "stop_pct": 49.7,
+        "dd": -174.4,
+        "avg": 14.0
+      },
+      "long": {
+        "n": 743,
+        "bps": 11867.1,
+        "pf": 2.889,
+        "win_pct": 53.0,
+        "stop_pct": 47.0,
+        "dd": -143.3,
+        "avg": 16.0
+      },
+      "short": {
+        "n": 314,
+        "bps": 2904.9,
+        "pf": 1.917,
+        "win_pct": 43.9,
+        "stop_pct": 56.1,
+        "dd": -203.2,
+        "avg": 9.3
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 1024,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 0.5
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 182.4,
+      "all": {
+        "n": 1147,
+        "bps": 15764.7,
+        "pf": 2.534,
+        "win_pct": 50.2,
+        "stop_pct": 49.8,
+        "dd": -174.4,
+        "avg": 13.7
+      },
+      "long": {
+        "n": 795,
+        "bps": 12406.6,
+        "pf": 2.863,
+        "win_pct": 53.5,
+        "stop_pct": 46.5,
+        "dd": -132.0,
+        "avg": 15.6
+      },
+      "short": {
+        "n": 352,
+        "bps": 3358.0,
+        "pf": 1.928,
+        "win_pct": 42.9,
+        "stop_pct": 57.1,
+        "dd": -198.6,
+        "avg": 9.5
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 1024,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 184.0,
+      "all": {
+        "n": 1125,
+        "bps": 15580.6,
+        "pf": 2.557,
+        "win_pct": 50.6,
+        "stop_pct": 49.4,
+        "dd": -185.9,
+        "avg": 13.8
+      },
+      "long": {
+        "n": 830,
+        "bps": 12537.0,
+        "pf": 2.795,
+        "win_pct": 53.3,
+        "stop_pct": 46.7,
+        "dd": -180.0,
+        "avg": 15.1
+      },
+      "short": {
+        "n": 295,
+        "bps": 3043.6,
+        "pf": 2.006,
+        "win_pct": 43.1,
+        "stop_pct": 56.9,
+        "dd": -234.0,
+        "avg": 10.3
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 1024,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 183.5,
+      "all": {
+        "n": 1252,
+        "bps": 16508.7,
+        "pf": 2.496,
+        "win_pct": 51.0,
+        "stop_pct": 49.0,
+        "dd": -200.3,
+        "avg": 13.2
+      },
+      "long": {
+        "n": 945,
+        "bps": 13217.1,
+        "pf": 2.661,
+        "win_pct": 53.2,
+        "stop_pct": 46.8,
+        "dd": -172.2,
+        "avg": 14.0
+      },
+      "short": {
+        "n": 307,
+        "bps": 3291.6,
+        "pf": 2.069,
+        "win_pct": 44.3,
+        "stop_pct": 55.7,
+        "dd": -162.0,
+        "avg": 10.7
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 1024,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 0.5
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 361.8,
+      "all": {
+        "n": 1427,
+        "bps": 15896.5,
+        "pf": 2.239,
+        "win_pct": 50.0,
+        "stop_pct": 50.0,
+        "dd": -228.1,
+        "avg": 11.1
+      },
+      "long": {
+        "n": 1009,
+        "bps": 12873.8,
+        "pf": 2.493,
+        "win_pct": 52.5,
+        "stop_pct": 47.5,
+        "dd": -132.9,
+        "avg": 12.8
+      },
+      "short": {
+        "n": 418,
+        "bps": 3022.7,
+        "pf": 1.718,
+        "win_pct": 44.0,
+        "stop_pct": 56.0,
+        "dd": -353.8,
+        "avg": 7.2
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 1024,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 183.8,
+      "all": {
+        "n": 1147,
+        "bps": 15764.7,
+        "pf": 2.534,
+        "win_pct": 50.2,
+        "stop_pct": 49.8,
+        "dd": -174.4,
+        "avg": 13.7
+      },
+      "long": {
+        "n": 795,
+        "bps": 12406.6,
+        "pf": 2.863,
+        "win_pct": 53.5,
+        "stop_pct": 46.5,
+        "dd": -132.0,
+        "avg": 15.6
+      },
+      "short": {
+        "n": 352,
+        "bps": 3358.0,
+        "pf": 1.928,
+        "win_pct": 42.9,
+        "stop_pct": 57.1,
+        "dd": -198.6,
+        "avg": 9.5
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 1024,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 183.1,
+      "all": {
+        "n": 1128,
+        "bps": 15551.9,
+        "pf": 2.548,
+        "win_pct": 50.5,
+        "stop_pct": 49.5,
+        "dd": -190.4,
+        "avg": 13.8
+      },
+      "long": {
+        "n": 831,
+        "bps": 12544.3,
+        "pf": 2.796,
+        "win_pct": 53.3,
+        "stop_pct": 46.7,
+        "dd": -180.0,
+        "avg": 15.1
+      },
+      "short": {
+        "n": 297,
+        "bps": 3007.6,
+        "pf": 1.983,
+        "win_pct": 42.8,
+        "stop_pct": 57.2,
+        "dd": -234.0,
+        "avg": 10.1
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 1024,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 0.5
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 260.7,
+      "all": {
+        "n": 1095,
+        "bps": 14641.0,
+        "pf": 2.49,
+        "win_pct": 50.1,
+        "stop_pct": 49.9,
+        "dd": -275.9,
+        "avg": 13.4
+      },
+      "long": {
+        "n": 772,
+        "bps": 11544.9,
+        "pf": 2.777,
+        "win_pct": 53.2,
+        "stop_pct": 46.8,
+        "dd": -162.0,
+        "avg": 15.0
+      },
+      "short": {
+        "n": 323,
+        "bps": 3096.1,
+        "pf": 1.93,
+        "win_pct": 42.7,
+        "stop_pct": 57.3,
+        "dd": -241.7,
+        "avg": 9.6
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 1024,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 365.3,
+      "all": {
+        "n": 1425,
+        "bps": 15907.5,
+        "pf": 2.241,
+        "win_pct": 50.0,
+        "stop_pct": 50.0,
+        "dd": -228.1,
+        "avg": 11.2
+      },
+      "long": {
+        "n": 1007,
+        "bps": 12884.8,
+        "pf": 2.498,
+        "win_pct": 52.5,
+        "stop_pct": 47.5,
+        "dd": -132.9,
+        "avg": 12.8
+      },
+      "short": {
+        "n": 418,
+        "bps": 3022.7,
+        "pf": 1.718,
+        "win_pct": 44.0,
+        "stop_pct": 56.0,
+        "dd": -353.8,
+        "avg": 7.2
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 1024,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 182.7,
+      "all": {
+        "n": 1147,
+        "bps": 15764.7,
+        "pf": 2.534,
+        "win_pct": 50.2,
+        "stop_pct": 49.8,
+        "dd": -174.4,
+        "avg": 13.7
+      },
+      "long": {
+        "n": 795,
+        "bps": 12406.6,
+        "pf": 2.863,
+        "win_pct": 53.5,
+        "stop_pct": 46.5,
+        "dd": -132.0,
+        "avg": 15.6
+      },
+      "short": {
+        "n": 352,
+        "bps": 3358.0,
+        "pf": 1.928,
+        "win_pct": 42.9,
+        "stop_pct": 57.1,
+        "dd": -198.6,
+        "avg": 9.5
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 2048,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 0.5
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 388.5,
+      "all": {
+        "n": 1219,
+        "bps": 14496.4,
+        "pf": 2.336,
+        "win_pct": 50.5,
+        "stop_pct": 49.5,
+        "dd": -199.4,
+        "avg": 11.9
+      },
+      "long": {
+        "n": 933,
+        "bps": 12118.6,
+        "pf": 2.544,
+        "win_pct": 53.3,
+        "stop_pct": 46.7,
+        "dd": -171.8,
+        "avg": 13.0
+      },
+      "short": {
+        "n": 286,
+        "bps": 2377.8,
+        "pf": 1.791,
+        "win_pct": 41.6,
+        "stop_pct": 58.4,
+        "dd": -321.1,
+        "avg": 8.3
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 2048,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 303.7,
+      "all": {
+        "n": 1074,
+        "bps": 12645.3,
+        "pf": 2.301,
+        "win_pct": 49.7,
+        "stop_pct": 50.3,
+        "dd": -219.5,
+        "avg": 11.8
+      },
+      "long": {
+        "n": 750,
+        "bps": 10081.9,
+        "pf": 2.582,
+        "win_pct": 52.8,
+        "stop_pct": 47.2,
+        "dd": -183.5,
+        "avg": 13.4
+      },
+      "short": {
+        "n": 324,
+        "bps": 2563.4,
+        "pf": 1.766,
+        "win_pct": 42.6,
+        "stop_pct": 57.4,
+        "dd": -297.5,
+        "avg": 7.9
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 2048,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 450.4,
+      "all": {
+        "n": 1494,
+        "bps": 12702.7,
+        "pf": 1.919,
+        "win_pct": 48.6,
+        "stop_pct": 51.3,
+        "dd": -439.7,
+        "avg": 8.5
+      },
+      "long": {
+        "n": 718,
+        "bps": 8488.3,
+        "pf": 2.365,
+        "win_pct": 51.8,
+        "stop_pct": 48.1,
+        "dd": -153.3,
+        "avg": 11.8
+      },
+      "short": {
+        "n": 776,
+        "bps": 4214.5,
+        "pf": 1.555,
+        "win_pct": 45.6,
+        "stop_pct": 54.4,
+        "dd": -626.4,
+        "avg": 5.4
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 2048,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 0.5
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 195.8,
+      "all": {
+        "n": 1140,
+        "bps": 16379.1,
+        "pf": 2.619,
+        "win_pct": 50.7,
+        "stop_pct": 49.3,
+        "dd": -225.6,
+        "avg": 14.4
+      },
+      "long": {
+        "n": 780,
+        "bps": 12556.0,
+        "pf": 2.948,
+        "win_pct": 54.1,
+        "stop_pct": 45.9,
+        "dd": -235.1,
+        "avg": 16.1
+      },
+      "short": {
+        "n": 360,
+        "bps": 3823.1,
+        "pf": 2.041,
+        "win_pct": 43.3,
+        "stop_pct": 56.7,
+        "dd": -218.7,
+        "avg": 10.6
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 2048,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 388.1,
+      "all": {
+        "n": 1246,
+        "bps": 15512.2,
+        "pf": 2.401,
+        "win_pct": 50.6,
+        "stop_pct": 49.4,
+        "dd": -193.7,
+        "avg": 12.4
+      },
+      "long": {
+        "n": 971,
+        "bps": 13072.1,
+        "pf": 2.596,
+        "win_pct": 53.1,
+        "stop_pct": 46.9,
+        "dd": -153.8,
+        "avg": 13.5
+      },
+      "short": {
+        "n": 275,
+        "bps": 2440.1,
+        "pf": 1.847,
+        "win_pct": 41.8,
+        "stop_pct": 58.2,
+        "dd": -267.1,
+        "avg": 8.9
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 2048,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 303.5,
+      "all": {
+        "n": 1074,
+        "bps": 12676.1,
+        "pf": 2.307,
+        "win_pct": 49.8,
+        "stop_pct": 50.2,
+        "dd": -219.5,
+        "avg": 11.8
+      },
+      "long": {
+        "n": 750,
+        "bps": 10081.9,
+        "pf": 2.582,
+        "win_pct": 52.8,
+        "stop_pct": 47.2,
+        "dd": -183.5,
+        "avg": 13.4
+      },
+      "short": {
+        "n": 324,
+        "bps": 2594.2,
+        "pf": 1.779,
+        "win_pct": 42.9,
+        "stop_pct": 57.1,
+        "dd": -297.5,
+        "avg": 8.0
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 2048,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 0.5
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 267.2,
+      "all": {
+        "n": 1405,
+        "bps": 16233.8,
+        "pf": 2.268,
+        "win_pct": 49.4,
+        "stop_pct": 50.6,
+        "dd": -225.5,
+        "avg": 11.6
+      },
+      "long": {
+        "n": 906,
+        "bps": 12363.2,
+        "pf": 2.601,
+        "win_pct": 52.6,
+        "stop_pct": 47.4,
+        "dd": -203.6,
+        "avg": 13.6
+      },
+      "short": {
+        "n": 499,
+        "bps": 3870.6,
+        "pf": 1.763,
+        "win_pct": 43.5,
+        "stop_pct": 56.5,
+        "dd": -274.9,
+        "avg": 7.8
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 2048,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 1.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 196.3,
+      "all": {
+        "n": 1140,
+        "bps": 16379.1,
+        "pf": 2.619,
+        "win_pct": 50.7,
+        "stop_pct": 49.3,
+        "dd": -225.6,
+        "avg": 14.4
+      },
+      "long": {
+        "n": 780,
+        "bps": 12556.0,
+        "pf": 2.948,
+        "win_pct": 54.1,
+        "stop_pct": 45.9,
+        "dd": -235.1,
+        "avg": 16.1
+      },
+      "short": {
+        "n": 360,
+        "bps": 3823.1,
+        "pf": 2.041,
+        "win_pct": 43.3,
+        "stop_pct": 56.7,
+        "dd": -218.7,
+        "avg": 10.6
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 2048,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 2.0
+      },
+      "status": "ok",
+      "period": "val",
+      "train_time_sec": 436.0,
+      "all": {
+        "n": 1599,
+        "bps": 15255.5,
+        "pf": 2.056,
+        "win_pct": 49.8,
+        "stop_pct": 50.2,
+        "dd": -245.8,
+        "avg": 9.5
+      },
+      "long": {
+        "n": 943,
+        "bps": 11149.3,
+        "pf": 2.39,
+        "win_pct": 52.7,
+        "stop_pct": 47.2,
+        "dd": -176.0,
+        "avg": 11.8
+      },
+      "short": {
+        "n": 656,
+        "bps": 4106.2,
+        "pf": 1.639,
+        "win_pct": 45.6,
+        "stop_pct": 54.4,
+        "dd": -486.7,
+        "avg": 6.3
+      }
+    }
+  ],
+  "all_test_results": [
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 512,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 0.5
+      },
+      "period": "test",
+      "val_pf": 2.67,
+      "val_bps": 15633.8,
+      "all": {
+        "n": 738,
+        "bps": 7322.6,
+        "pf": 2.036,
+        "win_pct": 46.7,
+        "stop_pct": 53.1,
+        "dd": -195.6,
+        "avg": 9.9
+      },
+      "long": {
+        "n": 510,
+        "bps": 5776.8,
+        "pf": 2.169,
+        "win_pct": 46.1,
+        "stop_pct": 53.7,
+        "dd": -249.6,
+        "avg": 11.3
+      },
+      "short": {
+        "n": 228,
+        "bps": 1545.7,
+        "pf": 1.728,
+        "win_pct": 48.2,
+        "stop_pct": 51.8,
+        "dd": -173.1,
+        "avg": 6.8
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 512,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.67,
+      "val_bps": 15633.8,
+      "all": {
+        "n": 738,
+        "bps": 7322.6,
+        "pf": 2.036,
+        "win_pct": 46.7,
+        "stop_pct": 53.1,
+        "dd": -195.6,
+        "avg": 9.9
+      },
+      "long": {
+        "n": 510,
+        "bps": 5776.8,
+        "pf": 2.169,
+        "win_pct": 46.1,
+        "stop_pct": 53.7,
+        "dd": -249.6,
+        "avg": 11.3
+      },
+      "short": {
+        "n": 228,
+        "bps": 1545.7,
+        "pf": 1.728,
+        "win_pct": 48.2,
+        "stop_pct": 51.8,
+        "dd": -173.1,
+        "avg": 6.8
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 2048,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 0.5
+      },
+      "period": "test",
+      "val_pf": 2.619,
+      "val_bps": 16379.1,
+      "all": {
+        "n": 785,
+        "bps": 7888.8,
+        "pf": 2.039,
+        "win_pct": 46.2,
+        "stop_pct": 53.8,
+        "dd": -216.0,
+        "avg": 10.0
+      },
+      "long": {
+        "n": 550,
+        "bps": 5980.4,
+        "pf": 2.126,
+        "win_pct": 46.4,
+        "stop_pct": 53.6,
+        "dd": -198.0,
+        "avg": 10.9
+      },
+      "short": {
+        "n": 235,
+        "bps": 1908.4,
+        "pf": 1.835,
+        "win_pct": 46.0,
+        "stop_pct": 54.0,
+        "dd": -162.0,
+        "avg": 8.1
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 2048,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.619,
+      "val_bps": 16379.1,
+      "all": {
+        "n": 785,
+        "bps": 7888.8,
+        "pf": 2.039,
+        "win_pct": 46.2,
+        "stop_pct": 53.8,
+        "dd": -216.0,
+        "avg": 10.0
+      },
+      "long": {
+        "n": 550,
+        "bps": 5980.4,
+        "pf": 2.126,
+        "win_pct": 46.4,
+        "stop_pct": 53.6,
+        "dd": -198.0,
+        "avg": 10.9
+      },
+      "short": {
+        "n": 235,
+        "bps": 1908.4,
+        "pf": 1.835,
+        "win_pct": 46.0,
+        "stop_pct": 54.0,
+        "dd": -162.0,
+        "avg": 8.1
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 512,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 0.5
+      },
+      "period": "test",
+      "val_pf": 2.563,
+      "val_bps": 14772.0,
+      "all": {
+        "n": 747,
+        "bps": 7757.8,
+        "pf": 2.098,
+        "win_pct": 47.4,
+        "stop_pct": 52.5,
+        "dd": -187.8,
+        "avg": 10.4
+      },
+      "long": {
+        "n": 538,
+        "bps": 6374.0,
+        "pf": 2.258,
+        "win_pct": 47.6,
+        "stop_pct": 52.2,
+        "dd": -163.6,
+        "avg": 11.8
+      },
+      "short": {
+        "n": 209,
+        "bps": 1383.8,
+        "pf": 1.693,
+        "win_pct": 46.9,
+        "stop_pct": 53.1,
+        "dd": -303.5,
+        "avg": 6.6
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 512,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.563,
+      "val_bps": 14772.0,
+      "all": {
+        "n": 747,
+        "bps": 7757.8,
+        "pf": 2.098,
+        "win_pct": 47.4,
+        "stop_pct": 52.5,
+        "dd": -187.8,
+        "avg": 10.4
+      },
+      "long": {
+        "n": 538,
+        "bps": 6374.0,
+        "pf": 2.258,
+        "win_pct": 47.6,
+        "stop_pct": 52.2,
+        "dd": -163.6,
+        "avg": 11.8
+      },
+      "short": {
+        "n": 209,
+        "bps": 1383.8,
+        "pf": 1.693,
+        "win_pct": 46.9,
+        "stop_pct": 53.1,
+        "dd": -303.5,
+        "avg": 6.6
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 512,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 2.563,
+      "val_bps": 14772.0,
+      "all": {
+        "n": 747,
+        "bps": 7757.8,
+        "pf": 2.098,
+        "win_pct": 47.4,
+        "stop_pct": 52.5,
+        "dd": -187.8,
+        "avg": 10.4
+      },
+      "long": {
+        "n": 538,
+        "bps": 6374.0,
+        "pf": 2.258,
+        "win_pct": 47.6,
+        "stop_pct": 52.2,
+        "dd": -163.6,
+        "avg": 11.8
+      },
+      "short": {
+        "n": 209,
+        "bps": 1383.8,
+        "pf": 1.693,
+        "win_pct": 46.9,
+        "stop_pct": 53.1,
+        "dd": -303.5,
+        "avg": 6.6
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 1024,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.557,
+      "val_bps": 15580.6,
+      "all": {
+        "n": 794,
+        "bps": 7617.4,
+        "pf": 1.992,
+        "win_pct": 46.2,
+        "stop_pct": 53.7,
+        "dd": -217.9,
+        "avg": 9.6
+      },
+      "long": {
+        "n": 610,
+        "bps": 6479.0,
+        "pf": 2.119,
+        "win_pct": 47.2,
+        "stop_pct": 52.6,
+        "dd": -180.0,
+        "avg": 10.6
+      },
+      "short": {
+        "n": 184,
+        "bps": 1138.4,
+        "pf": 1.602,
+        "win_pct": 42.9,
+        "stop_pct": 57.1,
+        "dd": -323.6,
+        "avg": 6.2
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 2048,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.555,
+      "val_bps": 13438.7,
+      "all": {
+        "n": 623,
+        "bps": 8709.8,
+        "pf": 2.522,
+        "win_pct": 49.0,
+        "stop_pct": 51.0,
+        "dd": -200.9,
+        "avg": 14.0
+      },
+      "long": {
+        "n": 405,
+        "bps": 6344.8,
+        "pf": 2.711,
+        "win_pct": 49.1,
+        "stop_pct": 50.9,
+        "dd": -183.7,
+        "avg": 15.7
+      },
+      "short": {
+        "n": 218,
+        "bps": 2365.0,
+        "pf": 2.173,
+        "win_pct": 48.6,
+        "stop_pct": 51.4,
+        "dd": -192.1,
+        "avg": 10.8
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 2048,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 0.5
+      },
+      "period": "test",
+      "val_pf": 2.554,
+      "val_bps": 16195.6,
+      "all": {
+        "n": 793,
+        "bps": 8286.2,
+        "pf": 2.101,
+        "win_pct": 47.3,
+        "stop_pct": 52.7,
+        "dd": -295.9,
+        "avg": 10.4
+      },
+      "long": {
+        "n": 501,
+        "bps": 6020.7,
+        "pf": 2.262,
+        "win_pct": 47.1,
+        "stop_pct": 52.9,
+        "dd": -209.4,
+        "avg": 12.0
+      },
+      "short": {
+        "n": 292,
+        "bps": 2265.5,
+        "pf": 1.823,
+        "win_pct": 47.6,
+        "stop_pct": 52.4,
+        "dd": -195.4,
+        "avg": 7.8
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 2048,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.554,
+      "val_bps": 16195.6,
+      "all": {
+        "n": 794,
+        "bps": 8338.2,
+        "pf": 2.108,
+        "win_pct": 47.4,
+        "stop_pct": 52.6,
+        "dd": -295.9,
+        "avg": 10.5
+      },
+      "long": {
+        "n": 502,
+        "bps": 6072.7,
+        "pf": 2.273,
+        "win_pct": 47.2,
+        "stop_pct": 52.8,
+        "dd": -209.4,
+        "avg": 12.1
+      },
+      "short": {
+        "n": 292,
+        "bps": 2265.5,
+        "pf": 1.823,
+        "win_pct": 47.6,
+        "stop_pct": 52.4,
+        "dd": -195.4,
+        "avg": 7.8
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 2048,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 2.554,
+      "val_bps": 16195.6,
+      "all": {
+        "n": 794,
+        "bps": 8338.2,
+        "pf": 2.108,
+        "win_pct": 47.4,
+        "stop_pct": 52.6,
+        "dd": -295.9,
+        "avg": 10.5
+      },
+      "long": {
+        "n": 502,
+        "bps": 6072.7,
+        "pf": 2.273,
+        "win_pct": 47.2,
+        "stop_pct": 52.8,
+        "dd": -209.4,
+        "avg": 12.1
+      },
+      "short": {
+        "n": 292,
+        "bps": 2265.5,
+        "pf": 1.823,
+        "win_pct": 47.6,
+        "stop_pct": 52.4,
+        "dd": -195.4,
+        "avg": 7.8
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 2048,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 2.549,
+      "val_bps": 13386.7,
+      "all": {
+        "n": 623,
+        "bps": 8639.8,
+        "pf": 2.505,
+        "win_pct": 48.8,
+        "stop_pct": 51.2,
+        "dd": -200.9,
+        "avg": 13.9
+      },
+      "long": {
+        "n": 405,
+        "bps": 6274.8,
+        "pf": 2.684,
+        "win_pct": 48.9,
+        "stop_pct": 51.1,
+        "dd": -183.7,
+        "avg": 15.5
+      },
+      "short": {
+        "n": 218,
+        "bps": 2365.0,
+        "pf": 2.173,
+        "win_pct": 48.6,
+        "stop_pct": 51.4,
+        "dd": -192.1,
+        "avg": 10.8
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 1024,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 2.548,
+      "val_bps": 15551.9,
+      "all": {
+        "n": 794,
+        "bps": 7617.4,
+        "pf": 1.992,
+        "win_pct": 46.2,
+        "stop_pct": 53.7,
+        "dd": -217.9,
+        "avg": 9.6
+      },
+      "long": {
+        "n": 610,
+        "bps": 6479.0,
+        "pf": 2.119,
+        "win_pct": 47.2,
+        "stop_pct": 52.6,
+        "dd": -180.0,
+        "avg": 10.6
+      },
+      "short": {
+        "n": 184,
+        "bps": 1138.4,
+        "pf": 1.602,
+        "win_pct": 42.9,
+        "stop_pct": 57.1,
+        "dd": -323.6,
+        "avg": 6.2
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 1024,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 0.5
+      },
+      "period": "test",
+      "val_pf": 2.534,
+      "val_bps": 15764.7,
+      "all": {
+        "n": 816,
+        "bps": 8695.9,
+        "pf": 2.127,
+        "win_pct": 47.4,
+        "stop_pct": 52.5,
+        "dd": -279.0,
+        "avg": 10.7
+      },
+      "long": {
+        "n": 585,
+        "bps": 6743.2,
+        "pf": 2.222,
+        "win_pct": 47.5,
+        "stop_pct": 52.3,
+        "dd": -209.8,
+        "avg": 11.5
+      },
+      "short": {
+        "n": 231,
+        "bps": 1952.7,
+        "pf": 1.889,
+        "win_pct": 47.2,
+        "stop_pct": 52.8,
+        "dd": -208.2,
+        "avg": 8.5
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 1024,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.534,
+      "val_bps": 15764.7,
+      "all": {
+        "n": 816,
+        "bps": 8649.8,
+        "pf": 2.119,
+        "win_pct": 47.3,
+        "stop_pct": 52.6,
+        "dd": -279.0,
+        "avg": 10.6
+      },
+      "long": {
+        "n": 586,
+        "bps": 6725.2,
+        "pf": 2.215,
+        "win_pct": 47.4,
+        "stop_pct": 52.4,
+        "dd": -209.8,
+        "avg": 11.5
+      },
+      "short": {
+        "n": 230,
+        "bps": 1924.6,
+        "pf": 1.876,
+        "win_pct": 47.0,
+        "stop_pct": 53.0,
+        "dd": -208.2,
+        "avg": 8.4
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 1024,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 2.534,
+      "val_bps": 15764.7,
+      "all": {
+        "n": 816,
+        "bps": 8675.5,
+        "pf": 2.125,
+        "win_pct": 47.4,
+        "stop_pct": 52.5,
+        "dd": -279.0,
+        "avg": 10.6
+      },
+      "long": {
+        "n": 586,
+        "bps": 6725.2,
+        "pf": 2.215,
+        "win_pct": 47.4,
+        "stop_pct": 52.4,
+        "dd": -209.8,
+        "avg": 11.5
+      },
+      "short": {
+        "n": 230,
+        "bps": 1950.3,
+        "pf": 1.895,
+        "win_pct": 47.4,
+        "stop_pct": 52.6,
+        "dd": -208.2,
+        "avg": 8.5
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 512,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 0.5
+      },
+      "period": "test",
+      "val_pf": 2.533,
+      "val_bps": 15480.5,
+      "all": {
+        "n": 778,
+        "bps": 7800.6,
+        "pf": 2.044,
+        "win_pct": 46.7,
+        "stop_pct": 53.3,
+        "dd": -225.7,
+        "avg": 10.0
+      },
+      "long": {
+        "n": 491,
+        "bps": 5901.6,
+        "pf": 2.247,
+        "win_pct": 46.4,
+        "stop_pct": 53.6,
+        "dd": -247.1,
+        "avg": 12.0
+      },
+      "short": {
+        "n": 287,
+        "bps": 1899.0,
+        "pf": 1.694,
+        "win_pct": 47.0,
+        "stop_pct": 53.0,
+        "dd": -292.2,
+        "avg": 6.6
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 1024,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 2.524,
+      "val_bps": 12043.5,
+      "all": {
+        "n": 589,
+        "bps": 7756.8,
+        "pf": 2.427,
+        "win_pct": 48.7,
+        "stop_pct": 51.3,
+        "dd": -180.0,
+        "avg": 13.2
+      },
+      "long": {
+        "n": 458,
+        "bps": 5961.2,
+        "pf": 2.397,
+        "win_pct": 48.3,
+        "stop_pct": 51.7,
+        "dd": -211.2,
+        "avg": 13.0
+      },
+      "short": {
+        "n": 131,
+        "bps": 1795.6,
+        "pf": 2.535,
+        "win_pct": 50.4,
+        "stop_pct": 49.6,
+        "dd": -144.0,
+        "avg": 13.7
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 2048,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 0.5
+      },
+      "period": "test",
+      "val_pf": 2.519,
+      "val_bps": 15203.1,
+      "all": {
+        "n": 760,
+        "bps": 8073.2,
+        "pf": 2.116,
+        "win_pct": 47.1,
+        "stop_pct": 52.9,
+        "dd": -222.6,
+        "avg": 10.6
+      },
+      "long": {
+        "n": 484,
+        "bps": 5951.1,
+        "pf": 2.277,
+        "win_pct": 46.5,
+        "stop_pct": 53.5,
+        "dd": -180.0,
+        "avg": 12.3
+      },
+      "short": {
+        "n": 276,
+        "bps": 2122.2,
+        "pf": 1.824,
+        "win_pct": 48.2,
+        "stop_pct": 51.8,
+        "dd": -187.8,
+        "avg": 7.7
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 2048,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.519,
+      "val_bps": 15203.1,
+      "all": {
+        "n": 760,
+        "bps": 8073.2,
+        "pf": 2.116,
+        "win_pct": 47.1,
+        "stop_pct": 52.9,
+        "dd": -222.6,
+        "avg": 10.6
+      },
+      "long": {
+        "n": 484,
+        "bps": 5951.1,
+        "pf": 2.277,
+        "win_pct": 46.5,
+        "stop_pct": 53.5,
+        "dd": -180.0,
+        "avg": 12.3
+      },
+      "short": {
+        "n": 276,
+        "bps": 2122.2,
+        "pf": 1.824,
+        "win_pct": 48.2,
+        "stop_pct": 51.8,
+        "dd": -187.8,
+        "avg": 7.7
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 512,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.515,
+      "val_bps": 15242.0,
+      "all": {
+        "n": 814,
+        "bps": 7619.5,
+        "pf": 1.965,
+        "win_pct": 46.1,
+        "stop_pct": 53.8,
+        "dd": -223.8,
+        "avg": 9.4
+      },
+      "long": {
+        "n": 530,
+        "bps": 5863.2,
+        "pf": 2.145,
+        "win_pct": 46.2,
+        "stop_pct": 53.6,
+        "dd": -165.5,
+        "avg": 11.1
+      },
+      "short": {
+        "n": 284,
+        "bps": 1756.3,
+        "pf": 1.634,
+        "win_pct": 45.8,
+        "stop_pct": 54.2,
+        "dd": -323.8,
+        "avg": 6.2
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 512,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 2.515,
+      "val_bps": 15242.0,
+      "all": {
+        "n": 814,
+        "bps": 7619.5,
+        "pf": 1.965,
+        "win_pct": 46.1,
+        "stop_pct": 53.8,
+        "dd": -223.8,
+        "avg": 9.4
+      },
+      "long": {
+        "n": 530,
+        "bps": 5863.2,
+        "pf": 2.145,
+        "win_pct": 46.2,
+        "stop_pct": 53.6,
+        "dd": -165.5,
+        "avg": 11.1
+      },
+      "short": {
+        "n": 284,
+        "bps": 1756.3,
+        "pf": 1.634,
+        "win_pct": 45.8,
+        "stop_pct": 54.2,
+        "dd": -323.8,
+        "avg": 6.2
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 2048,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 0.5
+      },
+      "period": "test",
+      "val_pf": 2.502,
+      "val_bps": 15622.1,
+      "all": {
+        "n": 790,
+        "bps": 8175.4,
+        "pf": 2.084,
+        "win_pct": 47.0,
+        "stop_pct": 53.0,
+        "dd": -290.4,
+        "avg": 10.3
+      },
+      "long": {
+        "n": 542,
+        "bps": 6310.0,
+        "pf": 2.226,
+        "win_pct": 47.2,
+        "stop_pct": 52.8,
+        "dd": -243.1,
+        "avg": 11.6
+      },
+      "short": {
+        "n": 248,
+        "bps": 1865.4,
+        "pf": 1.779,
+        "win_pct": 46.4,
+        "stop_pct": 53.6,
+        "dd": -266.6,
+        "avg": 7.5
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 512,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 0.5
+      },
+      "period": "test",
+      "val_pf": 2.498,
+      "val_bps": 16286.4,
+      "all": {
+        "n": 844,
+        "bps": 8510.7,
+        "pf": 2.065,
+        "win_pct": 47.4,
+        "stop_pct": 52.6,
+        "dd": -245.4,
+        "avg": 10.1
+      },
+      "long": {
+        "n": 519,
+        "bps": 6256.4,
+        "pf": 2.269,
+        "win_pct": 47.2,
+        "stop_pct": 52.8,
+        "dd": -201.5,
+        "avg": 12.1
+      },
+      "short": {
+        "n": 325,
+        "bps": 2254.3,
+        "pf": 1.737,
+        "win_pct": 47.7,
+        "stop_pct": 52.3,
+        "dd": -307.7,
+        "avg": 6.9
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 512,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.498,
+      "val_bps": 16286.4,
+      "all": {
+        "n": 844,
+        "bps": 8510.7,
+        "pf": 2.065,
+        "win_pct": 47.4,
+        "stop_pct": 52.6,
+        "dd": -245.4,
+        "avg": 10.1
+      },
+      "long": {
+        "n": 520,
+        "bps": 6238.4,
+        "pf": 2.26,
+        "win_pct": 47.1,
+        "stop_pct": 52.9,
+        "dd": -201.5,
+        "avg": 12.0
+      },
+      "short": {
+        "n": 324,
+        "bps": 2272.3,
+        "pf": 1.747,
+        "win_pct": 47.8,
+        "stop_pct": 52.2,
+        "dd": -307.7,
+        "avg": 7.0
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 1024,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 2.496,
+      "val_bps": 16508.7,
+      "all": {
+        "n": 878,
+        "bps": 8421.7,
+        "pf": 1.994,
+        "win_pct": 46.4,
+        "stop_pct": 53.5,
+        "dd": -259.6,
+        "avg": 9.6
+      },
+      "long": {
+        "n": 688,
+        "bps": 7095.9,
+        "pf": 2.084,
+        "win_pct": 47.1,
+        "stop_pct": 52.8,
+        "dd": -206.6,
+        "avg": 10.3
+      },
+      "short": {
+        "n": 190,
+        "bps": 1325.8,
+        "pf": 1.688,
+        "win_pct": 43.7,
+        "stop_pct": 56.3,
+        "dd": -238.5,
+        "avg": 7.0
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 1024,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 0.5
+      },
+      "period": "test",
+      "val_pf": 2.49,
+      "val_bps": 14641.0,
+      "all": {
+        "n": 754,
+        "bps": 8780.5,
+        "pf": 2.251,
+        "win_pct": 48.3,
+        "stop_pct": 51.7,
+        "dd": -198.0,
+        "avg": 11.6
+      },
+      "long": {
+        "n": 537,
+        "bps": 6978.8,
+        "pf": 2.4,
+        "win_pct": 48.4,
+        "stop_pct": 51.6,
+        "dd": -193.5,
+        "avg": 13.0
+      },
+      "short": {
+        "n": 217,
+        "bps": 1801.7,
+        "pf": 1.886,
+        "win_pct": 47.9,
+        "stop_pct": 52.1,
+        "dd": -174.1,
+        "avg": 8.3
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 512,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 2.489,
+      "val_bps": 14985.0,
+      "all": {
+        "n": 817,
+        "bps": 7621.0,
+        "pf": 1.948,
+        "win_pct": 45.3,
+        "stop_pct": 54.6,
+        "dd": -184.0,
+        "avg": 9.3
+      },
+      "long": {
+        "n": 552,
+        "bps": 6144.8,
+        "pf": 2.151,
+        "win_pct": 46.2,
+        "stop_pct": 53.6,
+        "dd": -172.3,
+        "avg": 11.1
+      },
+      "short": {
+        "n": 265,
+        "bps": 1476.2,
+        "pf": 1.547,
+        "win_pct": 43.4,
+        "stop_pct": 56.6,
+        "dd": -254.0,
+        "avg": 5.6
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 512,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 0.5
+      },
+      "period": "test",
+      "val_pf": 2.485,
+      "val_bps": 15155.8,
+      "all": {
+        "n": 818,
+        "bps": 9153.0,
+        "pf": 2.206,
+        "win_pct": 48.4,
+        "stop_pct": 51.5,
+        "dd": -239.3,
+        "avg": 11.2
+      },
+      "long": {
+        "n": 652,
+        "bps": 7671.0,
+        "pf": 2.278,
+        "win_pct": 48.8,
+        "stop_pct": 51.1,
+        "dd": -201.3,
+        "avg": 11.8
+      },
+      "short": {
+        "n": 166,
+        "bps": 1482.0,
+        "pf": 1.936,
+        "win_pct": 47.0,
+        "stop_pct": 53.0,
+        "dd": -152.5,
+        "avg": 8.9
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 2048,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 2.445,
+      "val_bps": 12540.6,
+      "all": {
+        "n": 611,
+        "bps": 8421.5,
+        "pf": 2.481,
+        "win_pct": 48.3,
+        "stop_pct": 51.7,
+        "dd": -198.0,
+        "avg": 13.8
+      },
+      "long": {
+        "n": 392,
+        "bps": 5721.9,
+        "pf": 2.551,
+        "win_pct": 47.7,
+        "stop_pct": 52.3,
+        "dd": -183.7,
+        "avg": 14.6
+      },
+      "short": {
+        "n": 219,
+        "bps": 2699.6,
+        "pf": 2.351,
+        "win_pct": 49.3,
+        "stop_pct": 50.7,
+        "dd": -174.1,
+        "avg": 12.3
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 2048,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.439,
+      "val_bps": 12488.6,
+      "all": {
+        "n": 611,
+        "bps": 8421.5,
+        "pf": 2.481,
+        "win_pct": 48.3,
+        "stop_pct": 51.7,
+        "dd": -198.0,
+        "avg": 13.8
+      },
+      "long": {
+        "n": 392,
+        "bps": 5721.9,
+        "pf": 2.551,
+        "win_pct": 47.7,
+        "stop_pct": 52.3,
+        "dd": -183.7,
+        "avg": 14.6
+      },
+      "short": {
+        "n": 219,
+        "bps": 2699.6,
+        "pf": 2.351,
+        "win_pct": 49.3,
+        "stop_pct": 50.7,
+        "dd": -174.1,
+        "avg": 12.3
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 1024,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 0.5
+      },
+      "period": "test",
+      "val_pf": 2.421,
+      "val_bps": 15761.2,
+      "all": {
+        "n": 836,
+        "bps": 8376.2,
+        "pf": 2.043,
+        "win_pct": 46.7,
+        "stop_pct": 53.3,
+        "dd": -227.1,
+        "avg": 10.0
+      },
+      "long": {
+        "n": 575,
+        "bps": 6299.3,
+        "pf": 2.136,
+        "win_pct": 46.4,
+        "stop_pct": 53.6,
+        "dd": -215.8,
+        "avg": 11.0
+      },
+      "short": {
+        "n": 261,
+        "bps": 2076.9,
+        "pf": 1.836,
+        "win_pct": 47.1,
+        "stop_pct": 52.9,
+        "dd": -221.2,
+        "avg": 8.0
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 1024,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.421,
+      "val_bps": 15761.2,
+      "all": {
+        "n": 836,
+        "bps": 8376.2,
+        "pf": 2.043,
+        "win_pct": 46.7,
+        "stop_pct": 53.3,
+        "dd": -227.1,
+        "avg": 10.0
+      },
+      "long": {
+        "n": 575,
+        "bps": 6299.3,
+        "pf": 2.136,
+        "win_pct": 46.4,
+        "stop_pct": 53.6,
+        "dd": -215.8,
+        "avg": 11.0
+      },
+      "short": {
+        "n": 261,
+        "bps": 2076.9,
+        "pf": 1.836,
+        "win_pct": 47.1,
+        "stop_pct": 52.9,
+        "dd": -221.2,
+        "avg": 8.0
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 512,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 2.415,
+      "val_bps": 15302.6,
+      "all": {
+        "n": 834,
+        "bps": 8261.0,
+        "pf": 2.03,
+        "win_pct": 46.5,
+        "stop_pct": 53.4,
+        "dd": -253.8,
+        "avg": 9.9
+      },
+      "long": {
+        "n": 589,
+        "bps": 6647.0,
+        "pf": 2.193,
+        "win_pct": 47.4,
+        "stop_pct": 52.5,
+        "dd": -227.2,
+        "avg": 11.3
+      },
+      "short": {
+        "n": 245,
+        "bps": 1614.0,
+        "pf": 1.659,
+        "win_pct": 44.5,
+        "stop_pct": 55.5,
+        "dd": -321.2,
+        "avg": 6.6
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 1024,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 2.412,
+      "val_bps": 11920.2,
+      "all": {
+        "n": 629,
+        "bps": 7973.4,
+        "pf": 2.363,
+        "win_pct": 48.3,
+        "stop_pct": 51.7,
+        "dd": -200.4,
+        "avg": 12.7
+      },
+      "long": {
+        "n": 476,
+        "bps": 6229.5,
+        "pf": 2.401,
+        "win_pct": 48.1,
+        "stop_pct": 51.9,
+        "dd": -189.8,
+        "avg": 13.1
+      },
+      "short": {
+        "n": 153,
+        "bps": 1743.9,
+        "pf": 2.242,
+        "win_pct": 49.0,
+        "stop_pct": 51.0,
+        "dd": -198.0,
+        "avg": 11.4
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 1024,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.411,
+      "val_bps": 12672.6,
+      "all": {
+        "n": 635,
+        "bps": 8399.2,
+        "pf": 2.431,
+        "win_pct": 48.7,
+        "stop_pct": 51.3,
+        "dd": -222.4,
+        "avg": 13.2
+      },
+      "long": {
+        "n": 425,
+        "bps": 6025.3,
+        "pf": 2.515,
+        "win_pct": 48.0,
+        "stop_pct": 52.0,
+        "dd": -198.0,
+        "avg": 14.2
+      },
+      "short": {
+        "n": 210,
+        "bps": 2374.0,
+        "pf": 2.256,
+        "win_pct": 50.0,
+        "stop_pct": 50.0,
+        "dd": -209.7,
+        "avg": 11.3
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 1024,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 2.411,
+      "val_bps": 12672.6,
+      "all": {
+        "n": 635,
+        "bps": 8399.2,
+        "pf": 2.431,
+        "win_pct": 48.7,
+        "stop_pct": 51.3,
+        "dd": -222.4,
+        "avg": 13.2
+      },
+      "long": {
+        "n": 425,
+        "bps": 6025.3,
+        "pf": 2.515,
+        "win_pct": 48.0,
+        "stop_pct": 52.0,
+        "dd": -198.0,
+        "avg": 14.2
+      },
+      "short": {
+        "n": 210,
+        "bps": 2374.0,
+        "pf": 2.256,
+        "win_pct": 50.0,
+        "stop_pct": 50.0,
+        "dd": -209.7,
+        "avg": 11.3
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 2048,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.411,
+      "val_bps": 15617.4,
+      "all": {
+        "n": 831,
+        "bps": 8622.1,
+        "pf": 2.101,
+        "win_pct": 47.7,
+        "stop_pct": 52.3,
+        "dd": -271.7,
+        "avg": 10.4
+      },
+      "long": {
+        "n": 523,
+        "bps": 6314.2,
+        "pf": 2.28,
+        "win_pct": 47.6,
+        "stop_pct": 52.4,
+        "dd": -180.0,
+        "avg": 12.1
+      },
+      "short": {
+        "n": 308,
+        "bps": 2307.9,
+        "pf": 1.796,
+        "win_pct": 47.7,
+        "stop_pct": 52.3,
+        "dd": -203.0,
+        "avg": 7.5
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 2048,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.401,
+      "val_bps": 15512.2,
+      "all": {
+        "n": 887,
+        "bps": 8357.6,
+        "pf": 1.992,
+        "win_pct": 47.1,
+        "stop_pct": 52.8,
+        "dd": -202.7,
+        "avg": 9.4
+      },
+      "long": {
+        "n": 690,
+        "bps": 6871.7,
+        "pf": 2.048,
+        "win_pct": 47.1,
+        "stop_pct": 52.8,
+        "dd": -248.1,
+        "avg": 10.0
+      },
+      "short": {
+        "n": 197,
+        "bps": 1485.9,
+        "pf": 1.794,
+        "win_pct": 47.2,
+        "stop_pct": 52.8,
+        "dd": -196.8,
+        "avg": 7.5
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 512,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.399,
+      "val_bps": 15336.7,
+      "all": {
+        "n": 839,
+        "bps": 9068.6,
+        "pf": 2.156,
+        "win_pct": 48.0,
+        "stop_pct": 52.0,
+        "dd": -240.7,
+        "avg": 10.8
+      },
+      "long": {
+        "n": 541,
+        "bps": 6555.8,
+        "pf": 2.278,
+        "win_pct": 47.3,
+        "stop_pct": 52.7,
+        "dd": -232.1,
+        "avg": 12.1
+      },
+      "short": {
+        "n": 298,
+        "bps": 2512.8,
+        "pf": 1.924,
+        "win_pct": 49.3,
+        "stop_pct": 50.7,
+        "dd": -240.9,
+        "avg": 8.4
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 512,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 2.399,
+      "val_bps": 15336.7,
+      "all": {
+        "n": 840,
+        "bps": 9050.6,
+        "pf": 2.151,
+        "win_pct": 48.0,
+        "stop_pct": 52.0,
+        "dd": -240.7,
+        "avg": 10.8
+      },
+      "long": {
+        "n": 542,
+        "bps": 6537.8,
+        "pf": 2.27,
+        "win_pct": 47.2,
+        "stop_pct": 52.8,
+        "dd": -232.1,
+        "avg": 12.1
+      },
+      "short": {
+        "n": 298,
+        "bps": 2512.8,
+        "pf": 1.924,
+        "win_pct": 49.3,
+        "stop_pct": 50.7,
+        "dd": -240.9,
+        "avg": 8.4
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 1024,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 2.396,
+      "val_bps": 16157.2,
+      "all": {
+        "n": 923,
+        "bps": 9057.3,
+        "pf": 2.049,
+        "win_pct": 48.0,
+        "stop_pct": 51.9,
+        "dd": -298.5,
+        "avg": 9.8
+      },
+      "long": {
+        "n": 607,
+        "bps": 6915.2,
+        "pf": 2.191,
+        "win_pct": 46.8,
+        "stop_pct": 53.0,
+        "dd": -247.5,
+        "avg": 11.4
+      },
+      "short": {
+        "n": 316,
+        "bps": 2142.1,
+        "pf": 1.758,
+        "win_pct": 50.3,
+        "stop_pct": 49.7,
+        "dd": -260.0,
+        "avg": 6.8
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 1024,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 0.5
+      },
+      "period": "test",
+      "val_pf": 2.394,
+      "val_bps": 16411.0,
+      "all": {
+        "n": 896,
+        "bps": 9429.9,
+        "pf": 2.119,
+        "win_pct": 47.8,
+        "stop_pct": 52.2,
+        "dd": -325.7,
+        "avg": 10.5
+      },
+      "long": {
+        "n": 578,
+        "bps": 7070.6,
+        "pf": 2.301,
+        "win_pct": 47.8,
+        "stop_pct": 52.2,
+        "dd": -183.1,
+        "avg": 12.2
+      },
+      "short": {
+        "n": 318,
+        "bps": 2359.3,
+        "pf": 1.79,
+        "win_pct": 47.8,
+        "stop_pct": 52.2,
+        "dd": -229.4,
+        "avg": 7.4
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 512,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 0.5
+      },
+      "period": "test",
+      "val_pf": 2.379,
+      "val_bps": 16405.3,
+      "all": {
+        "n": 965,
+        "bps": 8181.4,
+        "pf": 1.876,
+        "win_pct": 46.1,
+        "stop_pct": 53.7,
+        "dd": -223.7,
+        "avg": 8.5
+      },
+      "long": {
+        "n": 708,
+        "bps": 6763.1,
+        "pf": 2.006,
+        "win_pct": 47.2,
+        "stop_pct": 52.7,
+        "dd": -201.3,
+        "avg": 9.6
+      },
+      "short": {
+        "n": 257,
+        "bps": 1418.3,
+        "pf": 1.543,
+        "win_pct": 43.2,
+        "stop_pct": 56.4,
+        "dd": -222.2,
+        "avg": 5.5
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 512,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 0.5
+      },
+      "period": "test",
+      "val_pf": 2.372,
+      "val_bps": 16277.6,
+      "all": {
+        "n": 920,
+        "bps": 8892.3,
+        "pf": 2.025,
+        "win_pct": 47.6,
+        "stop_pct": 52.4,
+        "dd": -274.0,
+        "avg": 9.7
+      },
+      "long": {
+        "n": 618,
+        "bps": 6765.4,
+        "pf": 2.153,
+        "win_pct": 47.2,
+        "stop_pct": 52.8,
+        "dd": -167.0,
+        "avg": 10.9
+      },
+      "short": {
+        "n": 302,
+        "bps": 2126.9,
+        "pf": 1.757,
+        "win_pct": 48.3,
+        "stop_pct": 51.7,
+        "dd": -226.7,
+        "avg": 7.0
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 512,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.372,
+      "val_bps": 16277.6,
+      "all": {
+        "n": 920,
+        "bps": 8892.3,
+        "pf": 2.025,
+        "win_pct": 47.6,
+        "stop_pct": 52.4,
+        "dd": -274.0,
+        "avg": 9.7
+      },
+      "long": {
+        "n": 618,
+        "bps": 6765.4,
+        "pf": 2.153,
+        "win_pct": 47.2,
+        "stop_pct": 52.8,
+        "dd": -167.0,
+        "avg": 10.9
+      },
+      "short": {
+        "n": 302,
+        "bps": 2126.9,
+        "pf": 1.757,
+        "win_pct": 48.3,
+        "stop_pct": 51.7,
+        "dd": -226.7,
+        "avg": 7.0
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 512,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 2.372,
+      "val_bps": 16277.6,
+      "all": {
+        "n": 921,
+        "bps": 8916.2,
+        "pf": 2.028,
+        "win_pct": 47.7,
+        "stop_pct": 52.3,
+        "dd": -274.0,
+        "avg": 9.7
+      },
+      "long": {
+        "n": 619,
+        "bps": 6789.3,
+        "pf": 2.157,
+        "win_pct": 47.3,
+        "stop_pct": 52.7,
+        "dd": -167.0,
+        "avg": 11.0
+      },
+      "short": {
+        "n": 302,
+        "bps": 2126.9,
+        "pf": 1.757,
+        "win_pct": 48.3,
+        "stop_pct": 51.7,
+        "dd": -226.7,
+        "avg": 7.0
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 1024,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 2.345,
+      "val_bps": 12442.7,
+      "all": {
+        "n": 650,
+        "bps": 8864.8,
+        "pf": 2.479,
+        "win_pct": 48.8,
+        "stop_pct": 51.2,
+        "dd": -240.4,
+        "avg": 13.6
+      },
+      "long": {
+        "n": 426,
+        "bps": 6139.1,
+        "pf": 2.55,
+        "win_pct": 48.4,
+        "stop_pct": 51.6,
+        "dd": -201.7,
+        "avg": 14.4
+      },
+      "short": {
+        "n": 224,
+        "bps": 2725.8,
+        "pf": 2.34,
+        "win_pct": 49.6,
+        "stop_pct": 50.4,
+        "dd": -174.1,
+        "avg": 12.2
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 1024,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 0.5
+      },
+      "period": "test",
+      "val_pf": 2.341,
+      "val_bps": 15233.3,
+      "all": {
+        "n": 848,
+        "bps": 8766.1,
+        "pf": 2.097,
+        "win_pct": 47.6,
+        "stop_pct": 52.4,
+        "dd": -481.0,
+        "avg": 10.3
+      },
+      "long": {
+        "n": 535,
+        "bps": 6744.0,
+        "pf": 2.348,
+        "win_pct": 48.0,
+        "stop_pct": 52.0,
+        "dd": -287.0,
+        "avg": 12.6
+      },
+      "short": {
+        "n": 313,
+        "bps": 2022.2,
+        "pf": 1.677,
+        "win_pct": 47.0,
+        "stop_pct": 53.0,
+        "dd": -258.6,
+        "avg": 6.5
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 2048,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.341,
+      "val_bps": 15111.2,
+      "all": {
+        "n": 830,
+        "bps": 8374.3,
+        "pf": 2.05,
+        "win_pct": 46.6,
+        "stop_pct": 53.4,
+        "dd": -253.7,
+        "avg": 10.1
+      },
+      "long": {
+        "n": 579,
+        "bps": 6243.9,
+        "pf": 2.119,
+        "win_pct": 46.5,
+        "stop_pct": 53.5,
+        "dd": -215.8,
+        "avg": 10.8
+      },
+      "short": {
+        "n": 251,
+        "bps": 2130.3,
+        "pf": 1.89,
+        "win_pct": 47.0,
+        "stop_pct": 53.0,
+        "dd": -218.3,
+        "avg": 8.5
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 2048,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 0.5
+      },
+      "period": "test",
+      "val_pf": 2.336,
+      "val_bps": 14496.4,
+      "all": {
+        "n": 871,
+        "bps": 8446.7,
+        "pf": 2.031,
+        "win_pct": 47.6,
+        "stop_pct": 52.2,
+        "dd": -275.3,
+        "avg": 9.7
+      },
+      "long": {
+        "n": 665,
+        "bps": 7048.3,
+        "pf": 2.138,
+        "win_pct": 48.1,
+        "stop_pct": 51.7,
+        "dd": -204.4,
+        "avg": 10.6
+      },
+      "short": {
+        "n": 206,
+        "bps": 1398.4,
+        "pf": 1.7,
+        "win_pct": 46.1,
+        "stop_pct": 53.9,
+        "dd": -216.6,
+        "avg": 6.8
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 1024,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 2.333,
+      "val_bps": 15693.8,
+      "all": {
+        "n": 878,
+        "bps": 9056.9,
+        "pf": 2.096,
+        "win_pct": 47.7,
+        "stop_pct": 52.3,
+        "dd": -263.3,
+        "avg": 10.3
+      },
+      "long": {
+        "n": 611,
+        "bps": 6868.8,
+        "pf": 2.192,
+        "win_pct": 47.6,
+        "stop_pct": 52.4,
+        "dd": -172.0,
+        "avg": 11.2
+      },
+      "short": {
+        "n": 267,
+        "bps": 2188.1,
+        "pf": 1.875,
+        "win_pct": 47.9,
+        "stop_pct": 52.1,
+        "dd": -211.9,
+        "avg": 8.2
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 1024,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 0.5
+      },
+      "period": "test",
+      "val_pf": 2.331,
+      "val_bps": 15667.7,
+      "all": {
+        "n": 878,
+        "bps": 9056.9,
+        "pf": 2.096,
+        "win_pct": 47.7,
+        "stop_pct": 52.3,
+        "dd": -263.3,
+        "avg": 10.3
+      },
+      "long": {
+        "n": 611,
+        "bps": 6868.8,
+        "pf": 2.192,
+        "win_pct": 47.6,
+        "stop_pct": 52.4,
+        "dd": -172.0,
+        "avg": 11.2
+      },
+      "short": {
+        "n": 267,
+        "bps": 2188.1,
+        "pf": 1.875,
+        "win_pct": 47.9,
+        "stop_pct": 52.1,
+        "dd": -211.9,
+        "avg": 8.2
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 1024,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.331,
+      "val_bps": 15667.7,
+      "all": {
+        "n": 878,
+        "bps": 9056.9,
+        "pf": 2.096,
+        "win_pct": 47.7,
+        "stop_pct": 52.3,
+        "dd": -263.3,
+        "avg": 10.3
+      },
+      "long": {
+        "n": 611,
+        "bps": 6868.8,
+        "pf": 2.192,
+        "win_pct": 47.6,
+        "stop_pct": 52.4,
+        "dd": -172.0,
+        "avg": 11.2
+      },
+      "short": {
+        "n": 267,
+        "bps": 2188.1,
+        "pf": 1.875,
+        "win_pct": 47.9,
+        "stop_pct": 52.1,
+        "dd": -211.9,
+        "avg": 8.2
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 1024,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 0.5
+      },
+      "period": "test",
+      "val_pf": 2.326,
+      "val_bps": 15511.2,
+      "all": {
+        "n": 888,
+        "bps": 8612.1,
+        "pf": 2.018,
+        "win_pct": 47.1,
+        "stop_pct": 52.9,
+        "dd": -293.6,
+        "avg": 9.7
+      },
+      "long": {
+        "n": 617,
+        "bps": 6631.6,
+        "pf": 2.127,
+        "win_pct": 47.0,
+        "stop_pct": 53.0,
+        "dd": -152.5,
+        "avg": 10.7
+      },
+      "short": {
+        "n": 271,
+        "bps": 1980.6,
+        "pf": 1.769,
+        "win_pct": 47.2,
+        "stop_pct": 52.8,
+        "dd": -273.6,
+        "avg": 7.3
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.001,
+        "batch_size": 1024,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.326,
+      "val_bps": 15511.2,
+      "all": {
+        "n": 888,
+        "bps": 8612.1,
+        "pf": 2.018,
+        "win_pct": 47.1,
+        "stop_pct": 52.9,
+        "dd": -293.6,
+        "avg": 9.7
+      },
+      "long": {
+        "n": 617,
+        "bps": 6631.6,
+        "pf": 2.127,
+        "win_pct": 47.0,
+        "stop_pct": 53.0,
+        "dd": -152.5,
+        "avg": 10.7
+      },
+      "short": {
+        "n": 271,
+        "bps": 1980.6,
+        "pf": 1.769,
+        "win_pct": 47.2,
+        "stop_pct": 52.8,
+        "dd": -273.6,
+        "avg": 7.3
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 2048,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 2.31,
+      "val_bps": 14948.4,
+      "all": {
+        "n": 851,
+        "bps": 8351.3,
+        "pf": 2.04,
+        "win_pct": 47.6,
+        "stop_pct": 52.4,
+        "dd": -289.7,
+        "avg": 9.8
+      },
+      "long": {
+        "n": 533,
+        "bps": 6266.3,
+        "pf": 2.252,
+        "win_pct": 47.8,
+        "stop_pct": 52.2,
+        "dd": -187.4,
+        "avg": 11.8
+      },
+      "short": {
+        "n": 318,
+        "bps": 2085.0,
+        "pf": 1.689,
+        "win_pct": 47.2,
+        "stop_pct": 52.8,
+        "dd": -205.6,
+        "avg": 6.6
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 2048,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 2.307,
+      "val_bps": 12676.1,
+      "all": {
+        "n": 747,
+        "bps": 6699.2,
+        "pf": 1.93,
+        "win_pct": 46.3,
+        "stop_pct": 53.5,
+        "dd": -177.8,
+        "avg": 9.0
+      },
+      "long": {
+        "n": 539,
+        "bps": 5909.7,
+        "pf": 2.151,
+        "win_pct": 46.9,
+        "stop_pct": 52.9,
+        "dd": -144.0,
+        "avg": 11.0
+      },
+      "short": {
+        "n": 208,
+        "bps": 789.5,
+        "pf": 1.381,
+        "win_pct": 44.7,
+        "stop_pct": 55.3,
+        "dd": -374.1,
+        "avg": 3.8
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 2048,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.301,
+      "val_bps": 12645.3,
+      "all": {
+        "n": 747,
+        "bps": 6729.8,
+        "pf": 1.936,
+        "win_pct": 46.5,
+        "stop_pct": 53.4,
+        "dd": -177.8,
+        "avg": 9.0
+      },
+      "long": {
+        "n": 538,
+        "bps": 5927.7,
+        "pf": 2.159,
+        "win_pct": 47.0,
+        "stop_pct": 52.8,
+        "dd": -144.0,
+        "avg": 11.0
+      },
+      "short": {
+        "n": 209,
+        "bps": 802.1,
+        "pf": 1.388,
+        "win_pct": 45.0,
+        "stop_pct": 55.0,
+        "dd": -374.1,
+        "avg": 3.8
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 512,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 2.298,
+      "val_bps": 11825.7,
+      "all": {
+        "n": 659,
+        "bps": 8840.7,
+        "pf": 2.475,
+        "win_pct": 49.5,
+        "stop_pct": 50.5,
+        "dd": -238.4,
+        "avg": 13.4
+      },
+      "long": {
+        "n": 451,
+        "bps": 6218.7,
+        "pf": 2.496,
+        "win_pct": 48.8,
+        "stop_pct": 51.2,
+        "dd": -229.2,
+        "avg": 13.8
+      },
+      "short": {
+        "n": 208,
+        "bps": 2621.9,
+        "pf": 2.428,
+        "win_pct": 51.0,
+        "stop_pct": 49.0,
+        "dd": -174.1,
+        "avg": 12.6
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 512,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 0.5
+      },
+      "period": "test",
+      "val_pf": 2.298,
+      "val_bps": 15027.9,
+      "all": {
+        "n": 866,
+        "bps": 8597.0,
+        "pf": 2.047,
+        "win_pct": 47.3,
+        "stop_pct": 52.7,
+        "dd": -420.3,
+        "avg": 9.9
+      },
+      "long": {
+        "n": 563,
+        "bps": 6639.5,
+        "pf": 2.25,
+        "win_pct": 47.6,
+        "stop_pct": 52.4,
+        "dd": -305.0,
+        "avg": 11.8
+      },
+      "short": {
+        "n": 303,
+        "bps": 1957.5,
+        "pf": 1.675,
+        "win_pct": 46.9,
+        "stop_pct": 53.1,
+        "dd": -222.5,
+        "avg": 6.5
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 512,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.296,
+      "val_bps": 14998.9,
+      "all": {
+        "n": 867,
+        "bps": 8649.0,
+        "pf": 2.054,
+        "win_pct": 47.4,
+        "stop_pct": 52.6,
+        "dd": -420.3,
+        "avg": 10.0
+      },
+      "long": {
+        "n": 563,
+        "bps": 6639.5,
+        "pf": 2.25,
+        "win_pct": 47.6,
+        "stop_pct": 52.4,
+        "dd": -305.0,
+        "avg": 11.8
+      },
+      "short": {
+        "n": 304,
+        "bps": 2009.5,
+        "pf": 1.693,
+        "win_pct": 47.0,
+        "stop_pct": 53.0,
+        "dd": -222.5,
+        "avg": 6.6
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 512,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 0.5
+      },
+      "period": "test",
+      "val_pf": 2.286,
+      "val_bps": 15468.3,
+      "all": {
+        "n": 889,
+        "bps": 8768.5,
+        "pf": 2.036,
+        "win_pct": 47.1,
+        "stop_pct": 52.9,
+        "dd": -473.9,
+        "avg": 9.9
+      },
+      "long": {
+        "n": 570,
+        "bps": 6778.5,
+        "pf": 2.259,
+        "win_pct": 47.5,
+        "stop_pct": 52.5,
+        "dd": -253.0,
+        "avg": 11.9
+      },
+      "short": {
+        "n": 319,
+        "bps": 1990.0,
+        "pf": 1.647,
+        "win_pct": 46.4,
+        "stop_pct": 53.6,
+        "dd": -312.6,
+        "avg": 6.2
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 512,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.283,
+      "val_bps": 11618.9,
+      "all": {
+        "n": 633,
+        "bps": 8104.9,
+        "pf": 2.369,
+        "win_pct": 48.0,
+        "stop_pct": 52.0,
+        "dd": -296.0,
+        "avg": 12.8
+      },
+      "long": {
+        "n": 440,
+        "bps": 5887.2,
+        "pf": 2.41,
+        "win_pct": 47.3,
+        "stop_pct": 52.7,
+        "dd": -250.2,
+        "avg": 13.4
+      },
+      "short": {
+        "n": 193,
+        "bps": 2217.7,
+        "pf": 2.27,
+        "win_pct": 49.7,
+        "stop_pct": 50.3,
+        "dd": -178.1,
+        "avg": 11.5
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.0005,
+        "batch_size": 512,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 2.283,
+      "val_bps": 11618.9,
+      "all": {
+        "n": 633,
+        "bps": 8104.9,
+        "pf": 2.369,
+        "win_pct": 48.0,
+        "stop_pct": 52.0,
+        "dd": -296.0,
+        "avg": 12.8
+      },
+      "long": {
+        "n": 440,
+        "bps": 5887.2,
+        "pf": 2.41,
+        "win_pct": 47.3,
+        "stop_pct": 52.7,
+        "dd": -250.2,
+        "avg": 13.4
+      },
+      "short": {
+        "n": 193,
+        "bps": 2217.7,
+        "pf": 2.27,
+        "win_pct": 49.7,
+        "stop_pct": 50.3,
+        "dd": -178.1,
+        "avg": 11.5
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 2048,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 0.5
+      },
+      "period": "test",
+      "val_pf": 2.268,
+      "val_bps": 16233.8,
+      "all": {
+        "n": 973,
+        "bps": 9927.6,
+        "pf": 2.091,
+        "win_pct": 48.0,
+        "stop_pct": 51.9,
+        "dd": -296.5,
+        "avg": 10.2
+      },
+      "long": {
+        "n": 624,
+        "bps": 7530.7,
+        "pf": 2.297,
+        "win_pct": 48.2,
+        "stop_pct": 51.6,
+        "dd": -154.3,
+        "avg": 12.1
+      },
+      "short": {
+        "n": 349,
+        "bps": 2396.9,
+        "pf": 1.728,
+        "win_pct": 47.6,
+        "stop_pct": 52.4,
+        "dd": -228.7,
+        "avg": 6.9
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 1024,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 1.0
+      },
+      "period": "test",
+      "val_pf": 2.241,
+      "val_bps": 15907.5,
+      "all": {
+        "n": 1022,
+        "bps": 7966.6,
+        "pf": 1.799,
+        "win_pct": 45.7,
+        "stop_pct": 54.1,
+        "dd": -397.4,
+        "avg": 7.8
+      },
+      "long": {
+        "n": 726,
+        "bps": 6829.8,
+        "pf": 1.994,
+        "win_pct": 47.4,
+        "stop_pct": 52.5,
+        "dd": -236.6,
+        "avg": 9.4
+      },
+      "short": {
+        "n": 296,
+        "bps": 1136.8,
+        "pf": 1.367,
+        "win_pct": 41.6,
+        "stop_pct": 58.1,
+        "dd": -476.5,
+        "avg": 3.8
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 1024,
+        "loss_weight_pnl": 1.0,
+        "loss_weight_dir": 0.5
+      },
+      "period": "test",
+      "val_pf": 2.239,
+      "val_bps": 15896.5,
+      "all": {
+        "n": 1020,
+        "bps": 8014.9,
+        "pf": 1.807,
+        "win_pct": 45.8,
+        "stop_pct": 54.0,
+        "dd": -397.4,
+        "avg": 7.9
+      },
+      "long": {
+        "n": 726,
+        "bps": 6899.8,
+        "pf": 2.007,
+        "win_pct": 47.5,
+        "stop_pct": 52.3,
+        "dd": -236.6,
+        "avg": 9.5
+      },
+      "short": {
+        "n": 294,
+        "bps": 1115.2,
+        "pf": 1.362,
+        "win_pct": 41.5,
+        "stop_pct": 58.2,
+        "dd": -476.5,
+        "avg": 3.8
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 2048,
+        "loss_weight_pnl": 2.0,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 2.056,
+      "val_bps": 15255.5,
+      "all": {
+        "n": 1227,
+        "bps": 9773.0,
+        "pf": 1.852,
+        "win_pct": 47.9,
+        "stop_pct": 51.8,
+        "dd": -401.5,
+        "avg": 8.0
+      },
+      "long": {
+        "n": 723,
+        "bps": 6741.6,
+        "pf": 1.984,
+        "win_pct": 47.2,
+        "stop_pct": 52.6,
+        "dd": -341.3,
+        "avg": 9.3
+      },
+      "short": {
+        "n": 504,
+        "bps": 3031.5,
+        "pf": 1.657,
+        "win_pct": 49.0,
+        "stop_pct": 50.8,
+        "dd": -183.1,
+        "avg": 6.0
+      }
+    },
+    {
+      "params": {
+        "learning_rate": 0.002,
+        "batch_size": 2048,
+        "loss_weight_pnl": 0.5,
+        "loss_weight_dir": 2.0
+      },
+      "period": "test",
+      "val_pf": 1.919,
+      "val_bps": 12702.7,
+      "all": {
+        "n": 1133,
+        "bps": 8280.2,
+        "pf": 1.767,
+        "win_pct": 46.9,
+        "stop_pct": 52.9,
+        "dd": -490.1,
+        "avg": 7.3
+      },
+      "long": {
+        "n": 536,
+        "bps": 5557.3,
+        "pf": 2.1,
+        "win_pct": 47.4,
+        "stop_pct": 52.2,
+        "dd": -248.7,
+        "avg": 10.4
+      },
+      "short": {
+        "n": 597,
+        "bps": 2722.9,
+        "pf": 1.474,
+        "win_pct": 46.4,
+        "stop_pct": 53.4,
+        "dd": -282.9,
+        "avg": 4.6
+      }
+    }
+  ],
+  "runtime_sec": 39176.1
+}

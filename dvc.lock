@@ -139,7 +139,7 @@ stages:
     deps:
     - path: models/ML_V1_staging
       hash: md5
-      md5: 6250eaadcd8abb4612140bc46585b637.dir
+      md5: 7d5636720f5709a3f504827bcce97d75.dir
       size: 156643
       nfiles: 5
     - path: src/mlops/verify.py
@@ -149,7 +149,7 @@ stages:
     outs:
     - path: data/reports/verification_ML_V1_staging.json
       hash: md5
-      md5: d2a504d5c2d8ebea0c90013716ef6f14
+      md5: 73a067a27b2a16ac29f49cd5f44d2ba8
       size: 2053
   verify_backtest:
     cmd: python scripts/mlops/verify_backtest.py
@@ -236,10 +236,32 @@ stages:
       size: 1546
     - path: engine/train_v3.py
       hash: md5
-      md5: 9ed4e49a3e7991232c4bc469082d4060
-      size: 22945
+      md5: 06872daba3ff5539fad6dd5393f37dcc
+      size: 23117
     params:
       ../configs/params.yaml:
+        ml_v3.features:
+          lookbacks:
+          - 1
+          - 2
+          - 3
+          - 4
+          - 5
+          - 6
+          - 7
+          - 8
+          diff_sources:
+          - close
+          - rsi7
+          - range_position
+          - sma200_dist_pct
+          snap_features:
+          - rsi7
+          - range_position
+          - sma200_dist_pct
+          - atr_percentile
+          rsi_period: 7
+          range_position_window: 20
         ml_v3.split:
           train_start: '2020-01-01'
           train_end: '2023-12-31'
@@ -265,7 +287,7 @@ stages:
       size: 1336
     - path: ../models/ML_V3_staging
       hash: md5
-      md5: b1cee83fb94d1a1e826543d2c76ece10.dir
+      md5: 67da2452cff0a78617e1f9ad462f3195.dir
       size: 611886
       nfiles: 5
   verify_v3_model:
@@ -281,7 +303,7 @@ stages:
       size: 39641806
     - path: ../models/ML_V3_staging
       hash: md5
-      md5: b1cee83fb94d1a1e826543d2c76ece10.dir
+      md5: 67da2452cff0a78617e1f9ad462f3195.dir
       size: 611886
       nfiles: 5
     - path: engine/verify_v3_model.py
@@ -416,10 +438,22 @@ stages:
       size: 32889487
     - path: src/engine/ml_train.py
       hash: md5
-      md5: 9c9d5f436c7240ef4f54398563101541
-      size: 17072
+      md5: be9c646e0748a751e1cc31839158d4b1
+      size: 17410
     params:
       configs/params.yaml:
+        ml_v1.features:
+          roc_periods:
+          - 1
+          - 2
+          - 3
+          - 4
+          - 5
+          - 6
+          - 7
+          - 8
+          rsi_period: 7
+          range_position_window: 50
         ml_v1.split:
           train_start: '2020-01-01'
           train_end: '2023-12-31'
@@ -440,7 +474,7 @@ stages:
     outs:
     - path: models/ML_V1_staging
       hash: md5
-      md5: 6250eaadcd8abb4612140bc46585b637.dir
+      md5: 7d5636720f5709a3f504827bcce97d75.dir
       size: 156643
       nfiles: 5
   backtest_ml_v1:
@@ -457,11 +491,11 @@ stages:
       size: 110075967
     - path: data/reports/verification_ML_V1_staging.json
       hash: md5
-      md5: d2a504d5c2d8ebea0c90013716ef6f14
+      md5: 73a067a27b2a16ac29f49cd5f44d2ba8
       size: 2053
     - path: models/ML_V1_staging
       hash: md5
-      md5: 6250eaadcd8abb4612140bc46585b637.dir
+      md5: 7d5636720f5709a3f504827bcce97d75.dir
       size: 156643
       nfiles: 5
     - path: src/engine/backtest.py
@@ -470,18 +504,30 @@ stages:
       size: 16941
     - path: src/engine/signals/ml_v1.py
       hash: md5
-      md5: 2ce660d58aa2fc5f87ea3499fb47ca8f
-      size: 5278
+      md5: a732e58db75f3c18c0deb34a244320c9
+      size: 5434
     params:
       configs/params.yaml:
+        ml_v1.features:
+          roc_periods:
+          - 1
+          - 2
+          - 3
+          - 4
+          - 5
+          - 6
+          - 7
+          - 8
+          rsi_period: 7
+          range_position_window: 50
         ml_v1.inference:
           conf_long: 0.6
           conf_short: 0.58
-          exit_version: v1
+          exit_version: v2
     outs:
     - path: data/reports/ml_v1/backtest.json
       hash: md5
-      md5: 6fcf3c9ab9893a156de09fc8c1f7ea93
+      md5: 88166f3270d179c3393c0d1d142757bd
       size: 1312
     - path: data/reports/ml_v1/trades.parquet
       hash: md5
@@ -511,18 +557,35 @@ stages:
       size: 16941
     - path: src/engine/signals/direction_attention.py
       hash: md5
-      md5: 88ba8ec2430c74e76032d2bbb4b7c6bd
-      size: 5424
+      md5: c8e9d32c1ea8526384dae025040d0c8a
+      size: 5695
     params:
       configs/params.yaml:
+        ml_v2_attention.features:
+          lookbacks:
+          - 1
+          - 2
+          - 3
+          - 4
+          - 5
+          - 6
+          - 7
+          - 8
+          diff_sources:
+          - close
+          - rsi7
+          - range_position
+          - sma200_dist_pct
+          rsi_period: 7
+          range_position_window: 20
         ml_v2_attention.inference:
           conf_long: 0.6
           conf_short: 0.58
-          exit_version: v1
+          exit_version: v2
     outs:
     - path: data/reports/ml_v2_attention/backtest.json
       hash: md5
-      md5: 2f9454645d59dd7e2b9fa3dc66c78e8e
+      md5: 50c4c338dff21aa46f070e7b27e33c33
       size: 1334
     - path: data/reports/ml_v2_attention/trades.parquet
       hash: md5
@@ -546,7 +609,7 @@ stages:
       size: 774
     - path: models/ML_V3_staging
       hash: md5
-      md5: b1cee83fb94d1a1e826543d2c76ece10.dir
+      md5: 67da2452cff0a78617e1f9ad462f3195.dir
       size: 611886
       nfiles: 5
     - path: src/engine/sweep_thresholds.py
@@ -606,7 +669,7 @@ stages:
     outs:
     - path: data/reports/ml_v3/threshold_sweep.json
       hash: md5
-      md5: e89e162f8b4038e7963888091c6a2f9d
+      md5: 0088f1f9c428372af9f1a51d353a13e1
       size: 46972
   backtest_ml_v3:
     cmd: cmd /c "set PYTHONPATH=src && python -m engine.backtest --model ml_v3 
@@ -626,7 +689,7 @@ stages:
       size: 774
     - path: models/ML_V3_staging
       hash: md5
-      md5: b1cee83fb94d1a1e826543d2c76ece10.dir
+      md5: 67da2452cff0a78617e1f9ad462f3195.dir
       size: 611886
       nfiles: 5
     - path: src/engine/backtest.py
@@ -635,18 +698,40 @@ stages:
       size: 16941
     - path: src/engine/signals/ml_v3.py
       hash: md5
-      md5: 83c37f6bb24d79d9238c988b32b6af3c
-      size: 7471
+      md5: 0b93d1f62a9cb0db1664b54c2f5149ee
+      size: 7732
     params:
       configs/params.yaml:
+        ml_v3.features:
+          lookbacks:
+          - 1
+          - 2
+          - 3
+          - 4
+          - 5
+          - 6
+          - 7
+          - 8
+          diff_sources:
+          - close
+          - rsi7
+          - range_position
+          - sma200_dist_pct
+          snap_features:
+          - rsi7
+          - range_position
+          - sma200_dist_pct
+          - atr_percentile
+          rsi_period: 7
+          range_position_window: 20
         ml_v3.inference:
           conf_long: 0.4
           conf_short: 0.4
-          exit_version: v1
+          exit_version: v2
     outs:
     - path: data/reports/ml_v3/backtest.json
       hash: md5
-      md5: 2628b3cc05def8a426eda1001fe3128a
+      md5: 970a0c430b316eb45535749564b4a04b
       size: 1321
     - path: data/reports/ml_v3/trades.parquet
       hash: md5
@@ -657,27 +742,27 @@ stages:
     deps:
     - path: data/reports/ml_v1/backtest.json
       hash: md5
-      md5: 6fcf3c9ab9893a156de09fc8c1f7ea93
+      md5: 88166f3270d179c3393c0d1d142757bd
       size: 1312
     - path: data/reports/ml_v1_v2/backtest.json
       hash: md5
-      md5: b6af444a5e0932700fd99fa851121546
+      md5: b870a66e5df801314bce0082ce5fc031
       size: 1312
     - path: data/reports/ml_v2_attention/backtest.json
       hash: md5
-      md5: 2f9454645d59dd7e2b9fa3dc66c78e8e
+      md5: 50c4c338dff21aa46f070e7b27e33c33
       size: 1334
     - path: data/reports/ml_v2_attention_v2/backtest.json
       hash: md5
-      md5: 9144bdd872304f04421a40c9bb320a3e
+      md5: 27b5cb388de61aeccb7416240ce99e66
       size: 1249
     - path: data/reports/ml_v3/backtest.json
       hash: md5
-      md5: 2628b3cc05def8a426eda1001fe3128a
+      md5: 970a0c430b316eb45535749564b4a04b
       size: 1321
     - path: data/reports/ml_v3_v2/backtest.json
       hash: md5
-      md5: 8cef3bfbf3310214c242d18272cb8f51
+      md5: 21c2dc8eec5a074db078399b657bd408
       size: 1236
     - path: data/reports/v14/backtest.json
       hash: md5
@@ -741,11 +826,11 @@ stages:
       size: 110075967
     - path: data/reports/verification_ML_V1_staging.json
       hash: md5
-      md5: d2a504d5c2d8ebea0c90013716ef6f14
+      md5: 73a067a27b2a16ac29f49cd5f44d2ba8
       size: 2053
     - path: models/ML_V1_staging
       hash: md5
-      md5: 6250eaadcd8abb4612140bc46585b637.dir
+      md5: 7d5636720f5709a3f504827bcce97d75.dir
       size: 156643
       nfiles: 5
     - path: src/engine/backtest.py
@@ -754,18 +839,30 @@ stages:
       size: 16941
     - path: src/engine/signals/ml_v1.py
       hash: md5
-      md5: 2ce660d58aa2fc5f87ea3499fb47ca8f
-      size: 5278
+      md5: a732e58db75f3c18c0deb34a244320c9
+      size: 5434
     params:
       configs/params.yaml:
+        ml_v1.features:
+          roc_periods:
+          - 1
+          - 2
+          - 3
+          - 4
+          - 5
+          - 6
+          - 7
+          - 8
+          rsi_period: 7
+          range_position_window: 50
         ml_v1.inference:
           conf_long: 0.6
           conf_short: 0.58
-          exit_version: v1
+          exit_version: v2
     outs:
     - path: data/reports/ml_v1_v2/backtest.json
       hash: md5
-      md5: b6af444a5e0932700fd99fa851121546
+      md5: b870a66e5df801314bce0082ce5fc031
       size: 1312
     - path: data/reports/ml_v1_v2/trades.parquet
       hash: md5
@@ -795,18 +892,35 @@ stages:
       size: 16941
     - path: src/engine/signals/direction_attention.py
       hash: md5
-      md5: 88ba8ec2430c74e76032d2bbb4b7c6bd
-      size: 5424
+      md5: c8e9d32c1ea8526384dae025040d0c8a
+      size: 5695
     params:
       configs/params.yaml:
+        ml_v2_attention.features:
+          lookbacks:
+          - 1
+          - 2
+          - 3
+          - 4
+          - 5
+          - 6
+          - 7
+          - 8
+          diff_sources:
+          - close
+          - rsi7
+          - range_position
+          - sma200_dist_pct
+          rsi_period: 7
+          range_position_window: 20
         ml_v2_attention.inference:
           conf_long: 0.6
           conf_short: 0.58
-          exit_version: v1
+          exit_version: v2
     outs:
     - path: data/reports/ml_v2_attention_v2/backtest.json
       hash: md5
-      md5: 9144bdd872304f04421a40c9bb320a3e
+      md5: 27b5cb388de61aeccb7416240ce99e66
       size: 1249
     - path: data/reports/ml_v2_attention_v2/trades.parquet
       hash: md5
@@ -831,7 +945,7 @@ stages:
       size: 774
     - path: models/ML_V3_staging
       hash: md5
-      md5: b1cee83fb94d1a1e826543d2c76ece10.dir
+      md5: 67da2452cff0a78617e1f9ad462f3195.dir
       size: 611886
       nfiles: 5
     - path: src/engine/backtest.py
@@ -840,20 +954,136 @@ stages:
       size: 16941
     - path: src/engine/signals/ml_v3.py
       hash: md5
-      md5: 83c37f6bb24d79d9238c988b32b6af3c
-      size: 7471
+      md5: 0b93d1f62a9cb0db1664b54c2f5149ee
+      size: 7732
     params:
       configs/params.yaml:
+        ml_v3.features:
+          lookbacks:
+          - 1
+          - 2
+          - 3
+          - 4
+          - 5
+          - 6
+          - 7
+          - 8
+          diff_sources:
+          - close
+          - rsi7
+          - range_position
+          - sma200_dist_pct
+          snap_features:
+          - rsi7
+          - range_position
+          - sma200_dist_pct
+          - atr_percentile
+          rsi_period: 7
+          range_position_window: 20
         ml_v3.inference:
           conf_long: 0.4
           conf_short: 0.4
-          exit_version: v1
+          exit_version: v2
     outs:
     - path: data/reports/ml_v3_v2/backtest.json
       hash: md5
-      md5: 8cef3bfbf3310214c242d18272cb8f51
+      md5: 21c2dc8eec5a074db078399b657bd408
       size: 1236
     - path: data/reports/ml_v3_v2/trades.parquet
       hash: md5
       md5: e347b04d7bf9a30e1530caf420cf4461
       size: 49508
+  sweep_training_ml_v3:
+    cmd: cmd /c "set PYTHONPATH=src && set PYTHONIOENCODING=utf-8 && python -m 
+      engine.sweep_training --model ml_v3 --level 2"
+    deps:
+    - path: data/features/direction_prediction/exit_aware_labels.parquet
+      hash: md5
+      md5: 5e517d67c113f77e08788879e707a8f2
+      size: 3219123
+    - path: data/features/direction_prediction/feature_cache.parquet
+      hash: md5
+      md5: e78134d5a94a39dfc609b9f18b03cc4d
+      size: 39641806
+    - path: data/raw/BTCUSDT_15m_ohlcv.parquet
+      hash: md5
+      md5: 80dddbc50f8fce723e9c9fbb8d48a32a
+      size: 9061640
+    - path: data/raw/BTCUSDT_1m_ohlcv.parquet
+      hash: md5
+      md5: d172da1885489670d63173b1c4badc86
+      size: 110075967
+    - path: src/engine/sweep_training.py
+      hash: md5
+      md5: 79b380b431f5f5205dee7f4dba3577e3
+      size: 14580
+    - path: src/engine/train_v3.py
+      hash: md5
+      md5: 06872daba3ff5539fad6dd5393f37dcc
+      size: 23117
+    params:
+      configs/params.yaml:
+        ml_v3.sweep:
+          conf_long:
+          - 0.35
+          - 0.37
+          - 0.4
+          - 0.42
+          - 0.45
+          - 0.5
+          conf_short:
+          - 0.35
+          - 0.37
+          - 0.4
+          - 0.42
+          - 0.45
+          - 0.5
+          strategy: grid
+          learning_rate:
+          - 0.0005
+          - 0.001
+          - 0.002
+          loss_weight_pnl:
+          - 0.5
+          - 1.0
+          - 2.0
+          loss_weight_dir:
+          - 0.5
+          - 1.0
+          - 2.0
+          batch_size:
+          - 512
+          - 1024
+          - 2048
+          hidden_size:
+          - 64
+          - 128
+          - 180
+          - 256
+          temperature:
+          - 0.1
+          - 0.3
+          - 0.5
+          - 0.7
+          - 1.0
+          dropout:
+          - 0.3
+          - 0.4
+          - 0.5
+          - 0.6
+        ml_v3.training:
+          hidden: 128
+          dropout: 0.5
+          temperature: 0.5
+          lr: 0.001
+          batch_size: 2048
+          max_epochs: 100
+          patience: 10
+          seed: 42
+          loss_weight_pnl: 1.0
+          loss_weight_dir: 1.0
+    outs:
+    - path: data/reports/ml_v3/training_sweep.json
+      hash: md5
+      md5: 2f4223173e8559e0ef33e695815d7bba
+      size: 116768
