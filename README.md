@@ -6,7 +6,7 @@
 
 A 15-minute BTCUSDT trading system. Four parallel models (one rule-based + three ML) share a single exit engine, an adaptive risk layer, and a real-time dashboard. Trained on 2020–2023, tested out-of-sample on 2024–2025.
 
-> **Min profitable move = 12 bps.** Fees = 8 bps round-trip (limit orders). Anything under 12 bps is noise. See [CLAUDE.md](CLAUDE.md) for the full rule set.
+> **Min profitable move = 12 bps.** Fees = 8 bps round-trip (limit orders). Anything under 12 bps is noise. See [AGENTS.md](AGENTS.md) for the full rule set.
 
 ---
 
@@ -268,7 +268,7 @@ system_1/
 ├── pyproject.toml
 ├── requirements.txt
 ├── Dockerfile
-└── CLAUDE.md                # development rules — READ FIRST
+└── AGENTS.md                # development rules — READ FIRST (CLAUDE.md points here)
 ```
 
 ---
@@ -277,14 +277,10 @@ system_1/
 
 ```powershell
 # Unit tests for the risk module (only first-class test suite)
-$env:PYTHONPATH="src"; pytest src/engine/risk/tests/test_unit.py -v
+$env:PYTHONPATH="src"; pytest tests/test_risk_unit.py -v
 
-# Stress + Monte Carlo + failure-mode tests (slower)
-$env:PYTHONPATH="src"; pytest src/engine/risk/tests/ -v
-
-# Standalone risk diagnostics (not pytest)
-python scripts/test_risk_calculator.py
-python scripts/test_risk_sweep.py
+# Stress + Monte Carlo + failure-mode research harnesses (slower)
+$env:PYTHONPATH="src"; pytest src/research/risk_validation/ -v
 ```
 
 `experiments/` contains historical research scripts named `test_*.py` — those are exploratory backtests, **not** unit tests, and may be slow / require data files.
@@ -301,7 +297,7 @@ Memorize this — never say "2024 data" without qualifying:
 - **Val:**   2024-01-01 → 2024-12-31
 - **Test (OOS):** 2025-01-01 → 2025-12-31
 
-Always say "2024–2025 data" or "test data". See [CLAUDE.md](CLAUDE.md) for full data discipline rules.
+Always say "2024–2025 data" or "test data". See [AGENTS.md](AGENTS.md) for full data discipline rules.
 
 ---
 
@@ -311,16 +307,12 @@ Always say "2024–2025 data" or "test data". See [CLAUDE.md](CLAUDE.md) for ful
 |---|---|
 | [docs/PROJECT_VISION.md](docs/PROJECT_VISION.md) | Layered roadmap |
 | [docs/MLOPS.md](docs/MLOPS.md) | MLOps architecture |
-| [docs/MLOPS_PLAN.md](docs/MLOPS_PLAN.md) | MLOps build plan |
-| [docs/RETRAIN_PIPELINE_PLAN.md](docs/RETRAIN_PIPELINE_PLAN.md) | Retrain workflow |
-| [docs/HYPERPARAMETER_TUNING_PLAN.md](docs/HYPERPARAMETER_TUNING_PLAN.md) | Hyperparameter sweep methodology |
-| [docs/ML_V3_MODEL_PLAN.md](docs/ML_V3_MODEL_PLAN.md) | ML V3 design |
 | [docs/WHAT_analysis.md](docs/WHAT_analysis.md) | "What happens in the market" findings |
 | [docs/WHEN_analysis.md](docs/WHEN_analysis.md) | "When do outcomes happen" findings |
 | [docs/FLAWS.md](docs/FLAWS.md) | Known limitations |
 | [docs/SCALPING_REQUIREMENTS.md](docs/SCALPING_REQUIREMENTS.md) | Scalping constraints |
 | [docs/PROMOTION_LOG.md](docs/PROMOTION_LOG.md) | Model promotion history |
-| [CLAUDE.md](CLAUDE.md) | Development rules + decision protocol |
+| [AGENTS.md](AGENTS.md) | Development rules + decision protocol (canonical; CLAUDE.md points here) |
 
 ---
 

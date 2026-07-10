@@ -3,16 +3,16 @@ requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "trade_system"
-version = "1.0.0"
-description = "KNN-based quantitative trading system"
+name = "alpha"
+version = "2.0.0"
+description = "ALPHA — 15m BTCUSDT trading system: 4 parallel models (rules + ML) on a shared exit engine, risk layer, and live dashboard"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
-    {name = "Trade System Team"}
+    {name = "ALPHA"}
 ]
-keywords = ["trading", "quantitative", "knn", "backtesting"]
+keywords = ["trading", "quantitative", "backtesting", "onnx", "btcusdt"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Financial and Insurance Industry",
@@ -21,16 +21,23 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
 ]
 
+# Runtime dependencies (the live bot + dashboard). Mirrors requirements.txt.
+# Training stack (torch, mlflow, ...) is intentionally excluded — install
+# manually when retraining (see requirements.txt comments).
 dependencies = [
-    "pandas>=2.0.0",
-    "numpy>=1.24.0",
+    "numpy>=1.24",
+    "pandas>=2.0",
     "pyyaml>=6.0",
-    "tqdm>=4.65.0",
-    "python-binance>=1.0.0",
+    "pydantic>=2.0",
+    "sqlalchemy>=2.0",
+    "psycopg2-binary>=2.9",
+    "python-dotenv>=1.0",
+    "onnxruntime>=1.17",
     "fastapi>=0.100.0",
     "uvicorn>=0.22.0",
     "websockets>=11.0",
-    "pyarrow>=12.0.0",
+    "requests>=2.31",
+    "aiohttp>=3.8",
 ]
 
 [project.optional-dependencies]

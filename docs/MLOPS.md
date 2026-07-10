@@ -122,16 +122,12 @@ system_1/
 ├── scripts/
 │   ├── mlops/                             # MLOps utilities
 │   │   ├── leaderboard.py
-│   │   ├── retroactive_cleanup.py
 │   │   └── log_colab_results.py
-│   ├── eval/                              # Evaluation scripts
-│   │   ├── direction_prediction/
-│   │   └── sr_bounce_break/
 │   └── colab/                             # Google Colab scripts
 │
 ├── docs/
 │   ├── MLOPS.md                           # This file
-│   └── MLOPS_PLAN.md                      # Full MLOps roadmap
+│   └── MLOPS.md                           # This guide
 │
 ├── mlflow.db                              # MLflow SQLite store (gitignored)
 └── .dvc/                                  # DVC config + cache
