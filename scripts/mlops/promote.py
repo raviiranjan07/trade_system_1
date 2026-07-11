@@ -67,15 +67,8 @@ def _run_verifier(staging_dir: Path) -> tuple[bool, str]:
 
 def _check_backtest_metrics(model_key: str) -> tuple[bool, str, dict | None]:
     """Read the latest backtest report for this model and check thresholds."""
-    # Map model names to report directory keys
-    dir_map = {
-        "ml_v1": "ml_v1",
-        "ml_v2_attention": "ml_v2_attention",
-        "ml_v3": "ml_v3",
-        "v14": "v14",
-    }
-    report_key = dir_map.get(model_key.lower(), model_key.lower())
-    report_path = REPO_ROOT / "data/reports" / report_key / "backtest.json"
+    # Convention: reports live at data/reports/<model_key_lower>/backtest.json
+    report_path = REPO_ROOT / "data/reports" / model_key.lower() / "backtest.json"
 
     if not report_path.exists():
         return False, f"no backtest report found at {report_path.relative_to(REPO_ROOT)}", None

@@ -4,7 +4,7 @@ Shuffles trades 1000 times, runs each path through the risk calculator.
 Shows: how many paths go to ruin, median/worst final wallet.
 Compares: with risk calculator vs fixed 0.001 BTC.
 
-Run: python src/engine/risk/tests/test_mc_risk.py
+Run: python src/research/risk_validation/test_mc_risk.py
 """
 import sys
 sys.path.insert(0, "src")

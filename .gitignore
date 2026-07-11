@@ -48,3 +48,6 @@ nul
 mlflow.db
 mlruns/
 experiments/**/runs/
+
+# Claude Code internal
+.claude/scheduled_tasks.lock

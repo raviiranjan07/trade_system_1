@@ -1,5 +1,8 @@
 # Brain Pipeline — Base Config
-# All experiments inherit from this. Override only what's different.
+# READ ONLY BY src/brain/ (the SR/zones research module). The real
+# training pipeline (training.train) reads configs/params.yaml — do NOT
+# edit this file expecting it to affect model training.
+# All brain experiments inherit from this. Override only what's different.
 
 ingestion:
   symbol: BTCUSDT

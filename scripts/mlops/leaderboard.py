@@ -1,9 +1,9 @@
 """Leaderboard: print a sorted comparison table of all runs for an experiment.
 
 Usage:
-  PYTHONPATH=src python scripts/leaderboard.py --experiment stage9_sr_advisor
-  PYTHONPATH=src python scripts/leaderboard.py --experiment stage9_sr_advisor --sort test_f1
-  PYTHONPATH=src python scripts/leaderboard.py --all
+  PYTHONPATH=src python scripts/mlops/leaderboard.py --experiment stage9_sr_advisor
+  PYTHONPATH=src python scripts/mlops/leaderboard.py --experiment stage9_sr_advisor --sort test_f1
+  PYTHONPATH=src python scripts/mlops/leaderboard.py --all
 """
 
 import argparse

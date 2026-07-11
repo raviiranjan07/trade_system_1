@@ -5,7 +5,7 @@ For each trade:
   - Did the trade win or lose?
   - Tag: "good_sizing" (small on loser, big on winner) or "bad_sizing" (big on loser)
 
-Run: python src/engine/risk/tests/test_hindsight.py
+Run: python src/research/risk_validation/test_hindsight.py
 """
 import sys
 sys.path.insert(0, "src")

@@ -6,7 +6,7 @@ Reads a CSV log file and produces:
   - Health monitor activity (when did it reduce size?)
   - Timeline (wallet progression)
 
-Run: python src/engine/risk/tests/analyze_session.py <path_to_csv>
+Run: python src/research/risk_validation/analyze_session.py <path_to_csv>
 """
 import sys
 import csv
@@ -101,11 +101,11 @@ if __name__ == "__main__":
                 print(f"  Using most recent log: {filepath}")
             else:
                 print("  No log files found in data/trades/risk_logs/")
-                print("  Usage: python src/engine/risk/tests/analyze_session.py <path_to_csv>")
+                print("  Usage: python src/research/risk_validation/analyze_session.py <path_to_csv>")
                 sys.exit(1)
         else:
             print("  No log directory found.")
-            print("  Usage: python src/engine/risk/tests/analyze_session.py <path_to_csv>")
+            print("  Usage: python src/research/risk_validation/analyze_session.py <path_to_csv>")
             sys.exit(1)
     else:
         filepath = sys.argv[1]

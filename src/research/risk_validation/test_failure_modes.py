@@ -5,7 +5,7 @@ Groups sizing mistakes by:
   - Time (hour, day of week)
   - Market conditions (ATR, EMA separation)
 
-Run: python src/engine/risk/tests/test_failure_modes.py
+Run: python src/research/risk_validation/test_failure_modes.py
 """
 import sys
 sys.path.insert(0, "src")

@@ -7,7 +7,7 @@ Tests:
 
 Shows: does the wallet survive? How low does it go?
 
-Run: python src/engine/risk/tests/test_stress.py
+Run: python src/research/risk_validation/test_stress.py
 """
 import sys
 sys.path.insert(0, "src")

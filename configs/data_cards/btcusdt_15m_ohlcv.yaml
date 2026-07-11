@@ -48,8 +48,8 @@ consumers:
 
 # Derived datasets (children)
 derived:
-  - configs/data_cards/direction_feature_cache.yaml (1,261 features)
-  - configs/data_cards/direction_labels.yaml (30 labels)
+  - archive/data_cards/direction_feature_cache.yaml (retired, 1,261 features)
+  - archive/data_cards/direction_labels.yaml (retired, 30 labels)
   - data/features/sr_bounce_break/ (NPZ files)
 
 known_issues:

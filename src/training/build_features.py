@@ -1,7 +1,7 @@
 """Build feature_cache.parquet from raw 15m OHLCV.
 
 Computes 23 columns per bar matching the spec in
-configs/data_cards/direction_feature_cache.yaml.
+archive/data_cards/direction_feature_cache.yaml (retired card).
 
 Run: python -m training.build_features  (from repo root, after pip install -e .)
 Or:  python src/training/build_features.py
