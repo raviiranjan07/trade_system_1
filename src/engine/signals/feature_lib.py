@@ -1,35 +1,25 @@
-"""Canonical feature formulas — THE single source of truth (audit item 2.1).
+"""Canonical feature formulas — THE single source of truth.
 
 Every formula that turns candles into model inputs lives here, once.
-Consumers: engine/strategy.py, engine/signals/* (live inference),
-training/* (dataset build + trainers + model verifier), research verifiers.
-Training code MUST import from here — never copy. A formula copied instead
-of imported can silently diverge between training and live inference,
-which degrades model predictions without any error being raised.
+Consumers: engine/indicators.py, model signal adapters (live inference),
+training/* (dataset build + trainers), research verifiers. Training code
+MUST import from here — never copy. A formula copied instead of imported
+can silently diverge between training and live inference, which degrades
+model predictions without any error being raised.
 
-(The Colab scripts under scripts/colab/ cannot import the repo and carry
-necessary copies — they cross-reference this file as source of truth.)
-
-KNOWN VARIANT MISMATCH — frozen deliberately on 2026-07-11, resolution
-deferred to the next retrain cycle:
-
-  range_position has TWO variants that DO NOT agree (28% of bars differ
-  on real data; up to 3.8 sigma on the rp-diff model inputs):
-    - range_position_rolling(window=20): pandas rolling window of
-      `window` bars, NaN warmup filled with 0.5. Used by the TRAINING
-      feature cache (build_features.py) that ML V2/V3 were trained on.
-    - range_position_inclusive(window=20): loop over [i-window, i]
-      = `window + 1` bars, zeros warmup. Used by LIVE inference and
-      backtests (signals/direction_attention.py, signals/ml_v3.py) and
-      by the ML V1 lineage end-to-end (ml_train.py matches ml_v1.py).
-  Additionally, atr_percentile reaches V3's snapshot from a 500-bar
-  rank window in training (build_features) but a 200-bar window live
-  (strategy.compute_indicators via settings atr_rolling_window).
-
-  Both variants are kept EXACTLY as-is because the deployed models were
-  validated (backtests, promotion) against the live variant. At the next
-  retrain: pick ONE variant, rebuild the cache, retrain, re-validate.
-  Details: memory bot_refactor.md / duplication audit 2026-07-10.
+OPEN DECISION for the new architecture (day-one, before building the
+feature cache): range_position has TWO variants that DO NOT agree
+(28% of bars differ on real data; up to 3.8 sigma on diff features):
+  - range_position_rolling(window):   pandas rolling of `window` bars,
+    NaN warmup filled 0.5 — was the TRAINING-cache variant.
+  - range_position_inclusive(window): loop over [i-window, i] =
+    `window + 1` bars, zeros warmup — was the LIVE-inference variant.
+Similarly atr_percentile had a 500-bar rank window in the training
+cache vs 200-bar live (settings atr_rolling_window). The retired models
+were trained/served across this mismatch (frozen 2026-07-11, consumers
+now deleted). The new model must PICK ONE variant + ONE atr window,
+delete the loser, and use the survivor in cache-build AND live
+inference. Details: memory bot_refactor.md / audit 2026-07-10.
 """
 
 import numpy as np
@@ -39,8 +29,8 @@ import pandas as pd
 def rsi_rolling(close: pd.Series, period: int) -> pd.Series:
     """Standard RSI on a rolling simple mean of gains/losses.
 
-    The one RSI in the system: V1.4 entry rules (strategy.py), the rsi7
-    model feature (all three ML models, training and live), and the
+    The one RSI in the system: the shared indicators (indicators.py), the
+    rsi7 model feature (all three ML models, training and live), and the
     feature cache all use exactly this.
     """
     delta = close.diff()

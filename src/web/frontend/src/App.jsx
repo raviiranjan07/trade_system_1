@@ -1,12 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import StatusPanel from './components/StatusPanel'
-import PositionCard from './components/PositionCard'
 import StatsSection from './components/StatsSection'
 import TradesList from './components/TradesList'
-import SignalLog from './components/SignalLog'
-// TabBar removed — replaced by page-level navigation
 import EquityCurve from './components/EquityCurve'
-import SignalStats from './components/SignalStats'
 import TradingViewChart from './components/TradingViewChart'
 import CandlestickChart from './components/CandlestickChart'
 import RsiPane from './components/RsiPane'
@@ -15,8 +11,6 @@ import DrawingOverlay from './components/DrawingOverlay'
 import ChartLegend from './components/ChartLegend'
 import ChartSettings from './components/ChartSettings'
 import IndicatorPanel from './components/IndicatorPanel'
-import SignalProximity from './components/SignalProximity'
-import AlertManager from './components/AlertManager'
 import PerformancePanel from './components/PerformancePanel'
 import PnLCalendar from './components/PnLCalendar'
 import PortfolioPage from './components/PortfolioPage'
@@ -380,35 +374,15 @@ function App() {
     )
   }
 
-  const { status, signals, config } = data || {}
+  const { status, config } = data || {}
 
   // Unified keyed payload: models + model_trades (one entry per registered model)
   const models = data?.models || {}
   const modelTrades = data?.model_trades || {}
-  const v14 = models.V_RULE_BASED || {}
-  const trades = modelTrades.V_RULE_BASED || []
   const mlTrades = modelTrades.ML_V1 || []
   const mlAttnTrades = modelTrades.ML_ATTN || []
   const mlV3Trades = modelTrades.ML_V3 || []
-
-  // Old-shape views for components that predate the unified payload
-  const stats = v14
-  const risk = v14
-  const position = {
-    has_position: v14.has_position || false,
-    side: v14.position_side,
-    entry_price: v14.position_entry_price,
-    current_price: status?.price,
-    trailing_stop_bps: v14.position_trailing_stop_bps || 0,
-    highest_profit_bps: v14.position_highest_profit_bps || 0,
-    current_pnl_bps: v14.position_pnl_bps || 0,
-    bars_held: v14.position_bars_held || 0,
-    max_bars: v14.position_max_bars || 10,
-    mfe_bps: v14.position_mfe_bps || 0,
-    mae_bps: v14.position_mae_bps || 0,
-    is_reentry: v14.is_reentry || false,
-    liq_price: v14.position_liq_price || 0,
-  }
+  const allTrades = [...mlTrades, ...mlAttnTrades, ...mlV3Trades]
 
   if ((status?.status === 'STARTING' || !status?.price) && activePage !== 'portfolio') {
     return (
@@ -458,7 +432,6 @@ function App() {
         </nav>
 
         <div className="header-right">
-          <AlertManager trades={trades} signals={signals} position={position} />
           <div className="header-price-box">
             <span className="header-price-label">₿</span>
             <span className="header-price-value">
@@ -520,7 +493,7 @@ function App() {
               <CandlestickChart
                 candles={chartCandles}
                 currentCandle={liveCandle}
-                trades={trades}
+                trades={allTrades}
                 indicators={indicators}
                 onTimeRangeChange={handleTimeRangeChange}
                 onLoadMore={handleLoadMore}
@@ -589,48 +562,39 @@ function App() {
             <StatusPanel label="Regime" value={status?.regime || '---'} panelType="regime" />
           </div>
 
-          <PositionCard position={position} />
-
-          <SignalProximity proximity={data?.proximity} />
         </div>
       </div>
 
       {/* ========== TRADES PAGE (full-width) ========== */}
       {activePage === 'trades' && (
         <div className="page-content page-trades">
-          <StatsSection stats={stats} risk={risk} ml={models.ML_V1} trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} activeFilter={tradesFilter} onFilterChange={setTradesFilter} />
+          <StatsSection ml={models.ML_V1} mlAttn={models.ML_ATTN} mlV3={models.ML_V3} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} activeFilter={tradesFilter} onFilterChange={setTradesFilter} />
 
-          <BpsDistribution trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} />
+          <BpsDistribution mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} />
 
-          <TradesList trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} filter={tradesFilter} onFilterChange={setTradesFilter} />
-
-          <div className="card signals-full-container">
-            <div className="card-header">Signal Log</div>
-            <SignalStats signals={signals} />
-            <SignalLog signals={signals} fullHeight />
-          </div>
+          <TradesList mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} filter={tradesFilter} onFilterChange={setTradesFilter} />
         </div>
       )}
 
       {/* ========== RISK PAGE (full-width) ========== */}
       {activePage === 'risk' && (
         <div className="page-content page-risk">
-          <RiskPage risk={risk} ml={models.ML_V1} mlAttn={models.ML_ATTN} decisions={decisions} trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} />
+          <RiskPage ml={models.ML_V1} mlAttn={models.ML_ATTN} mlV3={models.ML_V3} decisions={decisions} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} />
         </div>
       )}
 
       {/* ========== ANALYTICS PAGE (full-width) ========== */}
       {activePage === 'analytics' && (
         <div className="page-content page-analytics">
-          <StatsSection stats={stats} risk={risk} ml={models.ML_V1} trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} />
+          <StatsSection ml={models.ML_V1} mlAttn={models.ML_ATTN} mlV3={models.ML_V3} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} />
 
           <div className="analytics-equity">
-            <EquityCurve trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} />
+            <EquityCurve mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} />
           </div>
 
-          <PnLCalendar trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} />
+          <PnLCalendar mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} />
 
-          <PerformancePanel trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} />
+          <PerformancePanel mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} />
         </div>
       )}
 

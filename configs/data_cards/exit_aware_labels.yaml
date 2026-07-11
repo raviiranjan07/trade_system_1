@@ -17,7 +17,7 @@ description: |
 
 # Generation
 generation:
-  script: src/engine/build_exit_labels.py
+  script: src/training/build_exit_labels.py
   method: |
     For each 15m bar (index i):
       1. entry_price = open of bar i+1
@@ -124,7 +124,7 @@ regeneration:
     - "Exit rules change (position_manager.py or settings.yaml)"
     - "New raw data added (15m or 1m parquet updated)"
     - "Fee structure changes"
-  command: "PYTHONPATH=src python -m engine.build_exit_labels"
+  command: "dvc repro build_exit_labels  (or: cd src && python -m training.build_exit_labels)"
   runtime: "~30-60 min on CPU"
   tracked_by: DVC (deps on position_manager.py + settings.yaml + raw data)
 

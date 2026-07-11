@@ -377,7 +377,6 @@ function PositionBlock({ label, accentColor, side, entryPrice, currentPrice, pnl
 
 // Legacy filter labels for the Trades page (TradesList still uses these)
 const TRADES_FILTER_LABEL = {
-  V_RULE_BASED: 'V1.4',
   ML_V1: 'ML',
   ML_ATTN: 'ML V2',
   ML_V3: 'ML V3',

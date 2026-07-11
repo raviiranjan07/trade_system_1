@@ -12,9 +12,9 @@ Levels:
   Level 3: architecture (hidden_size, dropout, temperature)
 
 Run:
-  PYTHONPATH=src python -m research.sweep_training --model ml_v3 --level 2
-  PYTHONPATH=src python -m research.sweep_training --model ml_v3 --level 3
-  PYTHONPATH=src python -m research.sweep_training --model ml_v3 --level 2 --level 3
+  PYTHONPATH=src python -m research.sweep_training --model <model_key> --level 2
+  PYTHONPATH=src python -m research.sweep_training --model <model_key> --level 3
+  PYTHONPATH=src python -m research.sweep_training --model <model_key> --level 2 --level 3
 """
 
 import argparse
@@ -52,11 +52,9 @@ PARAM_KEY_MAP = {
     "temperature": "temperature",
 }
 
-# Training commands per model (subprocess)
-TRAIN_COMMANDS = {
-    "ml_v1": [sys.executable, "src/training/ml_train.py"],
-    "ml_v3": [sys.executable, "-m", "training.train_v3"],
-}
+def train_command(model_name: str) -> list[str]:
+    """Training subprocess command — uniform for every model."""
+    return [sys.executable, "-m", "training.train", "--model", model_name]
 
 
 def _load_params():
@@ -96,10 +94,7 @@ def _patch_training_params(params, model_name, param_names, combo):
 
 def _train_model(model_name, env_vars=None):
     """Run training script as subprocess. Returns (success, elapsed_sec)."""
-    cmd = TRAIN_COMMANDS.get(model_name)
-    if not cmd:
-        logger.error("No training command for model: %s", model_name)
-        return False, 0
+    cmd = train_command(model_name)
 
     env = None
     if env_vars:
@@ -132,13 +127,7 @@ def _train_model(model_name, env_vars=None):
 
 def _backtest_model(config, model_name, start, end, exit_version):
     """Run backtest for model, return trades."""
-    gen_class, model_dir = ML_GENERATORS[model_name]
-    onnx_map = {
-        "ml_v3": "v3_model.onnx",
-        "ml_v2_attention": "attention_model.onnx",
-        "ml_v1": "direction_model.onnx",
-    }
-    onnx_name = onnx_map.get(model_name, "direction_model.onnx")
+    gen_class, model_dir, onnx_name = ML_GENERATORS[model_name]
 
     trades = run_backtest(
         config, start=start, end=end,
@@ -152,7 +141,8 @@ def _backtest_model(config, model_name, start, end, exit_version):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", required=True, choices=list(TRAIN_COMMANDS.keys()))
+    parser.add_argument("--model", required=True, choices=list(ML_GENERATORS.keys()) or None,
+                        help="model key (must be registered in research/backtest.py ML_GENERATORS)")
     parser.add_argument("--level", type=int, action="append", required=True,
                         choices=[2, 3], help="Which levels to sweep (can repeat)")
     args = parser.parse_args()

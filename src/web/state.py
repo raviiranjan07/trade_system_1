@@ -4,13 +4,11 @@ Thread-safe state container bridging the trading bot with the web API.
 Updated by the bot, read by FastAPI endpoints + WebSocket clients.
 
 Model panels are UNIFIED: one ModelPanelData dataclass, one dict keyed by
-track name (V_RULE_BASED, ML_V1, ML_ATTN, ML_V3). Adding model #5 to the
-dashboard is a single register_model() call — no new dataclass, no new
-update methods, no frontend change.
+track name. Adding a model to the dashboard is a single register_model()
+call — no new dataclass, no new update methods.
 
 Write path: register_model() / update_model() / add_model_trade()
-(driven by engine.dashboard_bridge). Legacy read views (get_position,
-get_stats, ...) remain for the old REST endpoints.
+(driven by engine.dashboard_bridge).
 """
 
 import asyncio
@@ -58,19 +56,6 @@ class TradeData:
     qty: float = 0.0
     pnl_usd: float = 0.0
     liq_price: float = 0.0
-
-
-@dataclass
-class SignalData:
-    """Single signal record."""
-    id: str = ""
-    action: str = "SKIP"  # ENTRY, REENTRY, or SKIP
-    direction: Optional[str] = None
-    rsi: float = 0
-    atr_ok: Optional[bool] = None
-    ema_ok: Optional[bool] = None
-    reason: Optional[str] = None
-    time: str = ""
 
 
 @dataclass
@@ -168,14 +153,11 @@ class ModelPanelData:
     cum_status: str = "pending"
 
 
-# The four known models, pre-registered so the legacy shims work before
-# the orchestrator exists. Baselines: backtest daily-average bps.
+# Models are registered dynamically by the orchestrator's bridge at
+# startup (bridge.register). Pre-seed rows here only if the dashboard
+# must show a model before the bot connects.
 DEFAULT_MODELS = [
     # (name, title, accent, exit_version, daily_expected_bps)
-    ("V_RULE_BASED", "Rule Based (V1.4)", "#3b82f6", "V1", 0.0),
-    ("ML_V1", "ML V1", "#8b5cf6", "V2", 7.38),
-    ("ML_ATTN", "ML V2 Attention", "#f59e0b", "V2", 10.02),
-    ("ML_V3", "ML V3", "#10b981", "V2", 27.5),
 ]
 
 
@@ -190,7 +172,6 @@ class DashboardState:
         self._lock = threading.Lock()
         self._status = StatusData()
         self._config = ConfigData()
-        self._signals: List[SignalData] = []
         self._start_time: Optional[datetime] = None
 
         # Unified model panels + their trade lists, keyed by track name.
@@ -200,11 +181,6 @@ class DashboardState:
             self.register_model(name, title=title, accent_color=accent,
                                 exit_version=exit_v, daily_expected_bps=daily_exp,
                                 sort_order=i, _broadcast=False)
-        # Rule-based signals need no model file — the card is always "active"
-        self._models["V_RULE_BASED"].model_loaded = True
-
-        # Signal proximity data (rule-based tracker)
-        self._proximity: Dict[str, Any] = {}
 
         # Chart candle data
         self._candles: List[CandleData] = []
@@ -453,29 +429,6 @@ class DashboardState:
 
         self._broadcast_update()
 
-    # ------------------------------------------------------------ signals
-
-    def add_signal(self, signal: Dict[str, Any]) -> None:
-        import uuid
-        with self._lock:
-            signal_data = SignalData(
-                id=signal.get("id", str(uuid.uuid4())[:8]),
-                action=signal.get("action", "SKIP"),
-                direction=signal.get("direction"),
-                rsi=signal.get("rsi", 0),
-                atr_ok=signal.get("atr_ok"),
-                ema_ok=signal.get("ema_ok"),
-                reason=signal.get("reason"),
-                time=signal.get("time", datetime.now(timezone.utc).isoformat()),
-            )
-            self._signals.insert(0, signal_data)
-            self._signals = self._signals[:50]
-        self._broadcast_update()
-
-    def update_proximity(self, proximity: Dict[str, Any]) -> None:
-        with self._lock:
-            self._proximity = proximity
-
     # ------------------------------------------------------------ candles
 
     def set_candle_history(self, candles: List[Dict[str, Any]]) -> None:
@@ -526,17 +479,9 @@ class DashboardState:
         with self._lock:
             return asdict(self._status)
 
-    def get_signals(self, limit: int = 20) -> List[Dict[str, Any]]:
-        with self._lock:
-            return [asdict(s) for s in self._signals[:limit]]
-
     def get_config(self) -> Dict[str, Any]:
         with self._lock:
             return asdict(self._config)
-
-    def get_proximity(self) -> Dict[str, Any]:
-        with self._lock:
-            return dict(self._proximity)
 
     def get_all(self) -> Dict[str, Any]:
         """All dashboard data. Excludes candles (too large for WS broadcast)."""
@@ -544,8 +489,6 @@ class DashboardState:
             "type": "full",
             "status": self.get_status(),
             "config": self.get_config(),
-            "signals": self.get_signals(),
-            "proximity": self.get_proximity(),
             "models": self.get_models(),
             "model_trades": {
                 name: self.get_model_trades(name, limit=0) for name in self.get_models()
@@ -585,64 +528,6 @@ class DashboardState:
                     queue.put_nowait(data)
                 except asyncio.QueueFull:
                     pass
-
-    # =================================================================
-    # LEGACY READ VIEWS — old-shape projections of the keyed panels,
-    # kept for the REST endpoints (/api/position, /api/stats, ...).
-    # Read-only; the write path is update_model()/add_model_trade().
-    # =================================================================
-
-    def get_position(self) -> Dict[str, Any]:
-        p = self.get_model("V_RULE_BASED")
-        return {
-            "has_position": p.get("has_position", False),
-            "side": p.get("position_side"),
-            "entry_price": p.get("position_entry_price", 0),
-            "current_price": self.get_status().get("price"),
-            "trailing_stop_bps": p.get("position_trailing_stop_bps", 0),
-            "highest_profit_bps": p.get("position_highest_profit_bps", 0),
-            "current_pnl_bps": p.get("position_pnl_bps", 0),
-            "bars_held": p.get("position_bars_held", 0),
-            "max_bars": p.get("position_max_bars", 10),
-            "mfe_bps": p.get("position_mfe_bps", 0),
-            "mae_bps": p.get("position_mae_bps", 0),
-            "is_reentry": p.get("is_reentry", False),
-            "liq_price": p.get("position_liq_price", 0),
-        }
-
-    def get_stats(self) -> Dict[str, Any]:
-        p = self.get_model("V_RULE_BASED")
-        keys = ("total_trades", "wins", "losses", "win_rate",
-                "total_bps", "avg_bps", "profit_factor")
-        return {k: p.get(k, 0) for k in keys}
-
-    def get_risk(self) -> Dict[str, Any]:
-        p = self.get_model("V_RULE_BASED")
-        keys = ("wallet_usd", "drawdown_pct", "health_multiplier",
-                "consecutive_losses", "recent_winrate", "peak_usd",
-                "last_qty", "last_pnl_usd", "total_skips")
-        return {k: p.get(k, 0) for k in keys}
-
-    def get_trades(self, limit: int = 0) -> List[Dict[str, Any]]:
-        return self.get_model_trades("V_RULE_BASED", limit=limit)
-
-    def get_ml(self) -> Dict[str, Any]:
-        return self.get_model("ML_V1")
-
-    def get_ml_attn(self) -> Dict[str, Any]:
-        return self.get_model("ML_ATTN")
-
-    def get_ml_v3(self) -> Dict[str, Any]:
-        return self.get_model("ML_V3")
-
-    def get_ml_trades(self, limit: int = 0) -> List[Dict[str, Any]]:
-        return self.get_model_trades("ML_V1", limit=limit)
-
-    def get_ml_attn_trades(self, limit: int = 10) -> List[Dict[str, Any]]:
-        return self.get_model_trades("ML_ATTN", limit=limit)
-
-    def get_ml_v3_trades(self, limit: int = 10) -> List[Dict[str, Any]]:
-        return self.get_model_trades("ML_V3", limit=limit)
 
 
 # Global state instance

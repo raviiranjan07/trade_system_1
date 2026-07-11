@@ -15,21 +15,15 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 REPORT_DIR = REPO_ROOT / "data/reports"
 OUTPUT_PATH = REPORT_DIR / "comparison.json"
 
-# V1 exits
-MODELS_V1 = {
-    "V1.4": REPORT_DIR / "v14" / "backtest.json",
-    "ML_V1": REPORT_DIR / "ml_v1" / "backtest.json",
-    "ML_V2": REPORT_DIR / "ml_v2_attention" / "backtest.json",
-    "ML_V3": REPORT_DIR / "ml_v3" / "backtest.json",
+# Registry: display name -> report subdir under data/reports/.
+# Convention: V1-exit reports in <subdir>/, V2-exit in <subdir>_v2/.
+# A new model = one row here (+ its backtest stages in dvc.yaml).
+MODELS: dict[str, str] = {
+    # "MY_MODEL": "my_model",
 }
 
-# V2 exits (V1 minus LOCKED_PROFIT)
-MODELS_V2 = {
-    "V1.4": REPORT_DIR / "v14_v2" / "backtest.json",
-    "ML_V1": REPORT_DIR / "ml_v1_v2" / "backtest.json",
-    "ML_V2": REPORT_DIR / "ml_v2_attention_v2" / "backtest.json",
-    "ML_V3": REPORT_DIR / "ml_v3_v2" / "backtest.json",
-}
+MODELS_V1 = {name: REPORT_DIR / sub / "backtest.json" for name, sub in MODELS.items()}
+MODELS_V2 = {name: REPORT_DIR / f"{sub}_v2" / "backtest.json" for name, sub in MODELS.items()}
 
 METRIC_KEYS = [
     ("Trades", "n", "{:.0f}"),
@@ -140,6 +134,9 @@ def main():
     logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 
     import sys
+    if not MODELS:
+        sys.exit("No models registered in MODELS (research/compare_models.py). "
+                 "Add the new model's report subdir first.")
     sys.path.insert(0, str(REPO_ROOT / "src"))
     from mlops.backtest_report import validate_report, validate_comparable
 

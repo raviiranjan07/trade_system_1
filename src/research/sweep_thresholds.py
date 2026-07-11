@@ -3,7 +3,7 @@
 Model-agnostic: reads sweep ranges from configs/params.yaml → {model}.sweep.
 No retraining needed — loads existing model and re-runs backtest at each threshold.
 
-Run: PYTHONPATH=src python -m research.sweep_thresholds --model ml_v3
+Run: PYTHONPATH=src python -m research.sweep_thresholds --model <model_key>
 """
 
 import argparse
@@ -28,14 +28,7 @@ PARAMS_PATH = REPO_ROOT / "configs/params.yaml"
 
 def backtest_at_threshold(config, model_name, conf_long, conf_short, start, end):
     """Run backtest with specific thresholds by temporarily patching params."""
-    gen_class, model_dir = ML_GENERATORS[model_name]
-
-    onnx_map = {
-        "ml_v3": "v3_model.onnx",
-        "ml_v2_attention": "attention_model.onnx",
-        "ml_v1": "direction_model.onnx",
-    }
-    onnx_name = onnx_map.get(model_name, "direction_model.onnx")
+    gen_class, model_dir, onnx_name = ML_GENERATORS[model_name]
 
     # Patch the params.yaml temporarily for this threshold
     with open(PARAMS_PATH) as f:
@@ -67,19 +60,14 @@ def backtest_at_threshold(config, model_name, conf_long, conf_short, start, end)
     return trades
 
 
-def _signal_prefix(model_name: str) -> str:
-    """Map model name to signal type prefix."""
-    return {"ml_v3": "ML_V3_", "ml_v2_attention": "ML_ATTN_", "ml_v1": "ML_"}.get(model_name, "ML_")
-
-
 def _filter_model_signals(tdf, model_name):
-    """Filter trades to only this model's signals."""
-    prefix = _signal_prefix(model_name)
-    if model_name == "ml_v1":
-        return tdf[tdf["signal_type"].str.startswith(prefix) &
-                    ~tdf["signal_type"].str.startswith("ML_ATTN_") &
-                    ~tdf["signal_type"].str.startswith("ML_V3_")]
-    return tdf[tdf["signal_type"].str.startswith(prefix)]
+    """Filter trades to only this model's signals.
+
+    Independent backtests produce only the model's own signals, so no
+    filtering is needed. Hook kept for combined-run sweeps: filter on
+    the model's SignalType prefix here if runs are ever mixed again.
+    """
+    return tdf
 
 
 def _compute_metrics(df):

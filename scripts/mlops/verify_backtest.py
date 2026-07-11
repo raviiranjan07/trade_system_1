@@ -32,7 +32,10 @@ SRC_DIR = REPO_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-TRADES_PATH = REPO_ROOT / "data/reports/backtest_staging_trades_ml_v1_exitv1.parquet"
+# Trades parquet to verify — pass as first CLI arg, e.g.:
+#   python scripts/mlops/verify_backtest.py data/reports/<model>/trades.parquet
+TRADES_PATH = (Path(sys.argv[1]) if len(sys.argv) > 1
+               else REPO_ROOT / "data/reports/trades.parquet")
 REPORT_PATH = REPO_ROOT / "data/reports/verify_backtest.json"
 
 # V1 rule thresholds (read from schema defaults — keep in sync if schema changes)

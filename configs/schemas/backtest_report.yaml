@@ -9,25 +9,18 @@ required_fields:
   # SCOPE — what was tested
   - name: model
     type: string
-    description: "Model identifier (ml_v1, ml_v2_attention, ml_v3, v14)"
-    allowed: [ml_v1, ml_v2_attention, ml_v3, v14]
+    description: "Model key — the params.yaml block name (e.g. my_model)"
 
   - name: mode
     type: string
-    description: "independent = ML-only, own PM. mixed = V1.4 + ML shared PM"
-    allowed: [independent, mixed, v14_only]
+    description: "independent = single model, its own position manager"
+    allowed: [independent]
 
   - name: signals_included
     type: list
     description: "Exact signal types in this report"
     examples:
-      - [ML_V3_LONG, ML_V3_SHORT]
       - [ML_LONG, ML_SHORT]
-      - [V12_LONG, V12_SHORT, BEAR_LONG, BULL_SHORT]
-
-  - name: v14_included
-    type: boolean
-    description: "Were V1.4 signals in the same PM?"
 
   - name: exit_version
     type: string

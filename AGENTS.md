@@ -44,21 +44,36 @@
 
 ---
 
-## CURRENT PHASE: System (live paper trading)
+## CURRENT PHASE: Clean slate — building the new first architecture
 
 Foundation work (WHAT / WHEN / RULES) is COMPLETE — findings live in
 docs/WHAT_analysis.md and docs/WHEN_analysis.md; rules are locked.
 
-**Now:** four models paper-trade in parallel on the track architecture:
-V_RULE_BASED (V1.4 rules) + ML_V1 + ML_ATTN + ML_V3, each with its own
-wallet, health monitor, and risk sizing. Layers 0-1 of the vision are
-done, Layer 2 (direction prediction) is partial — see
-docs/PROJECT_VISION.md for the full layer roadmap.
+**2026-07-11/12 reset:** the entire 2026 H1 model lineage (ML_V1 MLP,
+ML_V2 Attention, ML_V3 exit-aware — and earlier the V1.4 rule strategy)
+was retired and wiped: models, MLflow history, feature cache, reports.
+The codebase is now a **model-agnostic skeleton**: every pipeline stage,
+registry, and track slot is an empty template awaiting the new first
+architecture. The bot cannot start until a new model is trained and
+promoted. Old lineage lives in git history + archive/. Kept: raw OHLCV
+data (data/raw/, through 2025-12-30) and the experiments/ research
+ledger. Layers 0-1 of the vision remain done; Layer 2 restarts with the
+new architecture — see docs/PROJECT_VISION.md.
+
+**Add-a-model touchpoints** (each is a marked template):
+architectures.ARCHITECTURES + train.MODEL_SPECS/TASKS + params.yaml
+block + protocol yaml → dvc.yaml stage chain + pipelines.yaml →
+signal adapter in engine/signals/ + backtest.ML_GENERATORS →
+orchestrator.TRACK_METAS + build_tracks spec → frontend roster.
+
+Known day-one decisions for the new model: pick ONE range_position
+variant + ONE atr window (feature_lib.py docstring), and build the
+missing data-ingestion stage (raw data is 6+ months stale).
 
 ## ARCHITECTURE & RUN COMMANDS
 
 ```
-src/engine/    runs live 24/7  (bot -> orchestrator -> 4 StrategyTracks)
+src/engine/    runs live 24/7  (bot -> orchestrator -> one StrategyTrack per model)
 src/training/  produces model artifacts (offline)
 src/research/  backtests, sweeps, risk analysis (imports engine)
 src/mlops/     experiment tracking + registry

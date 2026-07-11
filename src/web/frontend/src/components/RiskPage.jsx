@@ -22,11 +22,10 @@ function buildWalletHistory(tradesArr, startCapital) {
   return points
 }
 
-function WalletChart({ trades, mlTrades, mlAttnTrades, mlV3Trades }) {
+function WalletChart({ mlTrades, mlAttnTrades, mlV3Trades }) {
   const containerRef = useRef(null)
   const chartRef = useRef(null)
 
-  const v14Points = buildWalletHistory(trades, DEFAULT_CAPITAL)
   const mlPoints = buildWalletHistory(mlTrades, DEFAULT_CAPITAL)
   const mlAttnPoints = buildWalletHistory(mlAttnTrades, DEFAULT_CAPITAL)
   const mlV3Points = buildWalletHistory(mlV3Trades, DEFAULT_CAPITAL)
@@ -63,16 +62,6 @@ function WalletChart({ trades, mlTrades, mlAttnTrades, mlV3Trades }) {
       handleScale: { mouseWheel: true, pinch: true },
     })
     chart.applyOptions({ branding: { visible: false } })
-
-    // V1.4 line (blue)
-    const v14Series = chart.addSeries(LineSeries, {
-      color: '#3b82f6',
-      lineWidth: 2,
-      lastValueVisible: true,
-      priceLineVisible: false,
-      crosshairMarkerVisible: true,
-      title: 'V1.4',
-    })
 
     // ML line (purple)
     const mlSeries = chart.addSeries(LineSeries, {
@@ -132,17 +121,15 @@ function WalletChart({ trades, mlTrades, mlAttnTrades, mlV3Trades }) {
       return deduped
     }
 
-    const v14Data = toChartData(v14Points)
     const mlData = toChartData(mlPoints)
     const mlAttnData = toChartData(mlAttnPoints)
     const mlV3Data = toChartData(mlV3Points)
 
-    if (v14Data.length > 0) v14Series.setData(v14Data)
     if (mlData.length > 0) mlSeries.setData(mlData)
     if (mlAttnData.length > 0) mlAttnSeries.setData(mlAttnData)
     if (mlV3Data.length > 0) mlV3Series.setData(mlV3Data)
 
-    const allData = [...v14Data, ...mlData, ...mlAttnData, ...mlV3Data]
+    const allData = [...mlData, ...mlAttnData, ...mlV3Data]
     if (allData.length >= 2) {
       const minTime = Math.min(...allData.map(d => d.time))
       const maxTime = Math.max(...allData.map(d => d.time))
@@ -166,7 +153,7 @@ function WalletChart({ trades, mlTrades, mlAttnTrades, mlV3Trades }) {
       window.removeEventListener('resize', handleResize)
       chart.remove()
     }
-  }, [v14Points.length, mlPoints.length, mlAttnPoints.length, mlV3Points.length])
+  }, [mlPoints.length, mlAttnPoints.length, mlV3Points.length])
 
   return (
     <div className="rp-wallet-chart">
@@ -280,35 +267,31 @@ function DrawdownBar({ pct }) {
   )
 }
 
-function RiskPage({ risk, ml, mlAttn, decisions, trades, mlTrades, mlAttnTrades, mlV3Trades }) {
-  const v14Wallet = risk?.wallet_usd ?? 0
+function RiskPage({ ml, mlAttn, mlV3, decisions, mlTrades, mlAttnTrades, mlV3Trades }) {
   const mlWallet = ml?.wallet_usd ?? 0
   const mlAttnWallet = mlAttn?.wallet_usd ?? 0
-  const totalCapital = v14Wallet + mlWallet + mlAttnWallet
+  const mlV3Wallet = mlV3?.wallet_usd ?? 0
+  const totalCapital = mlWallet + mlAttnWallet + mlV3Wallet
 
-  const v14Peak = risk?.peak_usd ?? v14Wallet
   const mlPeak = ml?.peak_usd ?? mlWallet
+  const mlAttnPeak = mlAttn?.peak_usd ?? mlAttnWallet
+  const mlV3Peak = mlV3?.peak_usd ?? mlV3Wallet
 
-  const v14Growth = ((v14Wallet - DEFAULT_CAPITAL) / DEFAULT_CAPITAL * 100).toFixed(1)
   const mlGrowth = ((mlWallet - DEFAULT_CAPITAL) / DEFAULT_CAPITAL * 100).toFixed(1)
 
-  const v14DD = risk?.drawdown_pct ?? 0
   const mlDD = ml?.drawdown_pct ?? 0
-  const combinedDD = totalCapital > 0
-    ? ((1 - totalCapital / (v14Peak + mlPeak)) * 100)
+  const totalPeak = mlPeak + mlAttnPeak + mlV3Peak
+  const combinedDD = totalCapital > 0 && totalPeak > 0
+    ? ((1 - totalCapital / totalPeak) * 100)
     : 0
   const combinedDDClamped = Math.max(0, combinedDD)
 
-  const v14Health = risk?.health_multiplier ?? 1
   const mlHealth = ml?.health_multiplier ?? 1
 
-  const v14Streak = risk?.consecutive_losses ?? 0
   const mlStreak = ml?.consecutive_losses ?? 0
 
-  const v14WR = risk?.recent_winrate != null ? Number((risk.recent_winrate * 100).toFixed(0)) : null
   const mlWR = ml?.recent_winrate != null ? Number((ml.recent_winrate * 100).toFixed(0)) : null
 
-  const v14Skips = risk?.total_skips ?? 0
   const mlSkips = ml?.total_skips ?? 0
 
   const recentDecisions = (decisions || []).slice(0, 20)
@@ -328,51 +311,10 @@ function RiskPage({ risk, ml, mlAttn, decisions, trades, mlTrades, mlAttnTrades,
       </div>
 
       {/* Wallet Growth Chart */}
-      <WalletChart trades={trades} mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} />
+      <WalletChart mlTrades={mlTrades} mlAttnTrades={mlAttnTrades} mlV3Trades={mlV3Trades} />
 
       {/* Two columns */}
       <div className="rp-cards">
-        {/* V1.4 Card */}
-        <div className="rp-card">
-          <div className="rp-card-title">V1.4 Strategy</div>
-          <div className="rp-card-body">
-            <div className="rp-row">
-              <span className="rp-label">Wallet</span>
-              <span className="rp-value">${v14Wallet.toFixed(2)}</span>
-            </div>
-            <div className="rp-row">
-              <span className="rp-label">Peak</span>
-              <span className="rp-value">${v14Peak.toFixed(2)}</span>
-            </div>
-            <div className="rp-row">
-              <span className="rp-label">Growth</span>
-              <span className={`rp-value ${Number(v14Growth) >= 0 ? 'positive' : 'negative'}`}>
-                {Number(v14Growth) >= 0 ? '+' : ''}{v14Growth}% from ${DEFAULT_CAPITAL}
-              </span>
-            </div>
-            <div className="rp-row">
-              <span className="rp-label">Drawdown</span>
-              <DrawdownBar pct={v14DD * 100} />
-            </div>
-            <div className="rp-row">
-              <span className="rp-label">Health</span>
-              <HealthGauge value={v14Health} />
-            </div>
-            <div className="rp-row">
-              <span className="rp-label">Streak</span>
-              <span className="rp-value">{v14Streak} loss{v14Streak !== 1 ? 'es' : ''}</span>
-            </div>
-            <div className="rp-row">
-              <span className="rp-label">WR (20)</span>
-              <WinRateDonut pct={v14WR} />
-            </div>
-            <div className="rp-row">
-              <span className="rp-label">Skips</span>
-              <span className="rp-value">{v14Skips}</span>
-            </div>
-          </div>
-        </div>
-
         {/* ML Card */}
         <div className="rp-card">
           <div className="rp-card-title">ML Strategy</div>

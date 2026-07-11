@@ -4,6 +4,11 @@ One function per protocol. Each takes predictions + labels and returns a dict
 with every metric the protocol requires, using the exact names it expects.
 
 This file is a calculator — it never touches the filesystem.
+
+STATUS (2026-07-12 skeleton): no current importer — the retired training
+tasks consumed these. KEPT deliberately: evaluate_direction_prediction()
+produces exactly the metric set configs/protocols/direction_prediction_v1
+requires, so any binary-direction task in the new era plugs straight in.
 """
 
 import numpy as np

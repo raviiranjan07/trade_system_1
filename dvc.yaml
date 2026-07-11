@@ -1,7 +1,7 @@
 stages:
 
   # ================================================================
-  # SHARED — used by all models
+  # SHARED DATA STAGES � model-agnostic, used by every model
   # ================================================================
 
   build_features:
@@ -12,114 +12,6 @@ stages:
     outs:
       - data/features/direction_prediction/feature_cache.parquet
 
-  # ================================================================
-  # V1.4 (rule-based, no ML)
-  # ================================================================
-
-  backtest_v14:
-    cmd: cmd /c "set PYTHONPATH=src && python -m research.backtest --v14-only --exit-version v1 --start 2024-01-01 --end 2025-12-31"
-    deps:
-      - data/raw/BTCUSDT_15m_ohlcv.parquet
-      - data/raw/BTCUSDT_1m_ohlcv.parquet
-      - src/research/backtest.py
-      - src/engine/strategy.py
-    outs:
-      - data/reports/v14/backtest.json:
-          cache: false
-      - data/reports/v14/trades.parquet:
-          cache: false
-
-  # ================================================================
-  # ML_V1 (MLP)
-  # ================================================================
-
-  build_labels:
-    cmd: python experiments/layer2/L2-003/stage_3/L2_003_stage3_labels.py
-    deps:
-      - data/features/direction_prediction/feature_cache.parquet
-      - experiments/layer2/L2-003/stage_3/L2_003_stage3_labels.py
-    outs:
-      - data/features/direction_prediction/labels.parquet
-
-  train_ml_v1:
-    cmd: cmd /c "set PYTHONIOENCODING=utf-8 && python src/training/ml_train.py"
-    deps:
-      - data/features/direction_prediction/feature_cache.parquet
-      - data/features/direction_prediction/labels.parquet
-      - src/training/ml_train.py
-    params:
-      - configs/params.yaml:
-          - ml_v1.training
-          - ml_v1.split
-          - ml_v1.features
-    outs:
-      - models/ML_V1_staging:
-          cache: false
-
-  verify_ml_v1:
-    cmd: python src/mlops/verify.py models/ML_V1_staging
-    deps:
-      - models/ML_V1_staging
-      - src/mlops/verify.py
-    outs:
-      - data/reports/verification_ML_V1_staging.json:
-          cache: false
-
-  backtest_ml_v1:
-    cmd: cmd /c "set PYTHONPATH=src && python -m research.backtest --model ml_v1 --independent --exit-version v1 --start 2025-01-01 --end 2025-12-31"
-    deps:
-      - models/ML_V1_staging
-      - data/reports/verification_ML_V1_staging.json
-      - data/raw/BTCUSDT_15m_ohlcv.parquet
-      - data/raw/BTCUSDT_1m_ohlcv.parquet
-      - src/research/backtest.py
-      - src/engine/signals/ml_v1.py
-    params:
-      - configs/params.yaml:
-          - ml_v1.inference
-          - ml_v1.features
-    outs:
-      - data/reports/ml_v1/backtest.json:
-          cache: false
-      - data/reports/ml_v1/trades.parquet:
-          cache: false
-
-  # ================================================================
-  # ML_V2 ATTENTION (frozen training — trained on Colab)
-  # ================================================================
-
-  train_attention:
-    cmd: echo "Trained externally. Files in models/ML_V2_ATTENTION/"
-    deps:
-      - data/features/direction_prediction/feature_cache.parquet
-      - data/features/direction_prediction/labels.parquet
-    outs:
-      - models/ML_V2_ATTENTION:
-          cache: false
-    frozen: true
-
-  backtest_ml_v2:
-    cmd: cmd /c "set PYTHONPATH=src && python -m research.backtest --model ml_v2_attention --independent --exit-version v1 --start 2025-01-01 --end 2025-12-31"
-    deps:
-      - models/ML_V2_ATTENTION
-      - data/raw/BTCUSDT_15m_ohlcv.parquet
-      - data/raw/BTCUSDT_1m_ohlcv.parquet
-      - src/research/backtest.py
-      - src/engine/signals/direction_attention.py
-    params:
-      - configs/params.yaml:
-          - ml_v2_attention.inference
-          - ml_v2_attention.features
-    outs:
-      - data/reports/ml_v2_attention/backtest.json:
-          cache: false
-      - data/reports/ml_v2_attention/trades.parquet:
-          cache: false
-
-  # ================================================================
-  # ML_V3 (exit-aware labels + snapshot features)
-  # ================================================================
-
   build_exit_labels:
     cmd: python -m training.build_exit_labels
     wdir: src
@@ -128,7 +20,7 @@ stages:
       - ../data/raw/BTCUSDT_1m_ohlcv.parquet
       - engine/position_manager.py
       - engine/config/settings.yaml
-      - engine/build_exit_labels.py
+      - training/build_exit_labels.py
     outs:
       - ../data/features/direction_prediction/exit_aware_labels.parquet
 
@@ -139,186 +31,30 @@ stages:
       - ../data/features/direction_prediction/exit_aware_labels.parquet
       - ../data/raw/BTCUSDT_15m_ohlcv.parquet
       - ../data/raw/BTCUSDT_1m_ohlcv.parquet
-      - engine/verify_exit_labels.py
+      - training/verify_exit_labels.py
     outs:
       - ../data/reports/label_verification.json:
           cache: false
 
-  train_v3:
-    cmd: cmd /c "set PYTHONIOENCODING=utf-8 && python -m training.train_v3"
-    wdir: src
-    deps:
-      - ../data/features/direction_prediction/feature_cache.parquet
-      - ../data/features/direction_prediction/exit_aware_labels.parquet
-      - ../data/reports/label_verification.json
-      - engine/train_v3.py
-    params:
-      - ../configs/params.yaml:
-          - ml_v3.training
-          - ml_v3.split
-          - ml_v3.features
-    outs:
-      - ../models/ML_V3_staging:
-          cache: false
-    metrics:
-      - ../data/reports/v3_train_metrics.json:
-          cache: false
-
-  verify_v3_model:
-    cmd: python -m training.verify_v3_model
-    wdir: src
-    deps:
-      - ../models/ML_V3_staging
-      - ../data/features/direction_prediction/feature_cache.parquet
-      - ../data/features/direction_prediction/exit_aware_labels.parquet
-      - engine/verify_v3_model.py
-    outs:
-      - ../data/reports/v3_model_verification.json:
-          cache: false
-
-  sweep_thresholds_ml_v3:
-    cmd: cmd /c "set PYTHONPATH=src && python -m research.sweep_thresholds --model ml_v3"
-    deps:
-      - models/ML_V3_staging
-      - data/reports/v3_model_verification.json
-      - data/raw/BTCUSDT_15m_ohlcv.parquet
-      - data/raw/BTCUSDT_1m_ohlcv.parquet
-      - src/research/sweep_thresholds.py
-    params:
-      - configs/params.yaml:
-          - ml_v3.sweep
-    outs:
-      - data/reports/ml_v3/threshold_sweep.json:
-          cache: false
-
-  # Training hyperparameter sweep (Level 2/3) — frozen by default, run manually
-  # Usage: dvc repro sweep_training_ml_v3
-  sweep_training_ml_v3:
-    cmd: cmd /c "set PYTHONPATH=src && set PYTHONIOENCODING=utf-8 && python -m research.sweep_training --model ml_v3 --level 2"
-    deps:
-      - data/features/direction_prediction/feature_cache.parquet
-      - data/features/direction_prediction/exit_aware_labels.parquet
-      - data/raw/BTCUSDT_15m_ohlcv.parquet
-      - data/raw/BTCUSDT_1m_ohlcv.parquet
-      - src/research/sweep_training.py
-      - src/training/train_v3.py
-    params:
-      - configs/params.yaml:
-          - ml_v3.sweep
-          - ml_v3.training
-    outs:
-      - data/reports/ml_v3/training_sweep.json:
-          cache: false
-    frozen: true
-
-  backtest_ml_v3:
-    cmd: cmd /c "set PYTHONPATH=src && python -m research.backtest --model ml_v3 --independent --exit-version v1 --start 2025-01-01 --end 2025-12-31"
-    deps:
-      - models/ML_V3_staging
-      - data/reports/v3_model_verification.json
-      - data/raw/BTCUSDT_15m_ohlcv.parquet
-      - data/raw/BTCUSDT_1m_ohlcv.parquet
-      - src/research/backtest.py
-      - src/engine/signals/ml_v3.py
-    params:
-      - configs/params.yaml:
-          - ml_v3.inference
-          - ml_v3.features
-    outs:
-      - data/reports/ml_v3/backtest.json:
-          cache: false
-      - data/reports/ml_v3/trades.parquet:
-          cache: false
-
   # ================================================================
-  # V2 EXITS (V1 minus LOCKED_PROFIT) — same models, different exits
+  # PER-MODEL CHAIN TEMPLATE
+  # (full 18-stage reference: archive/dvc_3model_pipeline.yaml)
+  #
+  # train_<model>:
+  #   cmd: cmd /c "set PYTHONPATH=src && set PYTHONIOENCODING=utf-8 && python -m training.train --model <model>"
+  #   deps: feature cache + labels + train.py/training_utils.py/
+  #         architectures.py/feature_lib.py
+  #   params: configs/params.yaml -> <model>.training/.split/.features
+  #   outs (cache: false): models/<MODEL>_staging
+  #
+  # verify_<model>:
+  #   cmd: python src/mlops/verify.py models/<MODEL>_staging
+  #   outs (cache: false): data/reports/verification_<MODEL>_staging.json
+  #
+  # backtest_<model>:
+  #   cmd: cmd /c "set PYTHONPATH=src && python -m research.backtest --model <model> --exit-version <v> --start <test_start> --end <test_end>"
+  #   deps: staging model + verification json + raw parquets +
+  #         research/backtest.py + the model's signal adapter
+  #   params: <model>.inference/.features
+  #   outs (cache: false): data/reports/<model>/backtest.json + trades.parquet
   # ================================================================
-
-  backtest_v14_v2:
-    cmd: cmd /c "set PYTHONPATH=src && python -m research.backtest --v14-only --exit-version v2 --start 2024-01-01 --end 2025-12-31 --output-dir data/reports/v14_v2"
-    deps:
-      - data/raw/BTCUSDT_15m_ohlcv.parquet
-      - data/raw/BTCUSDT_1m_ohlcv.parquet
-      - src/research/backtest.py
-      - src/engine/strategy.py
-    outs:
-      - data/reports/v14_v2/backtest.json:
-          cache: false
-      - data/reports/v14_v2/trades.parquet:
-          cache: false
-
-  backtest_ml_v1_v2:
-    cmd: cmd /c "set PYTHONPATH=src && python -m research.backtest --model ml_v1 --independent --exit-version v2 --start 2025-01-01 --end 2025-12-31 --output-dir data/reports/ml_v1_v2"
-    deps:
-      - models/ML_V1_staging
-      - data/reports/verification_ML_V1_staging.json
-      - data/raw/BTCUSDT_15m_ohlcv.parquet
-      - data/raw/BTCUSDT_1m_ohlcv.parquet
-      - src/research/backtest.py
-      - src/engine/signals/ml_v1.py
-    params:
-      - configs/params.yaml:
-          - ml_v1.inference
-          - ml_v1.features
-    outs:
-      - data/reports/ml_v1_v2/backtest.json:
-          cache: false
-      - data/reports/ml_v1_v2/trades.parquet:
-          cache: false
-
-  backtest_ml_v2_v2:
-    cmd: cmd /c "set PYTHONPATH=src && python -m research.backtest --model ml_v2_attention --independent --exit-version v2 --start 2025-01-01 --end 2025-12-31 --output-dir data/reports/ml_v2_attention_v2"
-    deps:
-      - models/ML_V2_ATTENTION
-      - data/raw/BTCUSDT_15m_ohlcv.parquet
-      - data/raw/BTCUSDT_1m_ohlcv.parquet
-      - src/research/backtest.py
-      - src/engine/signals/direction_attention.py
-    params:
-      - configs/params.yaml:
-          - ml_v2_attention.inference
-          - ml_v2_attention.features
-    outs:
-      - data/reports/ml_v2_attention_v2/backtest.json:
-          cache: false
-      - data/reports/ml_v2_attention_v2/trades.parquet:
-          cache: false
-
-  backtest_ml_v3_v2:
-    cmd: cmd /c "set PYTHONPATH=src && python -m research.backtest --model ml_v3 --independent --exit-version v2 --start 2025-01-01 --end 2025-12-31 --output-dir data/reports/ml_v3_v2"
-    deps:
-      - models/ML_V3_staging
-      - data/reports/v3_model_verification.json
-      - data/raw/BTCUSDT_15m_ohlcv.parquet
-      - data/raw/BTCUSDT_1m_ohlcv.parquet
-      - src/research/backtest.py
-      - src/engine/signals/ml_v3.py
-    params:
-      - configs/params.yaml:
-          - ml_v3.inference
-          - ml_v3.features
-    outs:
-      - data/reports/ml_v3_v2/backtest.json:
-          cache: false
-      - data/reports/ml_v3_v2/trades.parquet:
-          cache: false
-
-  # ================================================================
-  # COMPARE ALL (reads all independent backtest results)
-  # ================================================================
-
-  compare_all:
-    cmd: cmd /c "set PYTHONPATH=src && python -m research.compare_models"
-    deps:
-      - data/reports/ml_v1/backtest.json
-      - data/reports/ml_v2_attention/backtest.json
-      - data/reports/ml_v3/backtest.json
-      - data/reports/v14/backtest.json
-      - data/reports/ml_v1_v2/backtest.json
-      - data/reports/ml_v2_attention_v2/backtest.json
-      - data/reports/ml_v3_v2/backtest.json
-      - data/reports/v14_v2/backtest.json
-      - src/research/compare_models.py
-    outs:
-      - data/reports/comparison.json:
-          cache: false

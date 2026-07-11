@@ -1,29 +1,17 @@
 # Pipeline manifest: which DVC stages belong to each model.
-# Used by scripts/mlops/run_pipeline.py so humans can say "run ml_v1"
+# Used by scripts/mlops/run_pipeline.py so humans can say "run my_model"
 # instead of typing every stage name.
 #
 # STAGE NAMES MUST MATCH dvc.yaml EXACTLY — dvc repro fails on unknown
 # stages. When adding a new model, append a block with its stage list.
-
-ml_v1:
-  description: MLP direction predictor (honest retrain, date-based split)
-  stages:
-    - build_features
-    - build_labels
-    - train_ml_v1
-    - verify_ml_v1
-    - backtest_ml_v1
-
-ml_v2_attention:
-  description: LSTM + Attention direction predictor (trained externally on Colab)
-  stages:
-    - backtest_ml_v2
-
-ml_v3:
-  description: Exit-aware 3-class model (LONG/SHORT/SKIP) + snapshot features
-  stages:
-    - build_exit_labels
-    - verify_exit_labels
-    - train_v3
-    - verify_v3_model
-    - backtest_ml_v3
+#
+# Template:
+# my_model:
+#   description: one-line description of the model
+#   stages:
+#     - build_features
+#     - build_exit_labels        # if the model uses exit-aware labels
+#     - verify_exit_labels
+#     - train_my_model
+#     - verify_my_model
+#     - backtest_my_model

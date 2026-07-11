@@ -113,21 +113,6 @@ def create_app(state: Optional[DashboardState] = None) -> FastAPI:
         """Get current trading status."""
         return JSONResponse(content=state.get_status())
 
-    @app.get("/api/position")
-    async def get_position():
-        """Get current position details."""
-        return JSONResponse(content=state.get_position())
-
-    @app.get("/api/stats")
-    async def get_stats():
-        """Get session statistics."""
-        return JSONResponse(content=state.get_stats())
-
-    @app.get("/api/trades")
-    async def get_trades(limit: int = 10):
-        """Get recent trade history."""
-        return JSONResponse(content=state.get_trades(limit=limit))
-
     @app.get("/api/config")
     async def get_config():
         """Get trading configuration."""
@@ -238,7 +223,7 @@ def create_app(state: Optional[DashboardState] = None) -> FastAPI:
 
     @app.get("/api/decisions")
     async def get_decisions(limit: int = Query(50, ge=1, le=500)):
-        """Get recent risk decisions from CSV logs (V1.4 + ML combined)."""
+        """Get recent risk decisions from CSV logs (all models combined)."""
         KEEP_COLS = [
             "timestamp", "wallet_usd", "btc_price", "signal_type",
             "action", "qty", "risk_pct", "health_multiplier",
@@ -396,9 +381,6 @@ def create_app(state: Optional[DashboardState] = None) -> FastAPI:
                 <p class="label">API Endpoints:</p>
                 <ul>
                     <li><a href="/api/status">/api/status</a> - Current status</li>
-                    <li><a href="/api/position">/api/position</a> - Position info</li>
-                    <li><a href="/api/stats">/api/stats</a> - Session stats</li>
-                    <li><a href="/api/trades">/api/trades</a> - Trade history</li>
                     <li><a href="/api/all">/api/all</a> - All data</li>
                 </ul>
                 <div id="data" class="card">Loading...</div>

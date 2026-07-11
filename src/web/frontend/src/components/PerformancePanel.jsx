@@ -1,17 +1,13 @@
 import React, { useMemo } from 'react'
 
 const SIGNAL_COLORS = {
-  V12_LONG: '#00d97e',
-  V12_SHORT: '#e63757',
-  BEAR_LONG: '#3b82f6',
-  BULL_SHORT: '#f59e0b',
   ML_LONG: '#8b5cf6',
   ML_SHORT: '#ec4899',
 }
 
-function PerformancePanel({ trades, mlTrades, mlAttnTrades, mlV3Trades }) {
+function PerformancePanel({ mlTrades, mlAttnTrades, mlV3Trades }) {
   const analytics = useMemo(() => {
-    const allTrades = [...(trades || []), ...(mlTrades || []), ...(mlAttnTrades || []), ...(mlV3Trades || [])]
+    const allTrades = [...(mlTrades || []), ...(mlAttnTrades || []), ...(mlV3Trades || [])]
     if (allTrades.length === 0) return null
 
     const sorted = [...allTrades].reverse() // oldest first
@@ -86,7 +82,7 @@ function PerformancePanel({ trades, mlTrades, mlAttnTrades, mlV3Trades }) {
     }
 
     return { byDir, bySignal, best, worst, avgWin, avgLoss, maxWinStreak, maxLossStreak, maxDD, totalTrades: sorted.length, byExit }
-  }, [trades, mlTrades, mlAttnTrades, mlV3Trades])
+  }, [mlTrades, mlAttnTrades, mlV3Trades])
 
   if (!analytics) {
     return (

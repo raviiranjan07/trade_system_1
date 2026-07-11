@@ -1,37 +1,17 @@
-# V1.3 Trading Bot Configuration
-# Every parameter traced to experiment source
+# ALPHA Trading Bot Configuration
 # Config hash ensures reproducibility across runs
 
-# --- Signal Generation (EXP-001: V1 original) ---
-strategy:
+# --- Shared market indicators (consumed by all tracks + dashboard) ---
+# NOTE: atr_rolling_window=200 here vs 500 in the training feature cache —
+# known train-vs-live drift for ML V3's snapshot, frozen deliberately.
+# See engine/signals/feature_lib.py docstring. Resolve at next retrain.
+indicators:
   rsi_period: 14
-  rsi_oversold: 20       # RSI < 20 = oversold signal
-  rsi_overbought: 80     # RSI > 80 = overbought signal
-  sma_period: 200        # SMA200 for bull/bear market regime
-
-# --- LONG Filters (EXP-006: WHEN analysis) ---
-long_filters:
+  sma_period: 200        # SMA200 for bull/bear regime
+  ema_short: 50          # EMA50 for separation calc
+  ema_long: 200          # EMA200 for separation calc
   atr_period: 14
-  atr_rolling_window: 200     # percentile calculated over 200 bars
-  atr_percentile_min: 25      # skip LONG when ATR < 25th percentile
-  ema_short: 50               # EMA50 for separation calc
-  ema_long: 200               # EMA200 for separation calc
-  ema_separation_min: 0.5     # skip LONG when EMA sep < 0.5%
-
-# --- SHORT Filters (EXP-007: ALL filters REJECTED) ---
-short_filters:
-  enabled: false  # SHORT is robust in all conditions — do not filter
-
-# --- BEAR_LONG Filters (EXP-013: counter-trend LONG in bear market) ---
-bear_long_filters:
-  rsi_threshold: 10          # RSI < 10 = extreme oversold in bear
-  ema_separation_min: 1.0    # only when EMAs separated by 1%+
-
-# --- BULL_SHORT Filters (EXP-013: counter-trend SHORT in bull market) ---
-bull_short_filters:
-  rsi_threshold: 90          # RSI > 90 = extreme overbought in bull
-  atr_percentile_min: 60     # only in high volatility (60th+ percentile)
-  ema_separation_min: 1.0    # only when EMAs separated by 1%+
+  atr_rolling_window: 200   # percentile calculated over 200 bars
 
 # --- Exit Mechanics (V1: PT/MID_TRAIL/LOCKED_PROFIT/STOP_LOSS) ---
 # See configs/strategy_cards/exit_v1.yaml for full rule docs.
@@ -46,12 +26,6 @@ exit:
   v1_lock_arm_bps: 15
   v1_lock_trigger_bps: 15
   v1_stop_loss_bps: -10
-
-# --- Re-entry (EXP-012: Config A+RE validated) ---
-reentry:
-  enabled: false
-  max_reentries: 1    # 1 re-entry per original signal
-  cooldown_bars: 2    # wait 2 bars after trailing stop exit
 
 # --- Execution ---
 execution:

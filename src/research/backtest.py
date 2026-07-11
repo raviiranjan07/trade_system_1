@@ -1,9 +1,9 @@
-"""V1.5 Backtest — Uses V1.4 strategy + ML signal generator + position_manager.
+"""ML model backtest — signal generators + the real position manager.
 
-V1.4 signals: V12_LONG, V12_SHORT, BEAR_LONG, BULL_SHORT (rule-based)
-ML signals: ML_LONG (prob>0.60), ML_SHORT (prob<0.35) (model-based)
+Runs one model's signals through the same exit engine as the live bot
+(1m ticks feed pm.on_tick, bar closes feed pm.on_bar).
 
-Run: python -m research.backtest
+Run: PYTHONPATH=src python -m research.backtest --model <model_key> --exit-version v2
 """
 
 import logging
@@ -16,20 +16,17 @@ import pandas as pd
 from engine.config.constants import SYMBOL, TIMEFRAME
 from engine.config.loader import load_config
 from engine.config.schema import AppConfig
-from engine.signals.ml_v1 import MLV1
-from engine.signals.direction_attention import DirectionAttention
-from engine.signals.ml_v3 import MLV3
 from engine.signals.base import BaseSignalGenerator
 from engine.position_manager import V12PositionManager, TradeRecord
-from engine.strategy import V12Strategy, Direction, SignalType
+from engine.indicators import compute_indicators
 
 
-# Registry of available ML signal generators, indexed by model name.
+# Registry of available ML signal generators, indexed by model name:
+#   model_key -> (GeneratorClass, model_dir, onnx_filename)
 # Backtest resolves which class to instantiate based on the `model` arg.
-ML_GENERATORS: dict[str, tuple[type[BaseSignalGenerator], Path]] = {
-    "ml_v1": (MLV1, Path("models/ML_V1")),
-    "ml_v2_attention": (DirectionAttention, Path("models/ML_V2_ATTENTION_staging")),
-    "ml_v3": (MLV3, Path("models/ML_V3_staging")),
+# A new model = one adapter in engine/signals/ + one row here.
+ML_GENERATORS: dict[str, tuple[type[BaseSignalGenerator], Path, str]] = {
+    # "my_model": (MyGenerator, Path("models/MY_MODEL_staging"), "model.onnx"),
 }
 
 logger = logging.getLogger(__name__)
@@ -44,12 +41,11 @@ def run_backtest(
     data_path_1m: Path = DATA_PATH_1M,
     start: str = "2024-01-01",
     end: str = "2025-12-31",
-    ml_model_dir: Path = Path("models/ML_V1"),
-    ml_generator_class: type[BaseSignalGenerator] = MLV1,
-    ml_onnx_filename: str = "direction_model.onnx",
+    ml_model_dir: Path = None,
+    ml_generator_class: type[BaseSignalGenerator] = None,
+    ml_onnx_filename: str = "model.onnx",
     ml_scaler_filename: str = "scaler.npz",
-    v14_only: bool = False,
-    ml_only: bool = False,
+    ml_only: bool = True,  # kept for caller compatibility; ML is the only mode
     exit_version: str = "v1",
 ) -> list[TradeRecord]:
     """Run backtest using the same modules as the live bot.
@@ -63,9 +59,8 @@ def run_backtest(
     df = pd.read_parquet(data_path)
     df.index = pd.to_datetime(df.index).tz_localize(None)
 
-    # Compute indicators on FULL data (need 200+ bars warm-up)
-    strategy = V12Strategy(config)
-    df = strategy.compute_indicators(df)
+    # Compute shared indicators on FULL data (need 200+ bars warm-up)
+    df = compute_indicators(df, config)
 
     # Slice to test period
     test = df[start:end]
@@ -90,47 +85,24 @@ def run_backtest(
     closes = test["close"].values
     opens = test["open"].values
     times = test.index
-    bull = test["bull_market"].values
-    bear = test["bear_market"].values
 
-    # Generate signals based on mode:
-    #   v14_only=True  → V1.4 signals only (no ML)
-    #   ml_only=True   → ML signals only (no V1.4) — independent model test
-    #   both False     → mixed (V1.4 + ML, legacy mode)
-    signals = []
+    # Generate ML signals
+    if ml_generator_class is None or ml_model_dir is None:
+        raise ValueError(
+            "No generator given. Register the model in ML_GENERATORS "
+            "(research/backtest.py) or pass ml_generator_class + ml_model_dir.")
+    ml_model_path = ml_model_dir / ml_onnx_filename
+    ml_scaler_path = ml_model_dir / ml_scaler_filename
+    ml_gen = ml_generator_class(model_path=ml_model_path, scaler_path=ml_scaler_path)
+    if not ml_gen.loaded:
+        raise FileNotFoundError(f"ML model not found: {ml_model_path}")
 
-    if not ml_only:
-        v14_signals = strategy.generate_signals(test)
-        logger.info("V1.4 signals: %d", len(v14_signals))
-        signals.extend(v14_signals)
-    else:
-        logger.info("ML-only mode: skipping V1.4 signal generation")
+    test_with_ml = ml_gen.compute_features_from_df(test.copy())
+    signals = ml_gen.generate_signals(test_with_ml)
+    logger.info("ML signals: %d", len(signals))
 
-    if not v14_only:
-        ml_model_path = ml_model_dir / ml_onnx_filename
-        ml_scaler_path = ml_model_dir / ml_scaler_filename
-        ml_gen = ml_generator_class(model_path=ml_model_path, scaler_path=ml_scaler_path)
-
-        if ml_gen.loaded:
-            test_with_ml = ml_gen.compute_features_from_df(test.copy())
-            ml_signals = ml_gen.generate_signals(test_with_ml)
-            logger.info("ML signals: %d", len(ml_signals))
-            signals.extend(ml_signals)
-        else:
-            logger.warning("ML model not found — running V1.4 only")
-    else:
-        logger.info("V1.4-only mode: skipping ML signal generation")
-
-    # Build signal lookup: bar_index -> Signal (V1.4 takes priority over ML)
-    signal_map = {}
-    for s in signals:
-        if s.bar_index not in signal_map:
-            signal_map[s.bar_index] = s
-        else:
-            # V1.4 signals take priority over ML signals
-            existing = signal_map[s.bar_index]
-            if existing.signal_type.value.startswith("ML") and not s.signal_type.value.startswith("ML"):
-                signal_map[s.bar_index] = s  # replace ML with V1.4
+    # Signal lookup: bar_index -> Signal
+    signal_map = {s.bar_index: s for s in signals}
 
     # Walk through bars, managing positions.
     pm = V12PositionManager(config, exit_version=exit_version)
@@ -164,28 +136,9 @@ def run_backtest(
             i += 1
             continue
 
-        # Not in position — check re-entry first (signal-type-based regime)
-        if pm.reentry_signal_type is not None:
-            regime_ok = _regime_valid(pm.reentry_signal_type, bull, bear, i)
-            if pm.can_reenter(i, regime_ok):
-                # Re-enter at next bar's open
-                if i + 1 < n:
-                    entry_price = opens[i + 1]
-                    pm.open_position(
-                        direction=pm.reentry_direction,
-                        signal_type=pm.reentry_signal_type,
-                        entry_price=entry_price,
-                        entry_time=times[i + 1],
-                        signal_time=times[i],
-                        is_reentry=True,
-                    )
-                    i += 2  # skip entry bar, start feeding from bar after entry
-                    continue
-
-        # Check for new signal on this bar
+        # Not in position — check for new signal on this bar
         if i in signal_map:
             sig = signal_map[i]
-            pm.reset_reentry()
 
             # Enter at next bar's open
             if i + 1 < n:
@@ -205,24 +158,6 @@ def run_backtest(
     return pm.trades
 
 
-def _regime_valid(signal_type: SignalType, bull, bear, idx: int) -> bool:
-    """Check if market regime is still valid for re-entry signal type.
-
-    V1.3: regime depends on SIGNAL TYPE, not just direction:
-      V12_LONG / BULL_SHORT -> needs bull (price > SMA200)
-      V12_SHORT / BEAR_LONG -> needs bear (price < SMA200)
-      ML_LONG / ML_SHORT -> no regime requirement (always valid)
-    """
-    if signal_type in (SignalType.ML_LONG, SignalType.ML_SHORT,
-                       SignalType.ML_ATTN_LONG, SignalType.ML_ATTN_SHORT,
-                       SignalType.ML_V3_LONG, SignalType.ML_V3_SHORT):
-        return True  # ML signals don't require regime validation
-    if signal_type in (SignalType.V12_LONG, SignalType.BULL_SHORT):
-        return bool(bull[idx])
-    else:  # V12_SHORT, BEAR_LONG
-        return bool(bear[idx])
-
-
 def print_results(trades: list[TradeRecord], config: AppConfig) -> None:
     """Print backtest results summary."""
     if not trades:
@@ -239,16 +174,14 @@ def print_results(trades: list[TradeRecord], config: AppConfig) -> None:
 
     lt = tdf[tdf["direction"] == "LONG"]
     st = tdf[tdf["direction"] == "SHORT"]
-    orig = tdf[~tdf["is_reentry"]]
-    re_trades = tdf[tdf["is_reentry"]]
 
     equity = tdf["net_profit_bps"].cumsum()
     max_dd = (equity - equity.cummax()).min()
 
     print("=" * 70)
-    print(f"V1.3 BACKTEST RESULTS | config_hash={config.config_hash()}")
+    print(f"BACKTEST RESULTS | config_hash={config.config_hash()}")
     print("=" * 70)
-    print(f"Trades: {len(tdf)} ({len(orig)} orig + {len(re_trades)} RE)")
+    print(f"Trades: {len(tdf)}")
     print(f"Win Rate: {len(winners)/len(tdf)*100:.1f}%")
     print(f"Net Profit: {tdf['net_profit_bps'].sum():+.0f} bps")
     print(f"Profit Factor: {pf:.2f}")
@@ -269,11 +202,6 @@ def print_results(trades: list[TradeRecord], config: AppConfig) -> None:
         print(f"  {st_name:<12} {len(st_df):>4}t | Win: {len(st_w)/len(st_df)*100:>5.1f}% | "
               f"Net: {st_df['net_profit_bps'].sum():>+7.0f} bps | PF: {st_gw/st_gl:.2f}")
 
-    if len(re_trades) > 0:
-        re_w = re_trades[re_trades["net_profit_bps"] > 0]
-        print(f"\nRE:    {len(re_trades)}t, win {len(re_w)/len(re_trades)*100:.1f}%, "
-              f"{re_trades['net_profit_bps'].sum():+.0f} bps")
-
     # Year split
     tdf["year"] = pd.to_datetime(tdf["entry_time"]).dt.year
     print()
@@ -289,15 +217,16 @@ def print_results(trades: list[TradeRecord], config: AppConfig) -> None:
 
 def main():
     import argparse
+    if not ML_GENERATORS:
+        sys.exit("No models registered in ML_GENERATORS (research/backtest.py). "
+                 "Add the new model's adapter + registry row first.")
     parser = argparse.ArgumentParser()
-    parser.add_argument("--v14-only", action="store_true",
-                        help="Skip ML signals — backtest V1.4 strategy alone")
     parser.add_argument("--independent", action="store_true",
-                        help="ML-only mode: skip V1.4, test model in isolation (matches live bot)")
+                        help="(default behavior; flag kept for pipeline compatibility)")
     parser.add_argument("--exit-version", choices=["v1", "v2"], default="v1",
                         help="v1 = full V1 (default). v2 = V1 minus LOCKED_PROFIT.")
-    parser.add_argument("--model", choices=list(ML_GENERATORS.keys()), default="ml_v1",
-                        help="Which ML model to use for signals (default: ml_v1)")
+    parser.add_argument("--model", required=True, choices=list(ML_GENERATORS.keys()),
+                        help="Which ML model to use for signals")
     parser.add_argument("--start", default=None)
     parser.add_argument("--end", default=None)
     parser.add_argument("--output-dir", default=None,
@@ -305,36 +234,25 @@ def main():
     args = parser.parse_args()
 
     # Resolve dates: ML models default to test period from params.yaml split config
-    # V1.4 defaults to full OOS (2024-2025) since it has no ML optimization
     if args.start is None or args.end is None:
         import yaml
         params_path = Path(__file__).resolve().parents[2] / "configs/params.yaml"
         with open(params_path) as f:
             params = yaml.safe_load(f)
-        if args.v14_only:
-            # V1.4: no ML leakage risk — use full backtest period
-            bt_cfg = params.get("backtest", {})
-            args.start = args.start or bt_cfg.get("start", "2024-01-01")
-            args.end = args.end or bt_cfg.get("end", "2025-12-31")
-        else:
-            # ML models: must use TEST period only (val was used for sweep)
-            model_split = params.get(args.model, {}).get("split", {})
-            args.start = args.start or model_split.get("test_start", "2025-01-01")
-            args.end = args.end or model_split.get("test_end", "2025-12-31")
+        # ML models: must use TEST period only (val was used for sweep)
+        model_split = params.get(args.model, {}).get("split", {})
+        args.start = args.start or model_split.get("test_start", "2025-01-01")
+        args.end = args.end or model_split.get("test_end", "2025-12-31")
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
     config = load_config()
 
-    gen_class, model_dir = ML_GENERATORS[args.model]
-    onnx_name = "v3_model.onnx" if args.model == "ml_v3" else (
-        "attention_model.onnx" if args.model == "ml_v2_attention" else "direction_model.onnx")
+    gen_class, model_dir, onnx_name = ML_GENERATORS[args.model]
 
     trades = run_backtest(
         config,
         start=args.start,
         end=args.end,
-        v14_only=args.v14_only,
-        ml_only=args.independent,
         exit_version=args.exit_version,
         ml_model_dir=model_dir,
         ml_generator_class=gen_class,
@@ -350,8 +268,8 @@ def main():
         tdf = pd.DataFrame([asdict(t) for t in trades])
         report_dir = Path("data/reports")
 
-        model_key = args.model if not args.v14_only else "v14"
-        mode = "v14_only" if args.v14_only else ("independent" if args.independent else "mixed")
+        model_key = args.model
+        mode = "independent"
 
         report = build_report(
             trades_df=tdf,

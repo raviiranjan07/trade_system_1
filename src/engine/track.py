@@ -3,7 +3,7 @@
 Contents:
   1. DATA MODELS   — the shapes data travels in
   2. SignalSource  — the socket (one interface)
-  3. Plugs         — MLSource / MLV3Source / V14Source
+  3. Plugs         — MLSource (+ model-specific subclasses when needed)
   4. StrategyTrack — the lane: state + lifecycle
 
 Existing data models reused from elsewhere (NOT redefined here):
@@ -17,7 +17,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
 
-import numpy as np
 import pandas as pd
 
 from .config.schema import AppConfig
@@ -27,7 +26,7 @@ from .risk.account_health import AccountHealthMonitor
 from .risk.exchange_constants import DEFAULT_CAPITAL
 from .risk.risk_calculator import RiskCalculator, RiskDecision
 from .risk.decision_logger import DecisionLogger
-from .strategy import Signal, SignalType, V12Strategy
+from .strategy import Signal
 
 logger = logging.getLogger(__name__)
 
@@ -47,13 +46,8 @@ class Prediction:
 
 @dataclass
 class EntryProposal:
-    """A signal source's answer to 'should we enter on this bar?'.
-
-    Carries the signal plus whether it is a re-entry (V1.4 only) —
-    re-entries must NOT reset the position manager's re-entry counter.
-    """
+    """A signal source's answer to 'should we enter on this bar?'."""
     signal: Signal
-    is_reentry: bool = False
 
 
 # --- TrackEvent: the note a track hands back to the orchestrator -----
@@ -134,9 +128,9 @@ class TrackStats:
 class SignalSource(ABC):
     """The single socket a StrategyTrack plugs its signal supplier into.
 
-    The track only ever presses these four pins; it never knows whether
-    an ONNX model or a rule engine sits behind them. Every plug
-    (MLSource, MLV3Source, V14Source) must implement all four.
+    The track only ever presses these four pins; it never knows what
+    sits behind them. Every plug (MLSource and any subclass) must
+    implement all four.
 
     Contract:
       - prepare() is called ONCE per bar close, on the shared indicator
@@ -170,20 +164,14 @@ class SignalSource(ABC):
         """
 
     @abstractmethod
-    def propose_entry(
-        self,
-        df: pd.DataFrame,
-        bar_idx: int,
-        bar_time,
-        pm,          # V12PositionManager — V1.4 reads re-entry state from it
-        bar_count: int,
-    ) -> Optional[EntryProposal]:
+    def propose_entry(self, df: pd.DataFrame, bar_idx: int,
+                      bar_time) -> Optional[EntryProposal]:
         """Should we enter on this bar? None = no. The track still runs
         the risk check on any proposal — a proposal is not yet a trade."""
 
 
 # =====================================================================
-# 3. THE PLUGS — one per signal mechanism (NOT one per model)
+# 3. THE PLUGS — one per signal MECHANISM (not one per model)
 # =====================================================================
 
 class MLSource(SignalSource):
@@ -227,110 +215,18 @@ class MLSource(SignalSource):
             prob=float(prob),
         )
 
-    def propose_entry(self, df, bar_idx, bar_time, pm, bar_count) -> Optional[EntryProposal]:
+    def propose_entry(self, df, bar_idx, bar_time) -> Optional[EntryProposal]:
         signal = self.gen.predict_bar(df, bar_idx)
         if signal is None:
             return None
-        return EntryProposal(signal=signal, is_reentry=False)
+        return EntryProposal(signal=signal)
 
 
-class MLV3Source(MLSource):
-    """Plug for ML V3 — 3-class model (LONG/SHORT/SKIP) with snapshot input.
-
-    Inherits prepare/propose_entry from MLSource (predict_bar already
-    handles the 3-class logic inside MLV3). Only the display prediction
-    differs: three probabilities instead of one.
-
-    NOTE (open item C1): this reaches into MLV3 internals (_snap_arr,
-    session). The right home for this code is an MLV3 method; it is at
-    least contained to this one plug instead of living in the bot loop.
-    """
-
-    def prediction(self, df: pd.DataFrame, bar_idx: int) -> Optional[Prediction]:
-        gen = self.gen
-        try:
-            features = gen.get_features_for_bar(df, bar_idx)
-            if features is None or gen._snap_arr is None or bar_idx >= len(gen._snap_arr):
-                return None
-            snap = gen._snap_arr[bar_idx].reshape(1, -1)
-            outs = gen.session.run(None, {"features": features, "snapshot": snap})
-            dir_logits = outs[2][0] if len(outs) == 3 else outs[0][0]
-            exp_l = np.exp(dir_logits - dir_logits.max())
-            probs = exp_l / exp_l.sum()
-            p_long, p_short, p_skip = float(probs[0]), float(probs[1]), float(probs[2])
-        except Exception as e:
-            logger.debug("V3 prediction display failed: %s", e)
-            return None
-
-        if p_long >= gen.conf_long and p_long > p_short:
-            status = f">>> {gen.signal_type_long.value} SIGNAL <<<"
-        elif p_short >= gen.conf_short and p_short > p_long:
-            status = f">>> {gen.signal_type_short.value} SIGNAL <<<"
-        else:
-            status = "SKIP (%.0f%%)" % (p_skip * 100)
-        return Prediction(
-            long_pct=round(p_long * 100, 1),
-            short_pct=round(p_short * 100, 1),
-            status=status,
-            prob=p_long,
-        )
-
-
-class V14Source(SignalSource):
-    """Plug for the rule-based V1.4 strategy (+ its re-entry rules).
-
-    Order matches old bot.py exactly: the one-shot re-entry check runs
-    BEFORE fresh signal generation, and a fresh signal only counts if it
-    fired on the latest bar.
-    """
-
-    def __init__(self, strategy: V12Strategy):
-        self.strategy = strategy
-
-    @property
-    def loaded(self) -> bool:
-        return True  # rules are always available
-
-    def prepare(self, df: pd.DataFrame) -> pd.DataFrame:
-        return df  # indicators already computed on the shared df
-
-    def prediction(self, df: pd.DataFrame, bar_idx: int) -> Optional[Prediction]:
-        return None  # rule-based: proximity display is handled elsewhere
-
-    @staticmethod
-    def _regime_ok(signal_type: SignalType, latest: pd.Series) -> bool:
-        """V1.3 rule: required regime depends on SIGNAL TYPE, not direction.
-        V12_LONG / BULL_SHORT need bull (price>SMA200);
-        V12_SHORT / BEAR_LONG need bear (price<SMA200)."""
-        if signal_type in (SignalType.V12_LONG, SignalType.BULL_SHORT):
-            return bool(latest["bull_market"])
-        return bool(latest["bear_market"])
-
-    def propose_entry(self, df, bar_idx, bar_time, pm, bar_count) -> Optional[EntryProposal]:
-        latest = df.iloc[bar_idx]
-
-        # 1. Re-entry: one-shot check at the cooldown bar
-        if pm.reentry_signal_type is not None:
-            regime_ok = self._regime_ok(pm.reentry_signal_type, latest)
-            if pm.can_reenter(bar_count, regime_ok):
-                signal = Signal(
-                    direction=pm.reentry_direction,
-                    signal_type=pm.reentry_signal_type,
-                    bar_index=bar_idx,
-                    timestamp=bar_time,
-                    rsi=float(latest.get("rsi", 0)),
-                    price=float(latest["close"]),
-                )
-                return EntryProposal(signal=signal, is_reentry=True)
-
-        # 2. Fresh signal — only if it fired on THIS bar
-        signals = self.strategy.generate_signals(df)
-        if not signals:
-            return None
-        latest_signal = signals[-1]
-        if latest_signal.bar_index != bar_idx:
-            return None
-        return EntryProposal(signal=latest_signal, is_reentry=False)
+# A model whose display prediction differs from binary P(LONG) (e.g. a
+# 3-class LONG/SHORT/SKIP head) gets its own plug: subclass MLSource and
+# override prediction() only — prepare/propose_entry stay inherited as
+# long as the generator's predict_bar() handles the signal logic.
+# (Reference: the retired MLV3Source in git history.)
 
 
 # =====================================================================
@@ -372,8 +268,7 @@ class StrategyTrack:
             worst_loss_bps: worst historical loss for position sizing.
                             TODO: read per-model from its training manifest.
             allow_same_bar_entry: may a new entry open on the same bar a
-                trade closed? ML tracks: True; V_RULE_BASED: False (parity
-                with old bot.py — open question C5 to revisit).
+                trade closed? Default True (all current tracks).
         """
         self.name = name
         self.source = source
@@ -514,7 +409,7 @@ class StrategyTrack:
             logger.info("[%s] LONG=%.1f%% SHORT=%.1f%% | %s",
                         self.name, pred.long_pct, pred.short_pct, pred.status)
 
-        proposal = self.source.propose_entry(df_feat, latest_idx, bar_time, self.pm, bar_index)
+        proposal = self.source.propose_entry(df_feat, latest_idx, bar_time)
         if proposal is not None:
             events.append(self._attempt_entry(proposal, candle["close"], bar_time))
         return events
@@ -523,11 +418,6 @@ class StrategyTrack:
 
     def _attempt_entry(self, proposal: EntryProposal, price: float, bar_time) -> TrackEvent:
         """Risk-check a proposal; open the position or record the skip."""
-        # A fresh signal clears old re-entry state regardless of risk outcome.
-        # A re-entry must NOT reset (it would zero the re-entry counter).
-        if not proposal.is_reentry:
-            self.pm.reset_reentry()
-
         decision = self.risk_calc.calculate(self.wallet, price)
         self.decision_logger.log_decision(
             decision, self.wallet, price, proposal.signal.signal_type.value,
@@ -540,7 +430,6 @@ class StrategyTrack:
             return TrackEvent(
                 kind=KIND_ENTRY_SKIPPED, track=self.name, signal=proposal.signal,
                 decision=decision, skip_reason=decision.skip_reason,
-                is_reentry=proposal.is_reentry,
             )
 
         self.qty = decision.qty
@@ -550,15 +439,13 @@ class StrategyTrack:
             entry_price=price,
             entry_time=bar_time,
             signal_time=proposal.signal.timestamp,
-            is_reentry=proposal.is_reentry,
         )
-        logger.info("[%s] %s %s (%s) @ %.2f | %s",
-                    self.name, "RE-ENTRY" if proposal.is_reentry else "ENTRY",
-                    proposal.signal.direction.value,
+        logger.info("[%s] ENTRY %s (%s) @ %.2f | %s",
+                    self.name, proposal.signal.direction.value,
                     proposal.signal.signal_type.value, price, bar_time)
         return TrackEvent(
             kind=KIND_POSITION_OPENED, track=self.name, signal=proposal.signal,
-            qty=self.qty, decision=decision, is_reentry=proposal.is_reentry,
+            qty=self.qty, decision=decision,
         )
 
     def _close_trade(self, trade: TradeRecord) -> TrackEvent:

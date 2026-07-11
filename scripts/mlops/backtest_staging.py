@@ -29,32 +29,24 @@ import argparse
 import mlflow
 import yaml
 
-from engine.backtest import run_backtest
+from research.backtest import run_backtest
 from engine.config.loader import load_config
-from engine.signals.ml_v1 import MLV1
-from engine.signals.direction_attention import DirectionAttention
 
 with open(REPO_ROOT / "configs/params.yaml") as _f:
     _p = yaml.safe_load(_f)
 BACKTEST_START = _p["backtest"]["start"]
 BACKTEST_END = _p["backtest"]["end"]
 
-# Per-model config: staging dir + signal generator class + onnx filename
+# Per-model config: staging dir + signal generator class + onnx filename.
+# A new model = its adapter in engine/signals/ + one block here.
 MODELS = {
-    "ml_v1": {
-        "registry_name": "ML_V1",
-        "staging_dir": REPO_ROOT / "models/ML_V1_staging",
-        "generator_class": MLV1,
-        "onnx_filename": "direction_model.onnx",
-        "scaler_filename": "scaler.npz",
-    },
-    "ml_v2_attention": {
-        "registry_name": "ML_V2_ATTENTION",
-        "staging_dir": REPO_ROOT / "models/ML_V2_ATTENTION_staging",
-        "generator_class": DirectionAttention,
-        "onnx_filename": "attention_model.onnx",
-        "scaler_filename": "scaler.npz",
-    },
+    # "my_model": {
+    #     "registry_name": "MY_MODEL",
+    #     "staging_dir": REPO_ROOT / "models/MY_MODEL_staging",
+    #     "generator_class": MyGenerator,
+    #     "onnx_filename": "model.onnx",
+    #     "scaler_filename": "scaler.npz",
+    # },
 }
 
 
@@ -171,8 +163,11 @@ def _run_one(model_name: str, exit_version: str) -> dict:
 
 
 def main() -> None:
+    if not MODELS:
+        sys.exit("No models registered in MODELS (backtest_staging.py). "
+                 "Add the new model's adapter + registry block first.")
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default="ml_v1",
+    parser.add_argument("--model", required=True,
                         help="Model name from MODELS registry, or 'all' for every model, "
                              "or comma-separated list (e.g. 'ml_v1,ml_v2_attention')")
     parser.add_argument("--exit", default=None,

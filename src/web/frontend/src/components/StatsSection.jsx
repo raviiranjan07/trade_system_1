@@ -1,83 +1,42 @@
 import React from 'react'
 
-const FILTER_TO_VIEW = { 'Combined': 'combined', 'V1.4': 'v14', 'ML': 'ml', 'ML V2': 'mlv2', 'ML V3': 'mlv3' }
+const FILTER_TO_VIEW = { 'Combined': 'combined', 'ML': 'ml', 'ML V2': 'mlv2', 'ML V3': 'mlv3' }
 
-function StatsSection({ stats, risk, ml, trades, mlTrades, mlAttnTrades, mlV3Trades, activeFilter, onFilterChange }) {
+function aggregate(trades) {
+  const t = trades || []
+  const wins = t.filter(x => (x.net_profit_bps || 0) > 0).length
+  const losses = t.length - wins
+  const totalBps = t.reduce((s, x) => s + (x.net_profit_bps || 0), 0)
+  const grossWin = t.filter(x => (x.net_profit_bps || 0) > 0).reduce((s, x) => s + (x.net_profit_bps || 0), 0)
+  const grossLoss = Math.abs(t.filter(x => (x.net_profit_bps || 0) <= 0).reduce((s, x) => s + (x.net_profit_bps || 0), 0))
+  return {
+    total_trades: t.length,
+    wins,
+    losses,
+    win_rate: t.length > 0 ? wins / t.length : 0,
+    total_bps: totalBps,
+    avg_bps: t.length > 0 ? totalBps / t.length : 0,
+    profit_factor: grossLoss > 0 ? Math.round((grossWin / grossLoss) * 100) / 100 : 0,
+  }
+}
+
+function StatsSection({ ml, mlAttn, mlV3, mlTrades, mlAttnTrades, mlV3Trades, activeFilter, onFilterChange }) {
   const view = FILTER_TO_VIEW[activeFilter] || 'combined'
 
-  // Compute stats based on view
-  let displayStats = stats || {}
-  let walletUsd = risk?.wallet_usd ?? 0
-
-  if (view === 'ml' && mlTrades && mlTrades.length > 0) {
-    const wins = mlTrades.filter(t => (t.net_profit_bps || 0) > 0).length
-    const losses = mlTrades.length - wins
-    const totalBps = mlTrades.reduce((s, t) => s + (t.net_profit_bps || 0), 0)
-    const grossWin = mlTrades.filter(t => (t.net_profit_bps || 0) > 0).reduce((s, t) => s + (t.net_profit_bps || 0), 0)
-    const grossLoss = Math.abs(mlTrades.filter(t => (t.net_profit_bps || 0) <= 0).reduce((s, t) => s + (t.net_profit_bps || 0), 0))
-    displayStats = {
-      total_trades: mlTrades.length,
-      wins,
-      losses,
-      win_rate: mlTrades.length > 0 ? wins / mlTrades.length : 0,
-      total_bps: totalBps,
-      avg_bps: mlTrades.length > 0 ? totalBps / mlTrades.length : 0,
-      profit_factor: grossLoss > 0 ? grossWin / grossLoss : 0,
-    }
+  let displayStats
+  let walletUsd
+  if (view === 'ml') {
+    displayStats = aggregate(mlTrades)
     walletUsd = ml?.wallet_usd ?? 0
-  } else if (view === 'mlv2' && mlAttnTrades && mlAttnTrades.length > 0) {
-    const wins = mlAttnTrades.filter(t => (t.net_profit_bps || 0) > 0).length
-    const losses = mlAttnTrades.length - wins
-    const totalBps = mlAttnTrades.reduce((s, t) => s + (t.net_profit_bps || 0), 0)
-    const grossWin = mlAttnTrades.filter(t => (t.net_profit_bps || 0) > 0).reduce((s, t) => s + (t.net_profit_bps || 0), 0)
-    const grossLoss = Math.abs(mlAttnTrades.filter(t => (t.net_profit_bps || 0) <= 0).reduce((s, t) => s + (t.net_profit_bps || 0), 0))
-    displayStats = {
-      total_trades: mlAttnTrades.length,
-      wins,
-      losses,
-      win_rate: mlAttnTrades.length > 0 ? wins / mlAttnTrades.length : 0,
-      total_bps: totalBps,
-      avg_bps: mlAttnTrades.length > 0 ? totalBps / mlAttnTrades.length : 0,
-      profit_factor: grossLoss > 0 ? grossWin / grossLoss : 0,
-    }
-    walletUsd = 0  // will be updated when ml_attn wallet is available
-  } else if (view === 'mlv3' && mlV3Trades && mlV3Trades.length > 0) {
-    const wins = mlV3Trades.filter(t => (t.net_profit_bps || 0) > 0).length
-    const losses = mlV3Trades.length - wins
-    const totalBps = mlV3Trades.reduce((s, t) => s + (t.net_profit_bps || 0), 0)
-    const grossWin = mlV3Trades.filter(t => (t.net_profit_bps || 0) > 0).reduce((s, t) => s + (t.net_profit_bps || 0), 0)
-    const grossLoss = Math.abs(mlV3Trades.filter(t => (t.net_profit_bps || 0) <= 0).reduce((s, t) => s + (t.net_profit_bps || 0), 0))
-    displayStats = {
-      total_trades: mlV3Trades.length, wins, losses,
-      win_rate: mlV3Trades.length > 0 ? wins / mlV3Trades.length : 0,
-      total_bps: totalBps,
-      avg_bps: mlV3Trades.length > 0 ? totalBps / mlV3Trades.length : 0,
-      profit_factor: grossLoss > 0 ? grossWin / grossLoss : 0,
-    }
-    walletUsd = 0
-  } else if (view === 'v14') {
-    walletUsd = risk?.wallet_usd ?? 0
+  } else if (view === 'mlv2') {
+    displayStats = aggregate(mlAttnTrades)
+    walletUsd = mlAttn?.wallet_usd ?? 0
+  } else if (view === 'mlv3') {
+    displayStats = aggregate(mlV3Trades)
+    walletUsd = mlV3?.wallet_usd ?? 0
   } else {
-    // combined — merge V1.4 + ML + ML V2 + ML V3
-    const allTrades = [...(trades || []), ...(mlTrades || []), ...(mlAttnTrades || []), ...(mlV3Trades || [])]
-    if (allTrades.length > 0 && stats) {
-      const totalWins = allTrades.filter(t => (t.net_profit_bps || 0) > 0).length
-      const totalLosses = allTrades.length - totalWins
-      const totalBps = allTrades.reduce((s, t) => s + (t.net_profit_bps || 0), 0)
-      const grossWin = allTrades.filter(t => (t.net_profit_bps || 0) > 0).reduce((s, t) => s + (t.net_profit_bps || 0), 0)
-      const grossLoss = Math.abs(allTrades.filter(t => (t.net_profit_bps || 0) <= 0).reduce((s, t) => s + (t.net_profit_bps || 0), 0))
-
-      displayStats = {
-        total_trades: allTrades.length,
-        wins: totalWins,
-        losses: totalLosses,
-        win_rate: allTrades.length > 0 ? totalWins / allTrades.length : 0,
-        total_bps: totalBps,
-        avg_bps: allTrades.length > 0 ? totalBps / allTrades.length : 0,
-        profit_factor: grossLoss > 0 ? Math.round((grossWin / grossLoss) * 100) / 100 : 0,
-      }
-      walletUsd = (risk?.wallet_usd ?? 0) + (ml?.wallet_usd ?? 0)
-    }
+    displayStats = aggregate([...(mlTrades || []), ...(mlAttnTrades || []), ...(mlV3Trades || [])])
+    walletUsd = (ml?.wallet_usd ?? 0) + (mlAttn?.wallet_usd ?? 0) + (mlV3?.wallet_usd ?? 0)
   }
 
   const totalBps = displayStats.total_bps || 0
@@ -89,7 +48,7 @@ function StatsSection({ stats, risk, ml, trades, mlTrades, mlAttnTrades, mlV3Tra
   return (
     <div>
       <div className="stats-filter-bar">
-        {['Combined', 'V1.4', 'ML', 'ML V2', 'ML V3'].map(f => {
+        {['Combined', 'ML', 'ML V2', 'ML V3'].map(f => {
           const viewKey = FILTER_TO_VIEW[f]
           return (
             <button key={f} className={`stats-filter-btn ${view === viewKey ? 'active' : ''}`} onClick={() => onFilterChange?.(f)}>{f}</button>

@@ -46,10 +46,9 @@ def load_config(
     config = AppConfig(**raw)
 
     logger.info(
-        "Config loaded | hash=%s | mode=%s | reentry=%s",
+        "Config loaded | hash=%s | mode=%s",
         config.config_hash(),
         config.execution.mode,
-        config.reentry.enabled,
     )
 
     return config

@@ -1,5 +1,10 @@
 # MLOps Usage Guide
 
+> **STATUS (2026-07-12):** the 3-model lineage this guide's examples
+> reference was retired in the clean-slate reset. The machinery described
+> (runner, protocols, DVC, registry, promotion) is all current — read old
+> model names in examples as placeholders for the new architecture.
+
 ## Quick Start
 
 ### Run a tracked experiment

@@ -2,7 +2,6 @@
 
 If a track's data must survive a restart, it goes through this file:
   TrackPaths / paths_for()  — the ONE naming rule (track name -> its files)
-  migrate_legacy()          — one-time rename of pre-refactor files (run at cutover!)
   TrackState                — schema of the risk-state JSON
   TradeLog                  — the trades CSV (append + read back)
   StateStore                — the risk-state JSON (save + load)
@@ -60,60 +59,6 @@ def paths_for(name: str, mode: str, trades_dir: Path) -> TrackPaths:
         state_json=trades_dir / f"risk_state_{key}.json",
         decision_log_dir=trades_dir / "risk_logs" / key,
     )
-
-
-def migrate_legacy(trades_dir: Path, mode: str) -> list:
-    """One-time rename of pre-refactor files to the uniform naming scheme.
-
-    ONLY renames when the old file exists AND the new one doesn't, so it is
-    safe to run repeatedly. MUST NOT run while the old bot.py is still in
-    use — old bot writes to the legacy names and history would split.
-    Call it once, at orchestrator cutover.
-
-    Returns list of (old, new) paths that were moved.
-    """
-    trades_dir = Path(trades_dir)
-    renames = [
-        # V1.4 files had no prefix -> V_RULE_BASED
-        (trades_dir / f"trades_{mode}.csv",
-         trades_dir / f"trades_v_rule_based_{mode}.csv"),
-        (trades_dir / "risk_state.json",
-         trades_dir / "risk_state_v_rule_based.json"),
-        (trades_dir / "risk_logs" / "decisions.csv",
-         trades_dir / "risk_logs" / "v_rule_based" / "decisions.csv"),
-        # "ml" -> "ml_v1"
-        (trades_dir / f"trades_ml_{mode}.csv",
-         trades_dir / f"trades_ml_v1_{mode}.csv"),
-        (trades_dir / "risk_state_ml.json",
-         trades_dir / "risk_state_ml_v1.json"),
-        (trades_dir / "risk_logs" / "ml" / "decisions.csv",
-         trades_dir / "risk_logs" / "ml_v1" / "decisions.csv"),
-        # ml_attn / ml_v3 already match the scheme — nothing to do
-    ]
-    def _header_only(p: Path) -> bool:
-        """True when a file holds no data rows (just a header, or empty).
-
-        Constructing tracks creates empty new-scheme files; those must not
-        block migrating the real history into their place.
-        """
-        try:
-            return len(p.read_text().strip().splitlines()) <= 1
-        except Exception:
-            return False
-
-    moved = []
-    for old, new in renames:
-        if not old.exists():
-            continue
-        if new.exists():
-            if not _header_only(new):
-                continue  # real data already at destination — never overwrite
-            new.unlink()
-        new.parent.mkdir(parents=True, exist_ok=True)
-        old.rename(new)
-        moved.append((old, new))
-        logger.info("migrated: %s -> %s", old, new)
-    return moved
 
 
 # =====================================================================

@@ -20,7 +20,7 @@ components:
     formula: risk_multiplier = max(0.20, dd_factor x streak_factor x recent_factor)
     note: Barely activates with 60%+ win rate strategy
   decision_logger:
-    file: src/engine/risk/tests/decision_logger.py
+    file: src/engine/risk/decision_logger.py
     description: Logs every entry decision (allowed/skipped + reason)
   safety_stop:
     file: src/engine/risk/exchange_constants.py

@@ -32,10 +32,9 @@ function buildCurveData(tradesArr) {
   return deduped
 }
 
-function EquityCurve({ trades, mlTrades, mlAttnTrades, mlV3Trades }) {
+function EquityCurve({ mlTrades, mlAttnTrades, mlV3Trades }) {
   const containerRef = useRef(null)
   const chartRef = useRef(null)
-  const v14SeriesRef = useRef(null)
   const mlSeriesRef = useRef(null)
   const mlAttnSeriesRef = useRef(null)
   const mlV3SeriesRef = useRef(null)
@@ -71,15 +70,6 @@ function EquityCurve({ trades, mlTrades, mlAttnTrades, mlV3Trades }) {
       },
     })
     chart.applyOptions({ branding: { visible: false } })
-
-    // V1.4 line (blue)
-    const v14Series = chart.addSeries(LineSeries, {
-      color: '#3b82f6',
-      lineWidth: 2,
-      lastValueVisible: true,
-      priceLineVisible: false,
-      crosshairMarkerVisible: true,
-    })
 
     // ML line (purple)
     const mlSeries = chart.addSeries(LineSeries, {
@@ -119,7 +109,6 @@ function EquityCurve({ trades, mlTrades, mlAttnTrades, mlV3Trades }) {
     })
 
     chartRef.current = chart
-    v14SeriesRef.current = v14Series
     mlSeriesRef.current = mlSeries
     mlAttnSeriesRef.current = mlAttnSeries
     mlV3SeriesRef.current = mlV3Series
@@ -140,16 +129,12 @@ function EquityCurve({ trades, mlTrades, mlAttnTrades, mlV3Trades }) {
 
   // Update data when trades change
   useEffect(() => {
-    if (!v14SeriesRef.current) return
+    if (!mlSeriesRef.current) return
 
-    const v14Data = buildCurveData(trades)
     const mlData = buildCurveData(mlTrades)
     const mlAttnData = buildCurveData(mlAttnTrades)
     const mlV3Data = buildCurveData(mlV3Trades)
 
-    if (v14Data.length > 0) {
-      v14SeriesRef.current.setData(v14Data)
-    }
     if (mlData.length > 0) {
       mlSeriesRef.current.setData(mlData)
     }
@@ -161,7 +146,7 @@ function EquityCurve({ trades, mlTrades, mlAttnTrades, mlV3Trades }) {
     }
 
     // Zero line spanning full range of all series
-    const allTimes = [...v14Data.map(d => d.time), ...mlData.map(d => d.time), ...mlAttnData.map(d => d.time), ...mlV3Data.map(d => d.time)]
+    const allTimes = [...mlData.map(d => d.time), ...mlAttnData.map(d => d.time), ...mlV3Data.map(d => d.time)]
     if (allTimes.length > 0) {
       const minTime = Math.min(...allTimes)
       const maxTime = Math.max(...allTimes)
@@ -174,9 +159,9 @@ function EquityCurve({ trades, mlTrades, mlAttnTrades, mlV3Trades }) {
     if (chartRef.current) {
       chartRef.current.timeScale().fitContent()
     }
-  }, [trades, mlTrades, mlAttnTrades, mlV3Trades])
+  }, [mlTrades, mlAttnTrades, mlV3Trades])
 
-  const hasTrades = (trades && trades.length > 0) || (mlTrades && mlTrades.length > 0) || (mlAttnTrades && mlAttnTrades.length > 0) || (mlV3Trades && mlV3Trades.length > 0)
+  const hasTrades = (mlTrades && mlTrades.length > 0) || (mlAttnTrades && mlAttnTrades.length > 0) || (mlV3Trades && mlV3Trades.length > 0)
 
   if (!hasTrades) {
     return (
@@ -204,10 +189,6 @@ function EquityCurve({ trades, mlTrades, mlAttnTrades, mlV3Trades }) {
           padding: '4px 8px',
           borderRadius: '4px',
         }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#3b82f6', display: 'inline-block' }} />
-            V1.4
-          </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#8b5cf6', display: 'inline-block' }} />
             ML

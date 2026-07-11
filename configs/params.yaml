@@ -1,171 +1,43 @@
+# Model parameters — THE config for training/inference/splits.
+# One block per model; block name = the model key used everywhere
+# (training.train --model <key>, dvc params, orchestrator track name
+# lowercased). DVC pins <key>.training/.split/.features/.inference per
+# stage, MLflow logs them per run — a knob outside this file is
+# invisible to both, so every experiment-variable value belongs here.
+#
+# Retired 3-model blocks: git history (pre 2026-07-12).
+
 backtest:
   start: '2025-01-01'
   end: '2025-12-31'
   exit_version: v2
-ml_v2_attention:
-  inference:
-    conf_long: 0.6
-    conf_short: 0.58
-    exit_version: v2
-  features:
-    lookbacks:
-    - 1
-    - 2
-    - 3
-    - 4
-    - 5
-    - 6
-    - 7
-    - 8
-    diff_sources:
-    - close
-    - rsi7
-    - range_position
-    - sma200_dist_pct
-    rsi_period: 7
-    range_position_window: 20
-  training:
-    lr: 0.001
-    batch_size: 2048
-    max_epochs: 100
-    patience: 10
-    hidden: 128
-    dropout: 0.5
-    temperature: 0.5
-    seed: 42
-    conf_long: 0.6
-    conf_short: 0.6
-  split:
-    train_start: '2020-01-01'
-    train_end: '2023-12-31'
-    val_start: '2024-01-01'
-    val_end: '2024-12-31'
-    test_start: '2025-01-01'
-    test_end: '2025-12-31'
-ml_v3:
-  inference:
-    conf_long: 0.4
-    conf_short: 0.4
-    exit_version: v2
-  features:
-    lookbacks:
-    - 1
-    - 2
-    - 3
-    - 4
-    - 5
-    - 6
-    - 7
-    - 8
-    diff_sources:
-    - close
-    - rsi7
-    - range_position
-    - sma200_dist_pct
-    snap_features:
-    - rsi7
-    - range_position
-    - sma200_dist_pct
-    - atr_percentile
-    rsi_period: 7
-    range_position_window: 20
-  training:
-    hidden: 128
-    dropout: 0.5
-    temperature: 0.5
-    lr: 0.001
-    batch_size: 2048
-    max_epochs: 100
-    patience: 10
-    seed: 42
-    loss_weight_pnl: 1.0
-    loss_weight_dir: 1.0
-  split:
-    train_start: '2020-01-01'
-    train_end: '2023-12-31'
-    val_start: '2024-01-01'
-    val_end: '2024-12-31'
-    test_start: '2025-01-01'
-    test_end: '2025-12-31'
-  sweep:
-    conf_long:
-    - 0.35
-    - 0.37
-    - 0.4
-    - 0.42
-    - 0.45
-    - 0.5
-    conf_short:
-    - 0.35
-    - 0.37
-    - 0.4
-    - 0.42
-    - 0.45
-    - 0.5
-    strategy: grid
-    learning_rate:
-    - 0.0005
-    - 0.001
-    - 0.002
-    loss_weight_pnl:
-    - 0.5
-    - 1.0
-    - 2.0
-    loss_weight_dir:
-    - 0.5
-    - 1.0
-    - 2.0
-    batch_size:
-    - 512
-    - 1024
-    - 2048
-    hidden_size:
-    - 64
-    - 128
-    - 180
-    - 256
-    temperature:
-    - 0.1
-    - 0.3
-    - 0.5
-    - 0.7
-    - 1.0
-    dropout:
-    - 0.3
-    - 0.4
-    - 0.5
-    - 0.6
-ml_v1:
-  inference:
-    conf_long: 0.6
-    conf_short: 0.58
-    exit_version: v2
-  features:
-    roc_periods:
-    - 1
-    - 2
-    - 3
-    - 4
-    - 5
-    - 6
-    - 7
-    - 8
-    rsi_period: 7
-    range_position_window: 50
-  training:
-    lr: 0.001
-    weight_decay: 0.0001
-    batch_size: 512
-    max_epochs: 100
-    patience: 10
-    hidden: 128
-    seed: 42
-    conf_long: 0.6
-    conf_short: 0.4
-  split:
-    train_start: '2020-01-01'
-    train_end: '2023-12-31'
-    val_start: '2024-01-01'
-    val_end: '2024-12-31'
-    test_start: '2025-01-01'
-    test_end: '2025-12-31'
+
+# ---------------------------------------------------------------
+# Template — copy for the new model and fill in:
+#
+# my_model:
+#   architecture: my_encoder        # training/architectures.py registry name
+#   task: my_task                   # training/train.py TASKS name
+#   features:
+#     # every feature knob (windows, lookbacks, periods) — feature_lib
+#     # formulas read these; train and live MUST share one variant
+#   training:
+#     lr: 0.001
+#     batch_size: 512
+#     max_epochs: 100
+#     patience: 10
+#     seed: 42
+#   split:
+#     train_start: '2020-01-01'
+#     train_end: '2023-12-31'
+#     val_start: '2024-01-01'
+#     val_end: '2024-12-31'
+#     test_start: '2025-01-01'
+#     test_end: '2025-12-31'
+#   inference:
+#     conf_long: 0.6
+#     conf_short: 0.6
+#     exit_version: v2
+#   sweep:
+#     # grids for research/sweep_thresholds + sweep_training
+# ---------------------------------------------------------------

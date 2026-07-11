@@ -31,21 +31,14 @@ import mlflow
 
 PROMOTION_LOG = REPO_ROOT / "docs/PROMOTION_LOG.md"
 
-# Per-model metadata. Add a block here when a new model is introduced.
-MODELS = {
-    "ML_V1": {
-        "staging_dir": REPO_ROOT / "models/ML_V1_staging",
-        "production_dir": REPO_ROOT / "models/ML_V1",
-    },
-    "ML_V2_ATTENTION": {
-        "staging_dir": REPO_ROOT / "models/ML_V2_ATTENTION_staging",
-        "production_dir": REPO_ROOT / "models/ML_V2_ATTENTION",
-    },
-    "ML_V3": {
-        "staging_dir": REPO_ROOT / "models/ML_V3_staging",
-        "production_dir": REPO_ROOT / "models/ML_V3",
-    },
-}
+# Uniform convention — no per-model map needed:
+#   staging:    models/<NAME>_staging   (written by training.train)
+#   production: models/<NAME>           (loaded by the live bot)
+def model_paths(name: str) -> dict:
+    return {
+        "staging_dir": REPO_ROOT / "models" / f"{name}_staging",
+        "production_dir": REPO_ROOT / "models" / name,
+    }
 
 # Minimum metrics a @staging model must beat to be promotable.
 GATE_THRESHOLDS = {
@@ -141,7 +134,7 @@ def run_gates(model_name: str, mc: dict, model_key: str) -> tuple[bool, list[str
 
 def promote_one(model_name: str, model_key: str, dry_run: bool = False) -> dict:
     """Promote a single model. Returns result dict for the audit log."""
-    mc = MODELS[model_name]
+    mc = model_paths(model_name)
     client = _client()
 
     print(f"\n{'=' * 60}")
@@ -260,17 +253,19 @@ def main() -> int:
     parser.add_argument("--force", action="store_true", help="Skip confirmation prompt")
     args = parser.parse_args()
 
-    # Resolve target list
+    # Resolve target: any name with a models/<NAME>_staging dir qualifies
     if args.model == "all":
-        targets = list(MODELS.keys())
-    elif args.model in MODELS:
-        targets = [args.model]
+        targets = sorted(d.name[:-len("_staging")]
+                         for d in (REPO_ROOT / "models").glob("*_staging"))
+        if not targets:
+            print("No models/<NAME>_staging directories found.", file=sys.stderr)
+            return 2
     else:
-        print(f"Unknown model: {args.model}. Available: {list(MODELS.keys())}", file=sys.stderr)
-        return 2
-
-    # Key used for backtest report filename lookup (lowercase)
-    key_map = {"ML_V1": "ml_v1", "ML_V2_ATTENTION": "ml_v2_attention", "ML_V3": "ml_v3"}
+        if not model_paths(args.model)["staging_dir"].exists():
+            print(f"No staging dir for {args.model}: "
+                  f"{model_paths(args.model)['staging_dir']}", file=sys.stderr)
+            return 2
+        targets = [args.model]
 
     if not args.force and not args.dry_run:
         print(f"About to promote: {', '.join(targets)}")
@@ -281,7 +276,7 @@ def main() -> int:
 
     results = []
     for name in targets:
-        r = promote_one(name, key_map.get(name, name.lower()), dry_run=args.dry_run)
+        r = promote_one(name, name.lower(), dry_run=args.dry_run)
         results.append(r)
 
     if not args.dry_run:

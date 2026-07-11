@@ -5,8 +5,6 @@ Exit plans (priority order on every tick):
   V2         : V1 minus LOCKED_PROFIT (no static 15 bps lock)
 
 Bar-level: time exit on bar v1_max_bars (NO_ZONE if pnl>=0, TIME_EXIT otherwise).
-Re-entry: disabled — hook left in place but never fires under V1/V2 (it keys off
-the obsolete TRAILING_STOP reason from the removed V2-old plan).
 """
 
 from dataclasses import dataclass, field
@@ -56,7 +54,7 @@ class OpenPosition:
 
 
 class V12PositionManager:
-    """Manages position lifecycle: entry, bar updates, exits, re-entry.
+    """Manages position lifecycle: entry, bar updates, exits.
 
     exit_version:
       "v1" — full V1 rules (includes LOCKED_PROFIT static exit at 15 bps peak)
@@ -70,13 +68,6 @@ class V12PositionManager:
         self.exit_version = exit_version
         self.position: Optional[OpenPosition] = None
         self.trades: list[TradeRecord] = []
-
-        # Re-entry state
-        self._last_exit_direction: Optional[Direction] = None
-        self._last_exit_signal_type: Optional[SignalType] = None
-        self._last_exit_reason: Optional[str] = None
-        self._last_exit_bar_index: int = -999
-        self._reentry_count: int = 0
 
     @property
     def is_in_position(self) -> bool:
@@ -190,7 +181,7 @@ class V12PositionManager:
     def _close_position(
         self, gross_profit_bps: float, exit_time: object, bar_index: int, reason: str
     ) -> TradeRecord:
-        """Close position, record trade, update re-entry state."""
+        """Close position and record the trade."""
         pos = self.position
 
         if pos.direction == Direction.LONG:
@@ -215,65 +206,5 @@ class V12PositionManager:
             is_reentry=pos.is_reentry,
         )
         self.trades.append(trade)
-
-        # Track re-entry state
-        self._last_exit_direction = pos.direction
-        self._last_exit_signal_type = pos.signal_type
-        self._last_exit_reason = reason
-        self._last_exit_bar_index = bar_index
-
-        if pos.is_reentry:
-            self._reentry_count += 1
-        elif reason == "TRAILING_STOP":
-            # Original trade hit TS — enable re-entry
-            self._reentry_count = 0
-
         self.position = None
         return trade
-
-    def can_reenter(self, current_bar_index: int, regime_valid: bool) -> bool:
-        """Check if re-entry conditions are met.
-
-        Matches EXP-012 behavior: re-entry is checked ONCE at exit + cooldown.
-        If regime fails at that exact bar, re-entry is abandoned (not retried later).
-
-        Conditions:
-          1. Re-entry is enabled in config
-          2. Last exit was TRAILING_STOP (not TIME_EXIT)
-          3. Haven't exceeded max re-entries for this signal chain
-          4. Current bar is EXACTLY at cooldown point (one-shot check)
-          5. Market regime still valid (bull for LONG, bear for SHORT)
-        """
-        rc = self.cfg.reentry
-        if not rc.enabled:
-            return False
-        if self._last_exit_reason != "TRAILING_STOP":
-            return False
-        if self._reentry_count >= rc.max_reentries:
-            return False
-        # One-shot: only check at the exact cooldown bar
-        if current_bar_index != self._last_exit_bar_index + rc.cooldown_bars:
-            return False
-        if not regime_valid:
-            # Regime failed at cooldown bar — abandon re-entry entirely
-            self._last_exit_reason = None
-            return False
-        return True
-
-    @property
-    def reentry_direction(self) -> Optional[Direction]:
-        """Direction for re-entry (same as last closed trade)."""
-        return self._last_exit_direction
-
-    @property
-    def reentry_signal_type(self) -> Optional[SignalType]:
-        """Signal type for re-entry (same as last closed trade)."""
-        return self._last_exit_signal_type
-
-    def reset_reentry(self) -> None:
-        """Reset re-entry state (called when a new original signal fires)."""
-        self._reentry_count = 0
-        self._last_exit_reason = None
-        self._last_exit_direction = None
-        self._last_exit_signal_type = None
-        self._last_exit_bar_index = -999

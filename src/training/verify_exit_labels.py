@@ -36,7 +36,7 @@ def simulate_one_trade(config, direction, entry_price, entry_time, signal_time,
                        bar_closes, bar_times, n_bars):
     """Run one trade through the real position manager. Returns net_profit_bps."""
     pm = V12PositionManager(config, exit_version="v2")
-    sig_type = SignalType.ML_ATTN_LONG if direction == Direction.LONG else SignalType.ML_ATTN_SHORT
+    sig_type = SignalType.ML_LONG if direction == Direction.LONG else SignalType.ML_SHORT
     pm.open_position(
         direction=direction, signal_type=sig_type,
         entry_price=entry_price, entry_time=entry_time, signal_time=signal_time,

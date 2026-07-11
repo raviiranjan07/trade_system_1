@@ -55,7 +55,7 @@ def simulate_trade(config, direction: Direction, entry_price: float,
     pm = V12PositionManager(config, exit_version="v2")
     pm.open_position(
         direction=direction,
-        signal_type=SignalType.ML_ATTN_LONG if direction == Direction.LONG else SignalType.ML_ATTN_SHORT,
+        signal_type=SignalType.ML_LONG if direction == Direction.LONG else SignalType.ML_SHORT,
         entry_price=entry_price,
         entry_time=entry_time,
         signal_time=signal_time,

@@ -9,14 +9,13 @@ Every backtest result MUST go through this builder. It:
 
 Usage:
     from mlops.backtest_report import build_report, validate_report, save_report
-    report = build_report(trades_df, model="ml_v3", mode="independent", ...)
+    report = build_report(trades_df, model="my_model", mode="independent", ...)
     save_report(report, path)
 """
 
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -70,41 +69,23 @@ def build_report(
     start: str,
     end: str,
     period_type: str = "test",
-    v14_included: Optional[bool] = None,
 ) -> dict:
     """Build a schema-compliant backtest report.
 
     Args:
         trades_df: DataFrame with columns: signal_type, direction, net_profit_bps, exit_reason
-        model: model identifier (ml_v1, ml_v2_attention, ml_v3, v14)
-        mode: "independent", "mixed", or "v14_only"
+        model: model key (the params.yaml block name, e.g. "my_model")
+        mode: "independent" (each model backtests alone with its own PM)
         exit_version: "v1" or "v2"
         start: backtest start date
         end: backtest end date
         period_type: "train", "val", "test", or "full"
-        v14_included: explicit override; auto-detected from mode if None
+
+    Independent runs contain only the model's own signals, so all trades
+    belong to the report. If mixed multi-model runs ever return, filter
+    trades_df by the model's SignalType prefix BEFORE calling this.
     """
-    if v14_included is None:
-        v14_included = mode == "mixed" or mode == "v14_only"
-
-    # Determine which signals belong to this model
-    signal_prefix = {
-        "ml_v3": "ML_V3_",
-        "ml_v2_attention": "ML_ATTN_",
-        "ml_v1": "ML_",
-        "v14": "",  # all V1.4 signals
-    }.get(model, "")
-
-    if model == "v14":
-        ml = trades_df[trades_df["signal_type"].isin(
-            ["V12_LONG", "V12_SHORT", "BEAR_LONG", "BULL_SHORT"])]
-    elif model == "ml_v1":
-        ml = trades_df[trades_df["signal_type"].str.startswith("ML_") &
-                        ~trades_df["signal_type"].str.startswith("ML_ATTN_") &
-                        ~trades_df["signal_type"].str.startswith("ML_V3_")]
-    else:
-        ml = trades_df[trades_df["signal_type"].str.startswith(signal_prefix)]
-
+    ml = trades_df
     signals_included = sorted(ml["signal_type"].unique().tolist()) if len(ml) > 0 else []
 
     ml_long = ml[ml["direction"] == "LONG"]
@@ -115,7 +96,6 @@ def build_report(
         "model": model,
         "mode": mode,
         "signals_included": signals_included,
-        "v14_included": v14_included,
         "exit_version": exit_version,
         # Period
         "start": start,
@@ -146,11 +126,6 @@ def _load_params() -> dict:
         return yaml.safe_load(f) or {}
 
 
-def _is_ml_model(report: dict) -> bool:
-    """True if this report is for an ML model (not V1.4 rule-based)."""
-    return report.get("model") != "v14" and report.get("mode") != "v14_only"
-
-
 def _check_period_leakage(report: dict, params: dict) -> list[str]:
     """Gate 1: Backtest period must NOT overlap with train or val periods.
 
@@ -159,8 +134,6 @@ def _check_period_leakage(report: dict, params: dict) -> list[str]:
     Train was used for weight fitting — including it is catastrophic.
     """
     errors = []
-    if not _is_ml_model(report):
-        return errors
 
     model = report.get("model", "")
     split = params.get(model, {}).get("split", {})
@@ -210,8 +183,6 @@ def _check_param_mismatch(report: dict, params: dict) -> list[str]:
     Returns warnings as errors only if sweep was validated on clean data.
     """
     warnings = []
-    if not _is_ml_model(report):
-        return warnings
 
     model = report.get("model", "")
     inference = params.get(model, {}).get("inference", {})
@@ -266,19 +237,12 @@ def _check_model_staleness(report: dict) -> list[str]:
     retrained, backtest results are stale.
     """
     errors = []
-    if not _is_ml_model(report):
-        return errors
 
     model = report.get("model", "")
 
-    # Map model name to directory
-    model_dirs = {
-        "ml_v1": REPO_ROOT / "models/ML_V1_staging",
-        "ml_v2_attention": REPO_ROOT / "models/ML_V2_ATTENTION",
-        "ml_v3": REPO_ROOT / "models/ML_V3_staging",
-    }
-    model_dir = model_dirs.get(model)
-    if not model_dir or not model_dir.exists():
+    # Convention: model key "my_model" -> models/MY_MODEL_staging
+    model_dir = REPO_ROOT / "models" / f"{model.upper()}_staging"
+    if not model_dir.exists():
         errors.append(f"STALENESS: {model} model directory not found: {model_dir}")
         return errors
 
@@ -327,7 +291,7 @@ def validate_report(report: dict) -> list[str]:
     """Validate report against schema. Returns list of errors (empty = valid)."""
     errors = []
 
-    required_top = ["model", "mode", "signals_included", "v14_included",
+    required_top = ["model", "mode", "signals_included",
                      "exit_version", "start", "end", "period_type",
                      "metrics", "exit_distribution", "schema_version", "generated_at"]
     for field in required_top:
@@ -337,7 +301,7 @@ def validate_report(report: dict) -> list[str]:
     if report.get("schema_version") != SCHEMA_VERSION:
         errors.append(f"Schema version mismatch: expected {SCHEMA_VERSION}, got {report.get('schema_version')}")
 
-    if report.get("mode") not in ("independent", "mixed", "v14_only"):
+    if report.get("mode") != "independent":
         errors.append(f"Invalid mode: {report.get('mode')}")
 
     if report.get("exit_version") not in ("v1", "v2"):
@@ -353,7 +317,7 @@ def validate_report(report: dict) -> list[str]:
                 if key not in metrics[split]:
                     errors.append(f"Missing metrics.{split}.{key}")
 
-    # === ML-specific gates (skip for V1.4) ===
+    # === Leakage / staleness gates ===
     params = _load_params()
 
     # Gate 1 (HARD): Period leakage — backtest must not overlap train/val
@@ -379,10 +343,8 @@ def validate_comparable(reports: list[dict]) -> list[str]:
 
     Rules:
     - exit_version must match across all reports
-    - mode must be compatible (independent/v14_only are both single-model)
-    - date ranges must match WITHIN the same category:
-      * All ML models must have the same start/end (test period)
-      * V1.4 may have a wider range (no leakage risk) — that's OK
+    - mode must match
+    - start/end must match (same test window)
     """
     errors = []
     if len(reports) < 2:
@@ -396,26 +358,20 @@ def validate_comparable(reports: list[dict]) -> list[str]:
                 f"Cannot compare: {ref['model']} has exit_version={ref.get('exit_version')} "
                 f"but {r['model']} has exit_version={r.get('exit_version')}")
 
-    # Mode compatibility
-    def normalize_mode(m):
-        return "single" if m in ("independent", "v14_only") else m
-
+    # Mode must match
     for r in reports[1:]:
-        if normalize_mode(ref.get("mode")) != normalize_mode(r.get("mode")):
+        if ref.get("mode") != r.get("mode"):
             errors.append(
                 f"Cannot compare: {ref['model']} has mode={ref.get('mode')} "
-                f"but {r['model']} has mode={r.get('mode')} (mixed vs single)")
+                f"but {r['model']} has mode={r.get('mode')}")
 
-    # Date ranges: ML models must match each other
-    ml_reports = [r for r in reports if r.get("mode") != "v14_only"]
-    if len(ml_reports) >= 2:
-        ml_ref = ml_reports[0]
-        for r in ml_reports[1:]:
-            for field in ["start", "end"]:
-                if ml_ref.get(field) != r.get(field):
-                    errors.append(
-                        f"Cannot compare ML models: {ml_ref['model']} has {field}={ml_ref.get(field)} "
-                        f"but {r['model']} has {field}={r.get(field)}")
+    # Date ranges must match (same test window)
+    for r in reports[1:]:
+        for field in ["start", "end"]:
+            if ref.get(field) != r.get(field):
+                errors.append(
+                    f"Cannot compare: {ref['model']} has {field}={ref.get(field)} "
+                    f"but {r['model']} has {field}={r.get(field)}")
 
     return errors
 

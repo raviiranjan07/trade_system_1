@@ -2,228 +2,149 @@
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](#license)
-[![Status](https://img.shields.io/badge/status-internal-orange)]()
+[![Status](https://img.shields.io/badge/status-skeleton-orange)]()
 
-A 15-minute BTCUSDT trading system. Four parallel models (one rule-based + three ML) share a single exit engine, an adaptive risk layer, and a real-time dashboard. Trained on 2020–2023, tested out-of-sample on 2024–2025.
+A 15-minute BTCUSDT trading system: ML signal models on a shared exit
+engine, an adaptive risk layer, and a real-time dashboard.
 
-> **Min profitable move = 12 bps.** Fees = 8 bps round-trip (limit orders). Anything under 12 bps is noise. See [AGENTS.md](AGENTS.md) for the full rule set.
-
----
-
-## Table of Contents
-
-- [Status](#status)
-- [Architecture](#architecture)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Quick Start](#quick-start)
-- [Models](#models)
-- [Exit V2](#exit-v2-production-frozen-2026-03-29)
-- [Risk Layer 1](#risk-layer-1)
-- [MLOps](#mlops)
-- [Project Layout](#project-layout)
-- [Testing](#testing)
-- [Data Split](#data-split)
-- [Documentation](#documentation)
-- [License](#license)
+> **Min profitable move = 12 bps.** Fees = 8 bps round-trip (limit orders).
+> Anything under 12 bps is noise. See [AGENTS.md](AGENTS.md) for the full rule set.
 
 ---
 
-## Status
+## Status — clean slate (2026-07-12)
 
-| Layer | Status | Notes |
-|---|---|---|
-| Layer 0 — Foundation (V1.3.2) | DONE | V1 rule strategy locked |
-| Layer 1 — Risk Management | DONE, integrated | [src/engine/risk/](src/engine/risk/) |
-| Layer 2 — Direction (ML) | PARTIAL | V1, V2 Attention, V3 — all live (57–58% ceiling) |
-| Layer 2 — Regime Detection | NOT STARTED | original HMM/clustering plan unbuilt |
-| Layer 3–10 | NOT STARTED | see [docs/PROJECT_VISION.md](docs/PROJECT_VISION.md) |
+The 2026 H1 model lineage (ML V1 MLP, ML V2 Attention, ML V3 exit-aware —
+and the earlier V1.4 rule strategy) was **retired and wiped**: model files,
+MLflow history, feature cache, reports. The codebase is now a
+**model-agnostic skeleton** — every pipeline stage, registry, and track
+slot is an empty, marked template awaiting the new first architecture.
 
-Live in the bot today: **4 models, all on Exit V2.**
+- **The bot cannot start** until a new model is trained and promoted.
+- Old lineage: git history + [archive/](archive/).
+- Kept: raw OHLCV data ([data/raw/](data/raw/), through 2025-12-30),
+  the [experiments/](experiments/) research ledger, all machinery below.
+
+| Layer | Status |
+|---|---|
+| Layer 0 — Foundation (rule strategy) | RETIRED — findings locked in docs/ |
+| Layer 1 — Risk Management | DONE, integrated ([src/engine/risk/](src/engine/risk/)) |
+| Layer 2 — Direction (ML) | RESET — new first architecture in design |
+| Layer 3–10 | NOT STARTED — [docs/PROJECT_VISION.md](docs/PROJECT_VISION.md) |
+
+### Adding the new model — the touchpoints (each is a marked template)
+
+```
+training:  architectures.ARCHITECTURES → train.MODEL_SPECS + TASKS
+config:    configs/params.yaml block + configs/protocols/<name>.yaml
+pipeline:  dvc.yaml stage chain + configs/pipelines.yaml
+research:  engine/signals/<adapter>.py + backtest.ML_GENERATORS
+live bot:  orchestrator.TRACK_METAS + build_tracks spec
+frontend:  model roster in src/web/frontend (currently hardcodes the old 3)
+```
+
+Known day-one decisions: pick ONE `range_position` variant + ONE ATR
+window ([feature_lib.py](src/engine/signals/feature_lib.py) docstring),
+and build the missing data-ingestion stage (raw data is 6+ months stale).
 
 ---
 
 ## Architecture
 
 ```
-                         ┌──────────────────────────────┐
-                         │  BTCUSDT 15m + 1m OHLCV      │
-                         │  (data/raw/*.parquet)        │
-                         └──────────────┬───────────────┘
-                                        │
-              ┌─────────────────────────┼─────────────────────────┐
-              ▼                         ▼                         ▼
-       ┌─────────────┐         ┌────────────────┐         ┌──────────────┐
-       │  V1.4       │         │  ML V1 / V2 /  │         │  Feature     │
-       │  Rule-based │         │  V3 (signals/) │         │  cache +     │
-       │  signals    │         │  ONNX runtime  │         │  labels      │
-       └──────┬──────┘         └────────┬───────┘         └──────────────┘
-              │                         │
-              └────────────┬────────────┘
-                           ▼
-                ┌──────────────────────┐
-                │  Risk Layer 1        │
-                │  (size, health,      │
-                │   preflight)         │
-                └──────────┬───────────┘
-                           ▼
-                ┌──────────────────────┐
-                │  Position Manager    │
-                │  Exit V2             │
-                │  (early cut, BE      │
-                │   lock, tighten,     │
-                │   time exit)         │
-                └──────────┬───────────┘
-                           ▼
-              ┌────────────┴────────────┐
-              ▼                         ▼
-       ┌─────────────┐          ┌──────────────────┐
-       │  Paper /    │          │  Dashboard       │
-       │  Live exec  │          │  (FastAPI + WS   │
-       │  (Binance)  │          │   + React)       │
-       └─────────────┘          └──────────────────┘
+   BTCUSDT 15m + 1m OHLCV (data/raw/*.parquet)
+        │
+        ├── training pipeline (dvc repro)
+        │     build_features → build_(exit_)labels → train → verify → backtest
+        │     tracked by MLflow (runs) + protocols (metric gates) + manifests
+        │     └── models/<NAME>_staging  ──[human promote]──►  models/<NAME>
+        │
+        └── live bot (engine.bot)
+              orchestrator → one StrategyTrack per model
+                shared: feed, indicators, dashboard bridge
+                isolated: wallet, health, risk sizing, position manager
+              exits: V1/V2 rules in position_manager.py (tick-level)
+              dashboard: FastAPI + WebSocket + React (:8080)
 ```
+
+Dependency rule: `training/` and `research/` import `engine`; `engine`
+imports neither.
 
 ---
 
 ## Prerequisites
 
-- **Python 3.10+**
-- **Git + Git LFS** (large parquet/model files are LFS-tracked)
-- **DVC** for the data/model pipeline
+- **Python 3.10+**, **Git**, **DVC**
 - **Node.js 18+** (only if rebuilding the React dashboard)
-- **Docker** (optional — bot can run containerized)
-- ~5 GB free disk for raw + feature data, more for `mlruns/`
-
-System tested on Windows 10 (PowerShell 5.1). Bash via WSL or Git Bash also works.
-
----
+- System tested on Windows 10 (PowerShell 5.1); Git Bash works.
 
 ## Installation
 
 ```powershell
-# 1. Clone (with LFS)
-git clone <repo-url>
-cd system_1
-git lfs pull
-
-# 2. Create a virtual environment
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-
-# 3. Install runtime + research deps
-pip install -r requirements.txt
-pip install scipy matplotlib seaborn scikit-learn tqdm pyarrow xgboost mlflow numba
-pip install dvc
-
-# 4. (Optional) install the package in editable mode for imports
-pip install -e .
-
-# 5. Pull DVC-tracked data and models
-dvc pull
+pip install -r requirements.txt      # runtime (bot needs onnxruntime only)
+pip install dvc mlflow               # pipeline + tracking
+pip install -e .                     # optional, editable imports
 ```
 
-> **Note:** training stack (PyTorch, etc.) is intentionally not in `requirements.txt` — the bot only needs `onnxruntime` for inference. Install training deps manually when retraining.
-
----
+Training stack (PyTorch etc.) is intentionally not in `requirements.txt` —
+install manually when training.
 
 ## Configuration
 
 | File | Purpose |
 |---|---|
-| [configs/params.yaml](configs/params.yaml) | Per-model thresholds, training, split, sweep grid |
-| [src/engine/config/settings.yaml](src/engine/config/settings.yaml) | V1.4 strategy filters, exit V1 fallback params, re-entry, execution mode |
-| [src/engine/risk/config.yaml](src/engine/risk/config.yaml) | Risk Layer 1 (worst-loss baseline, sizing %, health thresholds) |
-| [configs/strategy_cards/exit_v2.yaml](configs/strategy_cards/exit_v2.yaml) | Exit V2 spec (production, frozen) |
-| [configs/data_cards/](configs/data_cards/) | Dataset specs (15m, 1m OHLCV, label sets) |
-| [configs/model_cards/](configs/model_cards/) | Model architecture cards |
-| [configs/protocols/](configs/protocols/) | Training/eval protocols |
-| [configs/schemas/backtest_report.yaml](configs/schemas/backtest_report.yaml) | Backtest report schema (v2.0) |
-| `.env` | Secrets — `DATABASE_URL`, exchange API keys (gitignored) |
+| [configs/params.yaml](configs/params.yaml) | per-model training/split/features/inference (template inside) |
+| [src/engine/config/settings.yaml](src/engine/config/settings.yaml) | shared indicator windows, exit params, execution mode |
+| [src/engine/risk/config.yaml](src/engine/risk/config.yaml) | Risk Layer 1 sizing/health |
+| [configs/protocols/](configs/protocols/) | pre-registered experiment contracts (enforced by mlops runner) |
+| [configs/schemas/backtest_report.yaml](configs/schemas/backtest_report.yaml) | backtest report schema |
+| `.env` | secrets (gitignored) |
 
-**Default execution mode is `paper`.** Set `execution.mode: live` in [settings.yaml](src/engine/config/settings.yaml) only after you understand the risk module and have real keys configured.
+**Default execution mode is `paper`.**
 
----
-
-## Quick Start
+## Quick Start (once a model is registered)
 
 ```powershell
-# Bot (paper trading by default)
-$env:PYTHONPATH="src"; python -m engine.bot
-
-# Backtest a single model independently
-$env:PYTHONPATH="src"; python -m research.backtest --model ml_v3 --independent `
-    --exit-version v2 --start 2025-01-01 --end 2025-12-31
-
-# V1.4 only (rule-based, no ML)
-$env:PYTHONPATH="src"; python -m research.backtest --v14-only --exit-version v2 `
-    --start 2024-01-01 --end 2025-12-31
-
-# Full pipeline: features → train → verify → backtest all → compare
-dvc repro
-
-# Only the comparison step (after individual backtests are current)
-dvc repro compare_all
-
-# Threshold sweep on a single model
-$env:PYTHONPATH="src"; python -m research.sweep_thresholds --model ml_v3
-
-# Hyperparameter training sweep (frozen — manual trigger)
-dvc repro sweep_training_ml_v3
+$env:PYTHONPATH="src"; python -m engine.bot                       # bot + dashboard
+$env:PYTHONPATH="src"; python -m training.train --model <key>     # train
+$env:PYTHONPATH="src"; python -m research.backtest --model <key> --exit-version v2 `
+    --start 2025-01-01 --end 2025-12-31                           # honest backtest
+dvc repro                                                         # full pipeline
+python scripts/mlops/promote.py <NAME>                            # staging → production
 ```
-
-The dashboard auto-starts with the bot — open the URL printed at startup. WebSocket pushes wallet, drawdown, account-health multiplier, and per-model state in real time.
 
 ---
 
-## Models
+## Exit engine
 
-| Model | Type | Confidence (L / S) | Source |
-|---|---|---|---|
-| **V1.4** | Rule-based: RSI + SMA200 + counter-trend levels | n/a | [src/engine/strategy.py](src/engine/strategy.py) |
-| **ML V1** | MLP direction predictor | 0.60 / 0.58 | [src/engine/signals/ml_v1.py](src/engine/signals/ml_v1.py) |
-| **ML V2 Attention** | LSTM + Attention direction | 0.60 / 0.58 | [src/engine/signals/direction_attention.py](src/engine/signals/direction_attention.py) |
-| **ML V3** | Exit-aware labels + snapshot features | 0.40 / 0.40 | [src/engine/signals/ml_v3.py](src/engine/signals/ml_v3.py) |
-
-Thresholds and exit version are set in [configs/params.yaml](configs/params.yaml). ML models load from `models/<MODEL>/` (production) or `models/<MODEL>_staging/` (candidate from DVC).
-
-V1.4 signal types: `V12_LONG`, `V12_SHORT` (RSI cross-based) + `BEAR_LONG`, `BULL_SHORT` (level-based counter-trend from EXP-014). Pure V1.4 OOS 2024–2025 with V1 exits: 239 trades, 51.0 % win, +1,343 bps, PF 1.67, DD −330. V2 exit A/B in `memory/v14_exit_comparison.md`.
-
----
-
-## Exit V2 (production, frozen 2026-03-29)
-
-Applied identically to all four models. Spec: [configs/strategy_cards/exit_v2.yaml](configs/strategy_cards/exit_v2.yaml). Logic: [src/engine/position_manager.py](src/engine/position_manager.py).
-
-```
-Bar 1–2:  Wide trailing stop (LONG 20 / SHORT 30 bps)
-Bar 3:    MFE < 3 bps?   → EARLY CUT
-Bar 4:    MFE < 5 bps?   → EARLY CUT
-Bar 4+:   Trailing stop tightens to 6 bps
-Anytime:  MFE ≥ 15 bps?  → BE lock floor at 9 bps gross (+1 bps net)
-Bar 10:   Still open?    → TIME EXIT
-```
-
-OOS 2024–2025 on V1.5 signals (1,680 trades): **+33,062 bps, PF 4.66, DD −276 bps.** V1 exits comparison: +30,312 bps, PF 2.21, DD −774.
-
----
+Exit rules live in [src/engine/position_manager.py](src/engine/position_manager.py)
+(V1 and V2 variants; spec: [configs/strategy_cards/](configs/strategy_cards/)).
+They also generate **exit-aware labels**: `build_exit_labels` replays the
+real position manager over 1m ticks so labels encode actual trade outcomes,
+not endpoint direction — the strongest idea of the retired lineage, kept.
 
 ## Risk Layer 1
 
-[src/engine/risk/](src/engine/risk/). Adaptive position sizer (`wallet × risk% / worst_loss`) plus account-health monitor (drawdown from peak, consecutive losses, recent win rate). Preflight runs 5 startup checks; the bot refuses to start if any fail. Every TRADE/SKIP decision is logged to `data/risk_logs/decisions.csv`. State persists across restarts via `risk_state.json`.
-
-At $5 wallet: exchange minimum (0.001 BTC) dominates — risk parameters are placeholders until the account reaches ~$173+. Worst-loss baseline `worst_loss_bps=865` comes from training stats.
-
----
+[src/engine/risk/](src/engine/risk/) — adaptive sizer (`wallet × risk% /
+worst_loss`), account health (drawdown, streaks, recent win rate), 5-check
+preflight (bot refuses to start on failure), per-track decision logging,
+state persistence. Worst-loss baseline from
+`experiments/layer1/L1R-001/train_stats.json`.
 
 ## MLOps
 
-- **DVC** ([dvc.yaml](dvc.yaml)) — pipeline graph: features → labels → train → verify → backtest (V1 + V2 exits) → compare.
-- **MLflow** — local tracking DB at [mlflow.db](mlflow.db), artifacts under [mlruns/](mlruns/). Threshold sweeps and backtest metrics logged with scope tags.
-- **Verification gates** — [src/mlops/verify.py](src/mlops/verify.py) writes `data/reports/verification_<model>.json`; backtest stage depends on it.
-- **Report schema v2.0** — [configs/schemas/backtest_report.yaml](configs/schemas/backtest_report.yaml). All reports validated.
-- **Promotion log** — [docs/PROMOTION_LOG.md](docs/PROMOTION_LOG.md).
+- **DVC** ([dvc.yaml](dvc.yaml)) — 3 shared data stages + per-model chain template.
+  Full retired pipeline: [archive/dvc_3model_pipeline.yaml](archive/dvc_3model_pipeline.yaml).
+- **MLflow** — sqlite `mlflow.db` (created on first run) + `mlruns/` artifacts;
+  model registry with `@staging` alias set by `training.train`.
+- **Protocols** — [src/mlops/runner.py](src/mlops/runner.py) validates every
+  run against its declared protocol (required metrics/artifacts) or fails it.
+- **Manifests** — every trained model gets `training_manifest.json`
+  (git commit, data MD5s, MLflow run id) checked by [src/mlops/verify.py](src/mlops/verify.py).
+- **Promotion** — [scripts/mlops/promote.py](scripts/mlops/promote.py):
+  gates + atomic copy + alias swap + [docs/PROMOTION_LOG.md](docs/PROMOTION_LOG.md).
 
 ---
 
@@ -232,89 +153,50 @@ At $5 wallet: exchange minimum (0.001 BTC) dominates — risk parameters are pla
 ```
 system_1/
 ├── src/
-│   ├── engine/              # PRODUCTION trading engine
-│   │   ├── bot.py              # live/paper bot (entrypoint)
-│   │   ├── backtest.py         # backtester CLI
-│   │   ├── strategy.py         # V1.4 rule signals
-│   │   ├── position_manager.py # Exit V2 logic
-│   │   ├── ml_train.py         # ML V1 training
-│   │   ├── train_attention.py  # ML V2 training
-│   │   ├── train_v3.py         # ML V3 training (exit-aware)
-│   │   ├── build_features.py
-│   │   ├── build_exit_labels.py
-│   │   ├── sweep_thresholds.py
-│   │   ├── sweep_training.py
-│   │   ├── compare_models.py
-│   │   ├── monitoring.py       # expected vs actual + daily drift
-│   │   ├── signals/            # per-model signal adapters
-│   │   ├── risk/               # Layer 1 — sizing, health, preflight
-│   │   └── config/             # settings.yaml + schema + loader
-│   ├── mlops/               # MLflow tracking, DVC integration, gates
-│   ├── web/                 # FastAPI backend + React frontend
-│   ├── brain/               # SR / zones research module
-│   └── trade_system/        # LEGACY (old KNN/state-vector — not used)
-│
-├── configs/                 # params, data/model/strategy cards, schemas
-├── models/                  # per-model production + staging artifacts
-├── data/
-│   ├── raw/                 # OHLCV parquet (LFS)
-│   ├── features/            # feature_cache, labels, exit-aware labels
-│   ├── reports/             # backtest.json + trades.parquet per model
-│   └── risk_logs/           # decisions.csv (every TRADE/SKIP)
-├── experiments/             # research (layer2/, exit_strategy/, etc.)
-├── docs/                    # planning + analysis
-├── scripts/                 # one-off CLIs, analysis, colab notebooks
-├── dvc.yaml                 # pipeline graph
-├── pyproject.toml
-├── requirements.txt
-├── Dockerfile
-└── AGENTS.md                # development rules — READ FIRST (CLAUDE.md points here)
+│   ├── engine/           # PRODUCTION: bot, orchestrator, tracks, PM, risk, signals/
+│   ├── training/         # train.py entry point, architectures, utils, label builders
+│   ├── research/         # backtest, sweeps, compare, risk harnesses
+│   ├── mlops/            # runner, protocol, tracking, registry, verify, report
+│   ├── web/              # FastAPI + WebSocket + React dashboard
+│   └── brain/            # SR/zones research module (separate pipeline)
+├── configs/              # params, pipelines, protocols, cards, schemas
+├── models/               # created by training: <NAME>_staging → <NAME>
+├── data/                 # raw/ (OHLCV), features/ + reports/ (pipeline outputs)
+├── experiments/          # research ledger (EXP-001…, layer1/, layer2/, registry.csv)
+├── archive/              # retired model/data cards + old pipeline reference
+├── scripts/mlops/        # promote, run_pipeline, backtest_staging, leaderboard
+├── docs/                 # vision, analyses, MLOps guide, promotion log
+├── dvc.yaml              # pipeline graph (skeleton)
+└── AGENTS.md             # development rules — READ FIRST (CLAUDE.md points here)
 ```
-
----
 
 ## Testing
 
 ```powershell
-# Unit tests for the risk module (only first-class test suite)
-$env:PYTHONPATH="src"; pytest tests/test_risk_unit.py -v
-
-# Stress + Monte Carlo + failure-mode research harnesses (slower)
-$env:PYTHONPATH="src"; pytest src/research/risk_validation/ -v
+$env:PYTHONPATH="src"; pytest tests/test_risk_unit.py -v          # risk unit tests
+$env:PYTHONPATH="src"; pytest src/research/risk_validation/ -v    # MC/stress harnesses
 ```
 
-`experiments/` contains historical research scripts named `test_*.py` — those are exploratory backtests, **not** unit tests, and may be slow / require data files.
-
-Code style: `black` (line-length 100) + `isort`. Not currently enforced in CI.
-
----
+Pipeline-level testing = verify gates + honest backtest + paper trading
+(see AGENTS.md "CURRENT PHASE").
 
 ## Data Split
 
-Memorize this — never say "2024 data" without qualifying:
-
 - **Train:** 2020-01-01 → 2023-12-31
-- **Val:**   2024-01-01 → 2024-12-31
+- **Val:** 2024-01-01 → 2024-12-31
 - **Test (OOS):** 2025-01-01 → 2025-12-31
 
-Always say "2024–2025 data" or "test data". See [AGENTS.md](AGENTS.md) for full data discipline rules.
-
----
+Never say "2024 data" — always "2024–2025 data" or "test data".
 
 ## Documentation
 
 | Doc | Topic |
 |---|---|
-| [docs/PROJECT_VISION.md](docs/PROJECT_VISION.md) | Layered roadmap |
+| [docs/PROJECT_VISION.md](docs/PROJECT_VISION.md) | layered roadmap |
 | [docs/MLOPS.md](docs/MLOPS.md) | MLOps architecture |
-| [docs/WHAT_analysis.md](docs/WHAT_analysis.md) | "What happens in the market" findings |
-| [docs/WHEN_analysis.md](docs/WHEN_analysis.md) | "When do outcomes happen" findings |
-| [docs/FLAWS.md](docs/FLAWS.md) | Known limitations |
-| [docs/SCALPING_REQUIREMENTS.md](docs/SCALPING_REQUIREMENTS.md) | Scalping constraints |
-| [docs/PROMOTION_LOG.md](docs/PROMOTION_LOG.md) | Model promotion history |
-| [AGENTS.md](AGENTS.md) | Development rules + decision protocol (canonical; CLAUDE.md points here) |
-
----
+| [docs/WHAT_analysis.md](docs/WHAT_analysis.md) / [docs/WHEN_analysis.md](docs/WHEN_analysis.md) | locked market findings |
+| [docs/PROMOTION_LOG.md](docs/PROMOTION_LOG.md) | model promotion history |
+| [AGENTS.md](AGENTS.md) | development rules + decision protocol (canonical) |
 
 ## License
 

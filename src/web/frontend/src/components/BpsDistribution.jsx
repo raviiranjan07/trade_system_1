@@ -6,13 +6,12 @@ const LOSS_THRESHOLDS = [25, 50, 100]
 const PROFIT_COLORS = { 200: '#14532d', 150: '#166534', 100: '#15803d', 50: '#16a34a', 25: '#22c55e' }
 const LOSS_COLORS = { 25: '#f87171', 50: '#dc2626', 100: '#991b1b' }
 
-function BpsDistribution({ trades, mlTrades, mlAttnTrades, mlV3Trades }) {
+function BpsDistribution({ mlTrades, mlAttnTrades, mlV3Trades }) {
   const { profitBars, lossBars, totalDays } = useMemo(() => {
-    const v14 = Array.isArray(trades) ? trades : []
     const ml = Array.isArray(mlTrades) ? mlTrades : []
     const mlAttn = Array.isArray(mlAttnTrades) ? mlAttnTrades : []
     const mlV3 = Array.isArray(mlV3Trades) ? mlV3Trades : []
-    const all = [...v14, ...ml, ...mlAttn, ...mlV3]
+    const all = [...ml, ...mlAttn, ...mlV3]
 
     if (all.length === 0) return { profitBars: [], lossBars: [], totalDays: 0 }
 
@@ -41,7 +40,7 @@ function BpsDistribution({ trades, mlTrades, mlAttnTrades, mlV3Trades }) {
     })
 
     return { profitBars, lossBars, totalDays }
-  }, [trades, mlTrades, mlAttnTrades, mlV3Trades])
+  }, [mlTrades, mlAttnTrades, mlV3Trades])
 
   if (totalDays === 0) {
     return (

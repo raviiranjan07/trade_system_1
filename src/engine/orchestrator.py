@@ -5,7 +5,7 @@ specific lives in the tracks (track.py); everything here is shared:
   - Binance WebSocket connector + candle buffer
   - indicator computation (once per bar, consumed by all tracks)
   - global bar counter
-  - dashboard bridge + chart history + proximity display
+  - dashboard bridge + chart history
   - monitoring snapshots (expected-vs-actual daily rows)
 
 build_tracks() is the ONE place a new model is added to the live system.
@@ -32,16 +32,11 @@ from .config.schema import AppConfig
 from .dashboard_bridge import DashboardBridge
 from .persistence import StateStore, TradeLog, paths_for
 from .risk.decision_logger import DecisionLogger
-from .signals.direction_attention import DirectionAttention
-from .signals.ml_v1 import MLV1
-from .signals.ml_v3 import MLV3
-from .strategy import V12Strategy
+from .indicators import compute_indicators
 from .track import (
     KIND_TRADE_CLOSED,
-    MLSource,
-    MLV3Source,
+    MLSource,  # noqa: F401  (the generic plug new model adapters wrap into)
     StrategyTrack,
-    V14Source,
 )
 
 logger = logging.getLogger(__name__)
@@ -64,30 +59,29 @@ class TrackMeta:
     monitoring_name: Optional[str]  # key for monitoring.py rows (legacy names kept)
 
 
-# Registration order = dashboard card order. Adding model #5 = one entry
-# here + its params.yaml block + model files.
-TRACK_METAS = {
-    "V_RULE_BASED": TrackMeta("Rule Based (V1.4)", "#3b82f6", 0.0, 0, None),
-    "ML_V1":        TrackMeta("ML V1",             "#8b5cf6", 7.38, 1, "ML_V1"),
-    "ML_ATTN":      TrackMeta("ML V2 Attention",   "#f59e0b", 10.02, 2, "ML_V2_ATTENTION"),
-    "ML_V3":        TrackMeta("ML V3",             "#10b981", 27.5, 3, "ML_V3"),
+# Registration order = dashboard card order. Adding a model = one entry
+# here + one spec in build_tracks() + its params.yaml block + model files.
+# Key = track name; params.yaml block name = track name lowercased.
+TRACK_METAS: dict = {
+    # "MY_MODEL": TrackMeta("My Model", "#8b5cf6", 0.0, 0, "MY_MODEL"),
 }
 
 
 def _load_exit_versions() -> dict:
-    """Per-model exit versions from params.yaml (single source of truth)."""
+    """Per-model exit versions from params.yaml (single source of truth).
+
+    Convention: the params.yaml block for track "MY_MODEL" is "my_model".
+    """
     with open(PROJECT_ROOT / "configs" / "params.yaml") as f:
-        p = yaml.safe_load(f)
+        p = yaml.safe_load(f) or {}
     return {
-        "V_RULE_BASED": p.get("backtest", {}).get("exit_version", "v1"),
-        "ML_V1": p.get("ml_v1", {}).get("inference", {}).get("exit_version", "v1"),
-        "ML_ATTN": p.get("ml_v2_attention", {}).get("inference", {}).get("exit_version", "v1"),
-        "ML_V3": p.get("ml_v3", {}).get("inference", {}).get("exit_version", "v1"),
+        name: p.get(name.lower(), {}).get("inference", {}).get("exit_version", "v1")
+        for name in TRACK_METAS
     }
 
 
 def build_tracks(config: AppConfig, trades_dir: Optional[Path] = None) -> list:
-    """Construct the four strategy tracks. THE place to add model #5.
+    """Construct the strategy tracks. THE place a new model joins the live bot.
 
     Args:
         config: shared AppConfig.
@@ -100,19 +94,10 @@ def build_tracks(config: AppConfig, trades_dir: Optional[Path] = None) -> list:
 
     specs = [
         # (name, source, csv_tag, allow_same_bar_entry)
-        ("V_RULE_BASED", V14Source(V12Strategy(config)), config.config_hash(), False),
-        ("ML_V1", MLSource(MLV1(
-            model_path=PROJECT_ROOT / "models" / "ML_V1" / "direction_model.onnx",
-            scaler_path=PROJECT_ROOT / "models" / "ML_V1" / "scaler.npz",
-        )), "ml_v1", True),
-        ("ML_ATTN", MLSource(DirectionAttention(
-            model_path=PROJECT_ROOT / "models" / "ML_V2_ATTENTION" / "attention_model.onnx",
-            scaler_path=PROJECT_ROOT / "models" / "ML_V2_ATTENTION" / "scaler.npz",
-        )), "ml_attn_v1", True),
-        ("ML_V3", MLV3Source(MLV3(
-            model_path=PROJECT_ROOT / "models" / "ML_V3" / "v3_model.onnx",
-            scaler_path=PROJECT_ROOT / "models" / "ML_V3" / "scaler.npz",
-        )), config.config_hash(), True),
+        # ("MY_MODEL", MLSource(MyGenerator(
+        #     model_path=PROJECT_ROOT / "models" / "MY_MODEL" / "model.onnx",
+        #     scaler_path=PROJECT_ROOT / "models" / "MY_MODEL" / "scaler.npz",
+        # )), "my_model", True),
     ]
 
     tracks = []
@@ -139,7 +124,6 @@ class Orchestrator:
     def __init__(self, config: AppConfig, tracks: list):
         self.cfg = config
         self.tracks = tracks
-        self.strategy = V12Strategy(config)  # shared indicators + proximity thresholds
 
         self._bar_count = 0
         self._running = False
@@ -163,7 +147,6 @@ class Orchestrator:
             timeframe=TIMEFRAME,
             mode=self.cfg.execution.mode,
             max_bars=self.cfg.exit.v1_max_bars,
-            reentry_enabled=self.cfg.reentry.enabled,
             config_hash=self.cfg.config_hash(),
         )
         for track in self.tracks:
@@ -249,7 +232,7 @@ class Orchestrator:
                     return
                 if not self._chart_history_loaded:
                     # Chart fetch failed — set indicators from live buffer
-                    df = self.strategy.compute_indicators(df)
+                    df = compute_indicators(df, self.cfg)
                     latest = df.iloc[-1]
                     self.state.update_status(
                         price=current_price,
@@ -293,7 +276,7 @@ class Orchestrator:
             logger.debug("Warming up: %d/%d bars", len(df), MIN_BUFFER_SIZE)
             return
 
-        df = self.strategy.compute_indicators(df)
+        df = compute_indicators(df, self.cfg)
         latest = df.iloc[-1]
         current_price = candle["close"]
 
@@ -316,7 +299,6 @@ class Orchestrator:
                 "sma": round(float(latest["sma"]), 2) if pd.notna(latest.get("sma")) else None,
                 "rsi": round(float(latest["rsi"]), 1) if pd.notna(latest.get("rsi")) else None,
             })
-            self.state.update_proximity(self._compute_proximity(latest))
 
         for track in self.tracks:
             try:
@@ -362,7 +344,7 @@ class Orchestrator:
         if df is None:
             return
 
-        df = self.strategy.compute_indicators(df)
+        df = compute_indicators(df, self.cfg)
         df = df.dropna(subset=["open", "high", "low", "close"])
         cutoff = df.index.max() - pd.Timedelta(days=11)
         df = df[df.index >= cutoff]
@@ -389,7 +371,6 @@ class Orchestrator:
             atr_percentile=round(float(last_row["atr_percentile"]), 1) if pd.notna(last_row.get("atr_percentile")) else 0,
             ema_separation=round(float(last_row["ema_separation"]), 4) if pd.notna(last_row.get("ema_separation")) else 0,
         )
-        self.state.update_proximity(self._compute_proximity(last_row))
         self._chart_history_loaded = True
         logger.info("Loaded %d 15m candles for chart display", len(candles))
 
@@ -458,58 +439,3 @@ class Orchestrator:
         df.set_index("time", inplace=True)
         df.index = df.index.tz_localize(None)
         return df
-
-    # ------------------------------------------------------------ proximity
-
-    def _compute_proximity(self, latest: pd.Series) -> dict:
-        """Signal proximity for the 4 rule-based signal types (display)."""
-        c = self.cfg
-        rsi = float(latest.get("rsi", 50))
-        atr_pctl = float(latest.get("atr_percentile", 0))
-        ema_sep = float(latest.get("ema_separation", 0))
-        is_bull = bool(latest.get("bull_market", False))
-
-        return {
-            "V12_LONG": {
-                "direction": "LONG",
-                "conditions": [
-                    {"name": "RSI", "op": "<", "threshold": c.strategy.rsi_oversold,
-                     "current": round(rsi, 1), "met": rsi < c.strategy.rsi_oversold},
-                    {"name": "Regime", "needed": "BULL", "met": is_bull},
-                    {"name": "ATR", "op": ">=", "threshold": c.long_filters.atr_percentile_min,
-                     "current": round(atr_pctl, 1), "met": atr_pctl >= c.long_filters.atr_percentile_min},
-                    {"name": "EMA", "op": ">=", "threshold": c.long_filters.ema_separation_min,
-                     "current": round(ema_sep, 2), "met": ema_sep >= c.long_filters.ema_separation_min},
-                ],
-            },
-            "V12_SHORT": {
-                "direction": "SHORT",
-                "conditions": [
-                    {"name": "RSI", "op": ">", "threshold": c.strategy.rsi_overbought,
-                     "current": round(rsi, 1), "met": rsi > c.strategy.rsi_overbought},
-                    {"name": "Regime", "needed": "BEAR", "met": not is_bull},
-                ],
-            },
-            "BEAR_LONG": {
-                "direction": "LONG",
-                "conditions": [
-                    {"name": "RSI", "op": "<", "threshold": c.bear_long_filters.rsi_threshold,
-                     "current": round(rsi, 1), "met": rsi < c.bear_long_filters.rsi_threshold},
-                    {"name": "Regime", "needed": "BEAR", "met": not is_bull},
-                    {"name": "EMA", "op": ">=", "threshold": c.bear_long_filters.ema_separation_min,
-                     "current": round(ema_sep, 2), "met": ema_sep >= c.bear_long_filters.ema_separation_min},
-                ],
-            },
-            "BULL_SHORT": {
-                "direction": "SHORT",
-                "conditions": [
-                    {"name": "RSI", "op": ">", "threshold": c.bull_short_filters.rsi_threshold,
-                     "current": round(rsi, 1), "met": rsi > c.bull_short_filters.rsi_threshold},
-                    {"name": "Regime", "needed": "BULL", "met": is_bull},
-                    {"name": "ATR", "op": ">=", "threshold": c.bull_short_filters.atr_percentile_min,
-                     "current": round(atr_pctl, 1), "met": atr_pctl >= c.bull_short_filters.atr_percentile_min},
-                    {"name": "EMA", "op": ">=", "threshold": c.bull_short_filters.ema_separation_min,
-                     "current": round(ema_sep, 2), "met": ema_sep >= c.bull_short_filters.ema_separation_min},
-                ],
-            },
-        }

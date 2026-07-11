@@ -1,10 +1,6 @@
 import { useState, useMemo } from 'react'
 
 const SIGNAL_COLORS = {
-  V12_LONG: '#00d97e',
-  V12_SHORT: '#e63757',
-  BEAR_LONG: '#3b82f6',
-  BULL_SHORT: '#f59e0b',
   ML_LONG: '#8b5cf6',
   ML_SHORT: '#ec4899',
   ML_ATTN_LONG: '#f59e0b',
@@ -29,7 +25,7 @@ const REASON_STYLES = {
   STOP_LOSS: { bg: 'rgba(220, 38, 38, 0.15)', color: '#dc2626', label: 'STOP' },
 }
 
-function TradesList({ trades, mlTrades, mlAttnTrades, mlV3Trades, filter }) {
+function TradesList({ mlTrades, mlAttnTrades, mlV3Trades, filter }) {
   const [sortCol, setSortCol] = useState(null)
   const [sortDir, setSortDir] = useState('desc')
 
@@ -58,18 +54,16 @@ function TradesList({ trades, mlTrades, mlAttnTrades, mlV3Trades, filter }) {
     return REASON_STYLES[reason] || { bg: 'rgba(136, 146, 160, 0.12)', color: '#8892a0', label: reason || '---' }
   }
 
-  const isV14 = (sig) => sig && (sig.startsWith('V12_') || sig.startsWith('BEAR_') || sig.startsWith('BULL_'))
   const isML = (sig) => sig && sig.startsWith('ML_') && !sig.startsWith('ML_ATTN_') && !sig.startsWith('ML_V3_')
   const isMLAttn = (sig) => sig && sig.startsWith('ML_ATTN_')
   const isMLV3 = (sig) => sig && sig.startsWith('ML_V3_')
 
   // Merge and sort by exit_time descending, then apply filter and sort
   const displayTrades = useMemo(() => {
-    const v14 = Array.isArray(trades) ? trades : []
     const ml = Array.isArray(mlTrades) ? mlTrades : []
     const mlAttn = Array.isArray(mlAttnTrades) ? mlAttnTrades : []
     const mlV3 = Array.isArray(mlV3Trades) ? mlV3Trades : []
-    let merged = [...v14, ...ml, ...mlAttn, ...mlV3]
+    let merged = [...ml, ...mlAttn, ...mlV3]
 
     // Sort by exit_time descending first (default order)
     merged.sort((a, b) => {
@@ -79,9 +73,7 @@ function TradesList({ trades, mlTrades, mlAttnTrades, mlV3Trades, filter }) {
     })
 
     // Apply filter
-    if (filter === 'V1.4') {
-      merged = merged.filter(t => isV14(t.signal_type))
-    } else if (filter === 'ML') {
+    if (filter === 'ML') {
       merged = merged.filter(t => isML(t.signal_type))
     } else if (filter === 'ML V2') {
       merged = merged.filter(t => isMLAttn(t.signal_type))
@@ -110,7 +102,7 @@ function TradesList({ trades, mlTrades, mlAttnTrades, mlV3Trades, filter }) {
     }
 
     return merged
-  }, [trades, mlTrades, mlAttnTrades, filter, sortCol, sortDir])
+  }, [mlTrades, mlAttnTrades, mlV3Trades, filter, sortCol, sortDir])
 
   const handleSort = (col) => {
     if (sortCol === col) {
