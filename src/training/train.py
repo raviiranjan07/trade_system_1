@@ -66,9 +66,7 @@ logger = logging.getLogger(__name__)
 REPO_ROOT = tu.REPO_ROOT
 FEATURES_DIR = REPO_ROOT / "data/features/direction_prediction"
 
-# One row per trainable model. `protocol` names the configs/protocols/
-# YAML this model's runs are validated against (per-model — never
-# hardcode a protocol name inside a task function).
+
 MODEL_SPECS: dict[str, dict] = {
     # "my_model": {
     #     "model_name": "MY_MODEL",                    # registry + models/ dir name
